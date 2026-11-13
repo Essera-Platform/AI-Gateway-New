@@ -1,0 +1,81 @@
+# syntax=docker/dockerfile:1
+
+FROM oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d AS build
+
+WORKDIR /build/web
+COPY web/package.json web/bun.lock ./
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
+COPY web/ ./
+
+ARG APP_VERSION=dev
+RUN VITE_REACT_APP_VERSION="${APP_VERSION}" bun run build
+
+FROM nginx/nginx-unprivileged:1.30.6-alpine AS runtime
+
+LABEL org.opencontainers.image.title="new-api frontend" \
+      org.opencontainers.image.authors="QuantumNous" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+
+# For separate services, set this to the backend's internal HTTP address.
+# The default also works for two containers in a single ECS task.
+ENV BACKEND_URL=http://127.0.0.1:3000 \
+    NGINX_ENVSUBST_FILTER="^BACKEND_URL$"
+
+COPY --from=build /build/web/dist/ /usr/share/nginx/html/
+# Keep the runtime configuration in this Dockerfile so checkout contains every build input.
+COPY <<'NGINX_CONFIG' /etc/nginx/templates/default.conf.template
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+# Preserve the public scheme supplied by an HTTPS load balancer.
+map $http_x_forwarded_proto $forwarded_proto {
+    default $http_x_forwarded_proto;
+    '' $scheme;
+}
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    server_tokens off;
+
+    # The gateway enforces its configured request body limits.
+    client_max_body_size 0;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 'ok\n';
+    }
+
+    location ~ ^/(api|v1|v1beta|pg|mj|suno|[^/]+/mj|dashboard/billing)(/|$) {
+        proxy_pass ${BACKEND_URL};
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location /assets/ {
+        try_files $uri =404;
+    }
+
+    location / {
+        add_header Cache-Control 'no-cache';
+        try_files $uri $uri/ /index.html;
+    }
+}
+NGINX_CONFIG
+COPY LICENSE NOTICE THIRD-PARTY-LICENSES.md /licenses/
+
+EXPOSE 8080

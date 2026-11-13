@@ -1,0 +1,41 @@
+# syntax=docker/dockerfile:1
+
+FROM golang:1.26.10-alpine@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca AS build
+
+ENV CGO_ENABLED=0 GOWORK=off GOEXPERIMENT=greenteagc
+WORKDIR /build
+
+COPY go.mod go.sum ./
+COPY relaykit/go.mod relaykit/go.sum ./relaykit/
+COPY tokenkit/go.mod tokenkit/go.sum ./tokenkit/
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
+COPY . .
+# main.go requires embedded assets even when the UI is served separately.
+RUN mkdir -p web/dist && printf '%s\n' '<!doctype html><title>new-api backend</title>' > web/dist/index.html
+
+ARG APP_VERSION=dev
+# A restored build layer does not guarantee that its module cache mount is populated.
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    go mod download github.com/MoeForge/moejs \
+    && go build -trimpath \
+      -pgo="$(go list -m -f '{{.Dir}}' github.com/MoeForge/moejs)/default.pgo" \
+      -ldflags="-s -w -X github.com/QuantumNous/new-api/common.Version=${APP_VERSION}" \
+      -o /out/new-api .
+
+FROM debian:bookworm-slim@sha256:f06537653ac770703bc45b4b113475bd402f451e85223f0f2837acbf89ab020a AS runtime
+
+LABEL org.opencontainers.image.title="new-api backend" \
+      org.opencontainers.image.authors="QuantumNous" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates tzdata libasan8 wget \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /out/new-api /usr/local/bin/new-api
+COPY LICENSE NOTICE THIRD-PARTY-LICENSES.md /licenses/
+
+WORKDIR /data
+EXPOSE 3000
+ENTRYPOINT ["/usr/local/bin/new-api"]

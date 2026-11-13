@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
+  workflow_dispatch:
   pull_request:
     types: [opened, synchronize, closed]
 
@@ -16,7 +19,7 @@ concurrency:
 jobs:
   backend:
     name: Backend vet, build, and test
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: github.event_name != 'pull_request' || github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -26,7 +29,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          repository: ${{ github.event.pull_request.base.repo.full_name }}
+          repository: ${{ github.repository }}
           ref: ${{ github.sha }}
 
       - name: Set up Go
@@ -70,7 +73,7 @@ jobs:
 
   frontend:
     name: Frontend typecheck and test
-    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    if: github.event_name != 'pull_request' || github.event.action != 'closed' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -81,7 +84,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          repository: ${{ github.event.pull_request.base.repo.full_name }}
+          repository: ${{ github.repository }}
           ref: ${{ github.sha }}
 
       - name: Set up Bun
@@ -94,6 +97,12 @@ jobs:
 
       - name: Typecheck
         run: bun check -b
+
+      - name: Lint observability changes
+        run: bunx --no-install oxlint -c .oxlintrc.json src/main.tsx src/lib/observability.ts src/lib/__tests__/observability.test.ts
+
+      - name: Check observability formatting
+        run: bun run format:check
 
       - name: Test
         run: bun run test

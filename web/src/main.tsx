@@ -25,6 +25,10 @@ import { installBuildMetadata } from '@/lib/build-metadata'
 import { applyFaviconToDom } from '@/lib/dom-utils'
 import '@/lib/dayjs'
 import { initializeFrontendCache } from '@/lib/frontend-cache'
+import {
+  initializeFrontendObservability,
+  reportFrontendError,
+} from '@/lib/observability'
 import { createAppQueryClient } from '@/lib/query-client'
 import { readCachedStatus, statusQueryOptions } from '@/lib/status-query'
 
@@ -53,6 +57,7 @@ const router = createRouter({
   context: { queryClient },
   defaultPreload: 'intent',
   defaultPreloadStaleTime: 0,
+  defaultOnCatch: reportFrontendError,
 })
 
 // Register the router instance for type safety
@@ -101,7 +106,10 @@ if (!rootElement) {
   }
 })()
 if (!rootElement.innerHTML) {
-  const root = ReactDOM.createRoot(rootElement)
+  const root = ReactDOM.createRoot(rootElement, {
+    onCaughtError: reportFrontendError,
+    onUncaughtError: reportFrontendError,
+  })
   root.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
@@ -116,3 +124,5 @@ if (!rootElement.innerHTML) {
     </StrictMode>
   )
 }
+
+void initializeFrontendObservability()

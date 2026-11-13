@@ -25,6 +25,7 @@ import (
 	"github.com/QuantumNous/new-api/oauth"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
+	"github.com/QuantumNous/new-api/pkg/telemetry"
 	"github.com/QuantumNous/new-api/pkg/wsmanager"
 	"github.com/QuantumNous/new-api/relay"
 	"github.com/QuantumNous/new-api/relay/requestplugin"
@@ -213,6 +214,22 @@ func main() {
 
 	// Initialize HTTP server
 	server := gin.New()
+	telemetryCtx, telemetryCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	observability, telemetryErr := telemetry.Start(telemetryCtx, common.Version)
+	telemetryCancel()
+	if telemetryErr != nil {
+		common.SysError(common.LogText("failed to initialize OpenTelemetry: %v", telemetryErr))
+	}
+	if observability != nil {
+		server.Use(observability.Middleware())
+		defer func() {
+			flushCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := observability.Shutdown(flushCtx); err != nil {
+				common.SysError(common.LogText("failed to flush OpenTelemetry"))
+			}
+		}()
+	}
 	if err := middleware.ConfigureTrustedProxies(server); err != nil {
 		common.FatalLog(common.LogText("failed to configure trusted proxies: %s", err.Error()))
 		return
