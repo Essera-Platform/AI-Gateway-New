@@ -72,6 +72,18 @@ Transitive dependencies should be audited before a final external release.
 | backend  | production  | Go        | `github.com/waffo-com/waffo-go`                         | `v1.3.2`                             | MIT                     |
 | backend  | production  | Go        | `github.com/waffo-com/waffo-pancake-sdk-go`             | `v0.3.1`                             | MIT                     |
 | backend  | production  | Go        | `github.com/yapingcat/gomedia`                          | `v0.0.0-20240906162731-17feea57090c` | MIT                     |
+| backend  | production  | Go        | `go.opentelemetry.io/otel` | `v1.41.0` | Apache-2.0 |
+| backend  | production  | Go        | `go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp` | `v0.17.0` | Apache-2.0 |
+| backend  | production  | Go        | `go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp` | `v1.41.0` | Apache-2.0 |
+| backend  | production  | Go        | `go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp` | `v1.41.0` | Apache-2.0 |
+| backend  | production  | Go        | `go.opentelemetry.io/otel/log` | `v0.17.0` | Apache-2.0 |
+| backend  | production  | Go        | `go.opentelemetry.io/otel/metric` | `v1.41.0` | Apache-2.0 |
+| backend  | production  | Go        | `go.opentelemetry.io/otel/sdk` | `v1.41.0` | Apache-2.0 |
+| backend  | production  | Go        | `go.opentelemetry.io/otel/sdk/log` | `v0.17.0` | Apache-2.0 |
+| backend  | production  | Go        | `go.opentelemetry.io/otel/sdk/metric` | `v1.41.0` | Apache-2.0 |
+| backend  | production  | Go        | `go.opentelemetry.io/otel/trace` | `v1.41.0` | Apache-2.0 |
+| backend  | test        | Go        | `go.opentelemetry.io/proto/otlp` | `v1.9.0` | Apache-2.0 |
+| backend  | test        | Go        | `google.golang.org/protobuf` | `v1.36.11` | BSD-3-Clause |
 | backend  | production  | Go        | `golang.org/x/crypto`                                   | `v0.52.0`                            | BSD-3-Clause            |
 | backend  | production  | Go        | `golang.org/x/image`                                    | `v0.41.0`                            | BSD-3-Clause            |
 | backend  | production  | Go        | `golang.org/x/net`                                      | `v0.55.0`                            | BSD-3-Clause            |
@@ -92,6 +104,8 @@ Transitive dependencies should be audited before a final external release.
 | web      | production  | npm       | `@codemirror/view`                                      | `6.43.6`                             | MIT                     |
 | web      | production  | npm       | `@fontsource-variable/lora`                             | `5.3.0`                              | OFL-1.1                 |
 | web      | production  | npm       | `@fontsource-variable/public-sans`                      | `5.3.0`                              | OFL-1.1                 |
+| web      | production  | npm       | `@grafana/faro-web-sdk` | `2.13.0` | Apache-2.0 |
+| web      | production  | npm       | `@grafana/faro-web-tracing` | `2.13.0` | Apache-2.0 |
 | web      | production  | npm       | `@hookform/resolvers`                                   | `5.4.0`                              | MIT                     |
 | web      | production  | npm       | `@hugeicons/core-free-icons`                            | `4.2.2`                              | MIT                     |
 | web      | production  | npm       | `@hugeicons/react`                                      | `1.1.9`                              | MIT                     |
