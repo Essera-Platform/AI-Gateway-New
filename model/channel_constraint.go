@@ -13,6 +13,7 @@ var filterEvalOrder = []dto.ChannelFilterKind{
 	dto.FilterTaskPluginEndpoint,
 	dto.FilterTaskPluginIdentity,
 	dto.FilterResponsesWebSocket,
+	dto.FilterEsseraProviders, // Modified by Essera, 2026-11
 }
 
 // ChannelSatisfiesFilters reports whether ch passes every filter.
@@ -91,6 +92,8 @@ func candidatePassesKindFilters(ch *Channel, exists bool, modelName string, kind
 
 func channelMatchesFilter(ch *Channel, modelName string, filter dto.ChannelFilter) bool {
 	switch filter.Kind {
+	case dto.FilterEsseraProviders: // Modified by Essera, 2026-11
+		return slices.Contains(filter.EsseraTagsByModel[modelName], ch.GetTag())
 	case dto.FilterRequestPath:
 		if filter.RequestPath == "" {
 			return true

@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	taskdto "github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/essera/usage"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
@@ -99,6 +100,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	defer func() {
 		requestplugin.Report(c, relayFormat, relayInfo, ingressRecord, newAPIError)
 	}()
+	// Modified by Essera, 2026-11: report the request to the Essera Operations Console.
+	defer func() { usage.Finished(c, relayInfo, newAPIError) }()
 
 	defer func() {
 		if newAPIError != nil {
