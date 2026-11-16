@@ -37,7 +37,6 @@ var (
 	stateMu        sync.RWMutex
 	providerStates []ProviderState
 	applyErrors    []ApplyError
-	bucket         string
 )
 
 // ProviderStates is what the last applied version made of each provider.
@@ -52,16 +51,6 @@ func ApplyErrors() []ApplyError {
 	stateMu.RLock()
 	defer stateMu.RUnlock()
 	return slices.Clone(applyErrors)
-}
-
-// Bucket is the configuration bucket, learned from the configuration events.
-func Bucket() string {
-	stateMu.RLock()
-	defer stateMu.RUnlock()
-	if bucket != "" {
-		return bucket
-	}
-	return settings.BridgeBucket()
 }
 
 func rememberFailure(version int64, err error) {
@@ -79,9 +68,6 @@ func HandleEvent(ctx context.Context, event snapshot.Event) error {
 	if event.Environment != settings.Environment() {
 		return fmt.Errorf("event for environment %q, this Gateway serves %q", event.Environment, settings.Environment())
 	}
-	stateMu.Lock()
-	bucket = event.Bucket
-	stateMu.Unlock()
 	if active := snapshot.Current(); active != nil && event.Version <= active.Version {
 		return nil
 	}
@@ -133,6 +119,11 @@ func Apply(version int64, digest string, data []byte) error {
 		return err
 	}
 	secrets.Forget()
+	if common.MemoryCacheEnabled {
+		// Requests are served with this version from the moment it is active, so this node's
+		// channel cache must already hold its providers; other nodes follow the sync topics.
+		model.InitChannelCache()
+	}
 	activate(version, merged, states)
 	model.BumpSyncTopic(model.SyncTopicChannels)
 	model.BumpSyncTopic(SyncTopic)

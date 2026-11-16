@@ -21,6 +21,8 @@ var now = time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)
 
 func signer(t *testing.T) *rsa.PrivateKey {
 	t.Helper()
+	t.Setenv("ESSERA_COGNITO_USER_POOL_ID", snapshottest.UserPoolID)
+	t.Setenv("ESSERA_CUSTOMER_SCOPES", "https://api.example/read, "+snapshottest.Scope)
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 	previous := auth.KeySetFor
@@ -96,6 +98,11 @@ func TestNoConfigurationMeansUnavailable(t *testing.T) {
 	_, failure := auth.Authenticate(context.Background(), "eyJ.a.b", nil, now)
 	require.NotNil(t, failure)
 	assert.Equal(t, "essera_unavailable", failure.Code)
+
+	t.Setenv("ESSERA_COGNITO_USER_POOL_ID", "")
+	_, failure = auth.Authenticate(context.Background(), "eyJ.a.b", snapshottest.View(), now)
+	require.NotNil(t, failure)
+	assert.Equal(t, "essera_unavailable", failure.Code, "no pool configured")
 }
 
 func TestLooksLikeJWT(t *testing.T) {

@@ -122,14 +122,6 @@ type AccountsCatalog struct {
 	Customers   []Organization `json:"customers"`
 	EndUsers    []EndUser      `json:"end_users"`
 	Credentials []Credential   `json:"credentials"`
-	Issuer      *Issuer        `json:"issuer,omitempty"`
-}
-
-// Issuer is the Cognito user pool the Console issues customer app clients in.
-type Issuer struct {
-	UserPoolID string   `json:"user_pool_id"`
-	Region     string   `json:"region"`
-	Scopes     []string `json:"scopes"`
 }
 
 type Organization struct {

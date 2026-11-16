@@ -1,17 +1,15 @@
-// Package bridge reports the Gateway to the Console through objects in the configuration
-// bucket (docs/handoff/gateway-bridge.md in the Console repository): its state, its
-// telemetry and the results of connection tests the Console asks for.
+// Package bridge is the Gateway's internal API for the Platform Backend (the Console's
+// GatewayClient, apps/backend/app/modules/integrations/gateway.py in the Console repository):
+// the Gateway's state and active configuration version, a provider's connection test and its
+// telemetry.
 package bridge
 
 import (
-	"context"
-	"fmt"
 	"runtime"
 	"slices"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/essera/awsx"
 	"github.com/QuantumNous/new-api/essera/configsync"
 	"github.com/QuantumNous/new-api/essera/settings"
 	"github.com/QuantumNous/new-api/essera/snapshot"
@@ -43,10 +41,6 @@ type Node struct {
 	Name           string    `json:"name"`
 	AppliedVersion *int64    `json:"applied_version"`
 	SeenAt         time.Time `json:"seen_at"`
-}
-
-func objectKey(name string) string {
-	return fmt.Sprintf("%s/gateway/%s", settings.Environment(), name)
 }
 
 // CurrentState describes the Gateway now.
@@ -132,17 +126,4 @@ func policyNames() []string {
 	}
 	slices.Sort(names)
 	return names
-}
-
-// PublishState writes state.json.
-func PublishState(ctx context.Context, state State) error {
-	bucket := configsync.Bucket()
-	if bucket == "" {
-		return nil
-	}
-	body, err := common.Marshal(state)
-	if err != nil {
-		return err
-	}
-	return awsx.PutJSON(ctx, bucket, objectKey("state.json"), body)
 }

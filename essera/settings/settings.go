@@ -27,10 +27,28 @@ func UsageQueueName() string {
 	return common.GetEnvOrDefaultString("ESSERA_USAGE_QUEUE", fmt.Sprintf("essera-%s-usage-events", Environment()))
 }
 
-// BridgeBucket is the configuration bucket the bridge objects live in. Normally learned from
-// the first configuration event; this setting is for a Gateway that has received none yet.
-func BridgeBucket() string {
-	return common.GetEnvOrDefaultString("ESSERA_CONFIG_BUCKET", "")
+// CustomerUserPoolID is the Cognito user pool the Console issues customer credentials in
+// (the Console's CUSTOMER_USER_POOL_ID).
+func CustomerUserPoolID() string {
+	return strings.TrimSpace(common.GetEnvOrDefaultString("ESSERA_COGNITO_USER_POOL_ID", ""))
+}
+
+// CustomerPoolRegion is the pool's region, by default the one its id begins with.
+func CustomerPoolRegion() string {
+	region, _, _ := strings.Cut(CustomerUserPoolID(), "_")
+	return common.GetEnvOrDefaultString("ESSERA_COGNITO_REGION", region)
+}
+
+// CustomerScopes are the scopes the Console grants customer credentials (the Console's
+// CUSTOMER_OAUTH_SCOPES); a token must carry one of them.
+func CustomerScopes() []string {
+	var scopes []string
+	for scope := range strings.SplitSeq(common.GetEnvOrDefaultString("ESSERA_CUSTOMER_SCOPES", ""), ",") {
+		if scope = strings.TrimSpace(scope); scope != "" {
+			scopes = append(scopes, scope)
+		}
+	}
+	return scopes
 }
 
 // AWSEndpoint points the AWS clients at a local stand-in (MinIO, ElasticMQ) in development.

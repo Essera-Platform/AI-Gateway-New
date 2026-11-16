@@ -49,7 +49,6 @@ func Sample() *snapshot.Snapshot {
 				Models: []snapshot.ProviderModel{{Key: "acme-1", DisplayName: "Acme 1", Modality: "text", Status: snapshot.StatusActive}}},
 		}},
 		Accounts: &snapshot.AccountsCatalog{
-			Issuer: &snapshot.Issuer{UserPoolID: UserPoolID, Region: "us-east-1", Scopes: []string{Scope}},
 			Partners: []snapshot.Organization{{ID: PartnerID, Status: snapshot.StatusActive, Entitlements: snapshot.Entitlements{
 				MonthlyRequestQuota: ptr(int64(1000)),
 			}}},

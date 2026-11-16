@@ -9,7 +9,6 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/bootstrap"
-	"github.com/QuantumNous/new-api/essera/bridge"
 	"github.com/QuantumNous/new-api/essera/configsync"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/secrets"
@@ -47,7 +46,6 @@ func Start(ctx context.Context) error {
 	if common.IsMasterNode {
 		go configsync.Consume(ctx)
 		go usage.Send(ctx)
-		go bridge.Run(ctx)
 	}
 	common.SysLog(common.LogText("essera: connected to the Console's %s environment", settings.Environment()))
 	return nil

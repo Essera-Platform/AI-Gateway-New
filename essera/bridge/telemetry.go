@@ -1,15 +1,12 @@
 package bridge
 
 import (
-	"context"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/essera/awsx"
-	"github.com/QuantumNous/new-api/essera/configsync"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/stats"
 	"github.com/QuantumNous/new-api/model"
@@ -191,17 +188,4 @@ func CurrentTelemetry(now time.Time) (Telemetry, error) {
 		telemetry.RecentErrors = append(telemetry.RecentErrors, RecentError{At: e.At, Provider: e.Provider, Model: e.Model, Status: e.HTTPStatus, Message: e.Message})
 	}
 	return telemetry, nil
-}
-
-// PublishTelemetry writes telemetry.json.
-func PublishTelemetry(ctx context.Context, telemetry Telemetry) error {
-	bucket := configsync.Bucket()
-	if bucket == "" {
-		return nil
-	}
-	body, err := common.Marshal(telemetry)
-	if err != nil {
-		return err
-	}
-	return awsx.PutJSON(ctx, bucket, objectKey("telemetry.json"), body)
 }

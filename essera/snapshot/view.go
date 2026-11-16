@@ -112,13 +112,6 @@ func NewView(version int64, s *Snapshot) *View {
 	return view
 }
 
-func (v *View) Issuer() *Issuer {
-	if v.Snapshot.Accounts == nil {
-		return nil
-	}
-	return v.Snapshot.Accounts.Issuer
-}
-
 func (v *View) Credential(clientID string) *Credential { return v.credentials[clientID] }
 func (v *View) Customer(id string) *Organization       { return v.customers[id] }
 func (v *View) Provider(key string) *Provider          { return v.providers[key] }

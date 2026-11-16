@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/essera/settings"
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/coreos/go-oidc/v3/oidc"
 )
@@ -67,9 +68,9 @@ func remoteKeySet(issuer string) oidc.KeySet {
 	return keys
 }
 
-// IssuerURL is the issuer of the pool's tokens.
-func IssuerURL(issuer *snapshot.Issuer) string {
-	return fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", issuer.Region, issuer.UserPoolID)
+// IssuerURL is the issuer of the customer pool's tokens.
+func IssuerURL() string {
+	return fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", settings.CustomerPoolRegion(), settings.CustomerUserPoolID())
 }
 
 type claims struct {
@@ -83,11 +84,10 @@ func Authenticate(ctx context.Context, rawToken string, view *snapshot.View, now
 	if view == nil {
 		return nil, &Failure{Code: "essera_unavailable", Message: "The gateway has no configuration yet."}
 	}
-	issuer := view.Issuer()
-	if issuer == nil {
+	if settings.CustomerUserPoolID() == "" {
 		return nil, &Failure{Code: "essera_unavailable", Message: "No customer token issuer is configured."}
 	}
-	issuerURL := IssuerURL(issuer)
+	issuerURL := IssuerURL()
 	verifier := oidc.NewVerifier(issuerURL, KeySetFor(issuerURL), &oidc.Config{
 		SkipClientIDCheck:    true, // Cognito access tokens name the client in client_id, not aud
 		SupportedSigningAlgs: []string{oidc.RS256},
@@ -105,7 +105,7 @@ func Authenticate(ctx context.Context, rawToken string, view *snapshot.View, now
 	if err := common.Unmarshal(raw, &parsed); err != nil || parsed.TokenUse != "access" || parsed.ClientID == "" {
 		return nil, refuse("An access token is required.")
 	}
-	if !hasScope(parsed.Scope, issuer.Scopes) {
+	if !hasScope(parsed.Scope, settings.CustomerScopes()) {
 		return nil, refuse("The access token does not carry the gateway scope.")
 	}
 	return resolve(parsed.ClientID, view, now)
