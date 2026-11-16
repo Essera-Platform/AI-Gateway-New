@@ -219,6 +219,13 @@ func (channel *Channel) GetKeys() []string {
 func (channel *Channel) GetNextEnabledKey() (string, int, *types.NewAPIError) {
 	// If not in multi-key mode, return the original key string directly.
 	if !channel.ChannelInfo.IsMultiKey {
+		// Modified by Essera, 2026-11: a key may be a Secrets Manager reference.
+		if resolved, handled, err := resolveChannelKey(channel.Key); handled {
+			if err != nil {
+				return "", 0, types.NewError(err, types.ErrorCodeChannelNoAvailableKey)
+			}
+			return resolved, 0, nil
+		}
 		return channel.Key, 0, nil
 	}
 

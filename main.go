@@ -18,6 +18,8 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/controller"
+	"github.com/QuantumNous/new-api/essera"
+	"github.com/QuantumNous/new-api/essera/managed"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
@@ -139,6 +141,10 @@ func main() {
 		// With Redis every node shares the plan cache.
 		service.RegisterSyncTopic(model.SyncTopicSubscriptionPlans, func(context.Context) error { return model.PurgeSubscriptionPlanCache() })
 	}
+	// Modified by Essera, 2026-11: connect to the Essera Operations Console when managed.
+	if err := essera.Start(context.Background()); err != nil {
+		common.FatalLog(common.LogText("failed to start the Essera integration: %s", err.Error()))
+	}
 	service.StartNodeSync()
 
 	// 热更新配置
@@ -240,6 +246,7 @@ func main() {
 	server.Use(middleware.RequestId())
 	server.Use(middleware.Version())
 	server.Use(middleware.I18n())
+	server.Use(managed.Guard()) // Modified by Essera, 2026-11: the Console owns what it publishes
 	middleware.SetUpLogger(server)
 	InjectUmamiAnalytics()
 	InjectGoogleAnalytics()

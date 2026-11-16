@@ -40,6 +40,9 @@ const (
 	FilterTaskPluginEndpoint ChannelFilterKind = "task_plugin_endpoint"
 	FilterTaskPluginIdentity ChannelFilterKind = "task_plugin_identity"
 	FilterResponsesWebSocket ChannelFilterKind = "responses_websocket"
+	// Modified by Essera, 2026-11: only channels of the providers a customer may use for the
+	// requested model.
+	FilterEsseraProviders ChannelFilterKind = "essera_providers"
 )
 
 type ChannelFilter struct {
@@ -51,6 +54,8 @@ type ChannelFilter struct {
 	// TaskPluginRelayOnly excludes endpoint candidates after an ordinary relay
 	// channel wins selection, so retries keep using the same protocol handler.
 	TaskPluginRelayOnly bool
+	// EsseraTagsByModel maps each model to the channel tags that may serve it.
+	EsseraTagsByModel map[string][]string
 }
 
 type ChannelConstraints struct {

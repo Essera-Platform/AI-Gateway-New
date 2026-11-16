@@ -556,7 +556,13 @@ func TokenAuth() func(c *gin.Context) {
 		if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 			key = strings.TrimSpace(key[7:])
 		}
-		if key == "" || key == "midjourney-proxy" {
+		// Modified by Essera, 2026-11: a customer's access token, before the key is split on "-".
+		if serviceKey, handled := esseraAuthenticate(c, key); handled {
+			if c.IsAborted() {
+				return
+			}
+			key = serviceKey
+		} else if key == "" || key == "midjourney-proxy" {
 			key = c.Request.Header.Get("mj-api-secret")
 			if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 				key = strings.TrimSpace(key[7:])
@@ -642,6 +648,7 @@ func TokenAuth() func(c *gin.Context) {
 		if err != nil {
 			return
 		}
+		esseraLimitModels(c) // Modified by Essera, 2026-11
 		c.Next()
 	}
 }

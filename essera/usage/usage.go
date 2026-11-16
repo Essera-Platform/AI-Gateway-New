@@ -1,0 +1,243 @@
+// Package usage reports every request a customer's credential had served to the Console, as
+// the usage.recorded event of the Console's contract (F8, ADR-010), through an outbox so a
+// queue outage loses nothing. The same moment counts it against the monthly limits and in
+// the telemetry.
+package usage
+
+import (
+	"errors"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/essera/configsync"
+	"github.com/QuantumNous/new-api/essera/limits"
+	"github.com/QuantumNous/new-api/essera/policy"
+	"github.com/QuantumNous/new-api/essera/rating"
+	"github.com/QuantumNous/new-api/essera/records"
+	"github.com/QuantumNous/new-api/essera/stats"
+	"github.com/QuantumNous/new-api/model"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
+	"gorm.io/gorm/clause"
+)
+
+// ContextKey holds the *policy.Request of an authenticated Essera request.
+const ContextKey = "essera_request"
+
+// SkipContextKey marks a request that must not be reported, such as a connection test.
+const SkipContextKey = "essera_skip_usage"
+
+// RateVersions names the versions that priced one unit.
+type RateVersions struct {
+	Unit               string `json:"unit"`
+	CostRateVersion    string `json:"cost_rate_version,omitempty"`
+	SellingRateVersion string `json:"selling_rate_version,omitempty"`
+}
+
+// Event is usage.recorded, with the optional fields the Console stores in the record's payload.
+type Event struct {
+	EventID              string         `json:"event_id"`
+	TS                   time.Time      `json:"ts"`
+	TenantID             *string        `json:"tenant_id,omitempty"`
+	CustomerID           string         `json:"customer_id"`
+	EndUserID            *string        `json:"end_user_id,omitempty"`
+	CredentialRef        string         `json:"credential_ref"`
+	RequestID            string         `json:"request_id"`
+	Provider             string         `json:"provider"`
+	Model                string         `json:"model"`
+	Modality             string         `json:"modality"`
+	InputUnits           int64          `json:"input_units"`
+	OutputUnits          int64          `json:"output_units"`
+	GeneratedUnits       int64          `json:"generated_units"`
+	Status               string         `json:"status"`
+	ProviderRef          *string        `json:"provider_ref,omitempty"`
+	CostRateVersion      *string        `json:"cost_rate_version,omitempty"`
+	SellingRateVersion   *string        `json:"selling_rate_version,omitempty"`
+	CorrelationID        *string        `json:"correlation_id,omitempty"`
+	ConfigurationVersion int64          `json:"configuration_version"`
+	LatencyMs            int64          `json:"latency_ms"`
+	FirstTokenMs         *int64         `json:"first_token_ms,omitempty"`
+	HTTPStatus           int            `json:"http_status"`
+	ErrorCategory        *string        `json:"error_category,omitempty"`
+	Retries              int            `json:"retries"`
+	RateVersions         []RateVersions `json:"rate_versions,omitempty"`
+}
+
+// Finished reports a relayed request once its outcome is final. A request that never reached
+// a provider is counted as refused, not reported.
+func Finished(c *gin.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIError) {
+	value, ok := c.Get(ContextKey)
+	if !ok || c.GetBool(SkipContextKey) {
+		return
+	}
+	request := value.(*policy.Request)
+	now := time.Now()
+	if info == nil || info.ChannelMeta == nil || info.ChannelId == 0 {
+		stats.Denial(now, "model", statusOf(apiErr))
+		return
+	}
+	event, spend := build(c, request, info, apiErr, now)
+	stats.Request(now, event.Provider, event.Model, event.Status, event.HTTPStatus, time.Duration(event.LatencyMs)*time.Millisecond, event.Retries)
+	if apiErr != nil {
+		stats.ProviderError(now, event.Provider, event.Model, event.HTTPStatus, apiErr.Error())
+	}
+	if err := enqueue(event); err != nil {
+		common.SysError(common.LogText("essera: queueing usage event %s: %s", event.EventID, err.Error()))
+	}
+	if event.Status != "succeeded" {
+		return
+	}
+	if err := limits.Add(request.Subjects, request.Month, request.Currency, event.InputUnits+event.OutputUnits, spend); err != nil {
+		common.SysError(common.LogText("essera: counting usage of %s: %s", request.Caller.ClientID, err.Error()))
+	}
+}
+
+func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo, apiErr *types.NewAPIError, now time.Time) (Event, decimal.Decimal) {
+	caller := request.Caller
+	requestID := c.GetString(common.RequestIdKey)
+	event := Event{
+		EventID:              "gw-" + requestID,
+		TS:                   info.StartTime.UTC(),
+		CustomerID:           caller.Customer.ID,
+		CredentialRef:        caller.ClientID,
+		RequestID:            requestID,
+		Provider:             providerOf(info.ChannelId),
+		Model:                info.OriginModelName,
+		Modality:             modalityOf(info.RelayMode),
+		Status:               outcomeOf(apiErr),
+		ConfigurationVersion: caller.View.Version,
+		LatencyMs:            now.Sub(info.StartTime).Milliseconds(),
+		HTTPStatus:           statusOf(apiErr),
+		Retries:              info.RetryIndex,
+	}
+	if caller.Partner != nil {
+		event.TenantID = &caller.Partner.ID
+	}
+	if request.EndUserID != "" {
+		event.EndUserID = &request.EndUserID
+	}
+	if upstream := c.GetString(common.UpstreamRequestIdKey); upstream != "" {
+		event.ProviderRef = &upstream
+	}
+	if correlation := c.GetHeader("X-Essera-Correlation-Id"); correlation != "" {
+		event.CorrelationID = &correlation
+	}
+	if !info.FirstResponseTime.IsZero() && info.FirstResponseTime.After(info.StartTime) {
+		first := info.FirstResponseTime.Sub(info.StartTime).Milliseconds()
+		event.FirstTokenMs = &first
+	}
+	if apiErr != nil {
+		category := string(apiErr.GetErrorCode())
+		event.ErrorCategory = &category
+	}
+	if consumed, ok := common.GetContextKey(c, constant.ContextKeyConsumeLog); ok {
+		if params, ok := consumed.(*model.RecordConsumeLogParams); ok {
+			event.InputUnits = int64(params.PromptTokens)
+			event.OutputUnits = int64(params.CompletionTokens)
+		}
+	}
+	if event.Modality == "image" && event.Status == "succeeded" {
+		event.GeneratedUnits = imagesRequested(info)
+	}
+	return event, price(request, &event)
+}
+
+// price names the rate versions in force and returns the billable amount in the request's
+// currency, which counts against the spend limit.
+func price(request *policy.Request, event *Event) decimal.Decimal {
+	rates := request.Caller.View.Snapshot.Rates
+	if rates == nil {
+		return decimal.Zero
+	}
+	buyers := []string{request.Caller.Customer.ID}
+	if request.Caller.Partner != nil {
+		buyers = append(buyers, request.Caller.Partner.ID)
+	}
+	charges := rating.Price(rates.Rates, event.Provider, event.Model, buyers, event.TS, rating.Usage{
+		Modality: event.Modality, InputUnits: event.InputUnits, OutputUnits: event.OutputUnits, GeneratedUnits: event.GeneratedUnits,
+	})
+	for _, charge := range charges {
+		event.RateVersions = append(event.RateVersions, RateVersions{Unit: charge.Unit, CostRateVersion: charge.CostRateID, SellingRateVersion: charge.SellingRateID})
+		if charge.Unit == "input_tokens" {
+			if charge.CostRateID != "" {
+				event.CostRateVersion = &charge.CostRateID
+			}
+			if charge.SellingRateID != "" {
+				event.SellingRateVersion = &charge.SellingRateID
+			}
+		}
+	}
+	return rating.Billable(charges, request.Currency)
+}
+
+func providerOf(channelID int) string {
+	channel, err := model.CacheGetChannel(channelID)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimPrefix(channel.GetTag(), configsync.TagPrefix)
+}
+
+func modalityOf(mode int) string {
+	switch mode {
+	case relayconstant.RelayModeEmbeddings, relayconstant.RelayModeRerank:
+		return "embedding"
+	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
+		return "image"
+	case relayconstant.RelayModeAudioSpeech, relayconstant.RelayModeAudioTranscription, relayconstant.RelayModeAudioTranslation:
+		return "audio"
+	}
+	return "text"
+}
+
+func imagesRequested(info *relaycommon.RelayInfo) int64 {
+	if request, ok := info.Request.(*dto.ImageRequest); ok && request.N != nil {
+		return int64(*request.N)
+	}
+	return 1
+}
+
+func statusOf(apiErr *types.NewAPIError) int {
+	if apiErr == nil {
+		return http.StatusOK
+	}
+	if apiErr.StatusCode == 0 {
+		return http.StatusInternalServerError
+	}
+	return apiErr.StatusCode
+}
+
+func outcomeOf(apiErr *types.NewAPIError) string {
+	switch {
+	case apiErr == nil:
+		return "succeeded"
+	case apiErr.StatusCode == http.StatusTooManyRequests:
+		return "rate_limited"
+	case apiErr.StatusCode == http.StatusGatewayTimeout || strings.Contains(strings.ToLower(string(apiErr.GetErrorCode())), "timeout"):
+		return "timeout"
+	}
+	return "failed"
+}
+
+func enqueue(event Event) error {
+	body, err := common.Marshal(event)
+	if err != nil {
+		return err
+	}
+	row := records.OutboxEvent{EventID: event.EventID, Body: string(body), CreatedAt: time.Now().UTC()}
+	result := model.DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&row)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("an event with this id is already queued")
+	}
+	return nil
+}
