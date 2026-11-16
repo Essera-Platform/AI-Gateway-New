@@ -54,7 +54,7 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | --- | --- |
 | `ESSERA_MANAGED` | `true` turns the integration on |
 | `ESSERA_ENVIRONMENT` | `dev`, `uat` or `prod`; names the queues (`essera-{env}-config-updates`, `essera-{env}-usage-events`) |
-| `ESSERA_COGNITO_USER_POOL_ID`, `ESSERA_CUSTOMER_SCOPES` | The Console's customer pool and the scopes its credentials carry (the Console's `CUSTOMER_USER_POOL_ID`, `CUSTOMER_OAUTH_SCOPES`) |
+| `ESSERA_COGNITO_USER_POOL_ID`, `ESSERA_CUSTOMER_SCOPES` | The Console's customer pool and the scopes its credentials carry; the Console's own names `CUSTOMER_USER_POOL_ID` and `CUSTOMER_OAUTH_SCOPES` are read when these are unset |
 | `ESSERA_TRUSTED_PRINCIPALS` | IAM ARN patterns allowed to call the internal API, e.g. `arn:aws:sts::<account>:assumed-role/essera-dev-task/*` |
 | `ESSERA_PROVIDER_TYPES` | Optional adapter per provider key, `{"acme-llm": 1}`, for keys the defaults do not recognise |
 | `ESSERA_FALLBACK_POLICIES` | Optional, `{"fallback/openai-to-azure": ["azure-openai"]}` |

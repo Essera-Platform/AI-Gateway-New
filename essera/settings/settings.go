@@ -27,10 +27,11 @@ func UsageQueueName() string {
 	return common.GetEnvOrDefaultString("ESSERA_USAGE_QUEUE", fmt.Sprintf("essera-%s-usage-events", Environment()))
 }
 
-// CustomerUserPoolID is the Cognito user pool the Console issues customer credentials in
-// (the Console's CUSTOMER_USER_POOL_ID).
+// CustomerUserPoolID is the Cognito user pool the Console issues customer credentials in.
+// The Console's own variable name is accepted too, so one definition can feed both services.
 func CustomerUserPoolID() string {
-	return strings.TrimSpace(common.GetEnvOrDefaultString("ESSERA_COGNITO_USER_POOL_ID", ""))
+	pool := common.GetEnvOrDefaultString("ESSERA_COGNITO_USER_POOL_ID", common.GetEnvOrDefaultString("CUSTOMER_USER_POOL_ID", ""))
+	return strings.TrimSpace(pool)
 }
 
 // CustomerPoolRegion is the pool's region, by default the one its id begins with.
@@ -43,7 +44,8 @@ func CustomerPoolRegion() string {
 // CUSTOMER_OAUTH_SCOPES); a token must carry one of them.
 func CustomerScopes() []string {
 	var scopes []string
-	for scope := range strings.SplitSeq(common.GetEnvOrDefaultString("ESSERA_CUSTOMER_SCOPES", ""), ",") {
+	configured := common.GetEnvOrDefaultString("ESSERA_CUSTOMER_SCOPES", common.GetEnvOrDefaultString("CUSTOMER_OAUTH_SCOPES", ""))
+	for scope := range strings.SplitSeq(configured, ",") {
 		if scope = strings.TrimSpace(scope); scope != "" {
 			scopes = append(scopes, scope)
 		}
