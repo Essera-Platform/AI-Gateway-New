@@ -53,13 +53,16 @@ var (
 	client    = &http.Client{Timeout: 10 * time.Second}
 )
 
+// remoteKeySet fetches the issuer's signing keys; ESSERA_JWKS_URL replaces the address for a
+// local stand-in of Cognito in development.
 func remoteKeySet(issuer string) oidc.KeySet {
 	keySetsMu.Lock()
 	defer keySetsMu.Unlock()
 	if keys, ok := keySets[issuer]; ok {
 		return keys
 	}
-	keys := oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(), client), issuer+"/.well-known/jwks.json")
+	address := common.GetEnvOrDefaultString("ESSERA_JWKS_URL", issuer+"/.well-known/jwks.json")
+	keys := oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(), client), address)
 	keySets[issuer] = keys
 	return keys
 }

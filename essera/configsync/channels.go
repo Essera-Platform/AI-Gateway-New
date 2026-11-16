@@ -173,9 +173,23 @@ func projectProvider(provider *snapshot.Provider, channel *model.Channel, priori
 	return state, saveChannel(channel, provider, adapter, key, models, wanted, priority)
 }
 
+// endpointOverrides replaces provider endpoints in development, where a provider is a local
+// stand-in the Console's https-only endpoint field cannot name: ESSERA_PROVIDER_BASE_URLS is
+// {"openai": "http://127.0.0.1:9100"}.
+func endpointOverrides() map[string]string {
+	overrides := map[string]string{}
+	if raw := common.GetEnvOrDefaultString("ESSERA_PROVIDER_BASE_URLS", ""); raw != "" {
+		_ = common.UnmarshalJsonStr(raw, &overrides)
+	}
+	return overrides
+}
+
 func saveChannel(channel *model.Channel, provider *snapshot.Provider, adapter int, key string, models []string, status int, priority int64) error {
 	tag := TagPrefix + provider.Key
 	base := baseURL(adapter, provider.Endpoint)
+	if override, ok := endpointOverrides()[provider.Key]; ok {
+		base = override
+	}
 	if key == "" {
 		key = "unset"
 	}

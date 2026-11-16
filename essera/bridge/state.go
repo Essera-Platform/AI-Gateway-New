@@ -74,6 +74,15 @@ func CurrentState(now time.Time, usageBacklog int64) State {
 	if view != nil {
 		state.ActiveConfigurationVersion = &view.Version
 	}
+	if state.Providers == nil {
+		state.Providers = []configsync.ProviderState{}
+	}
+	if state.ApplyErrors == nil {
+		state.ApplyErrors = []configsync.ApplyError{}
+	}
+	if state.Nodes == nil {
+		state.Nodes = []Node{}
+	}
 	state.Status = status(view, state.Providers, state.ApplyErrors)
 	return state
 }
