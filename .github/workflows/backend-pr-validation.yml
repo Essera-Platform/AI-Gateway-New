@@ -32,3 +32,33 @@ jobs:
           build-args: APP_VERSION=validation-${{ github.sha }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
+
+  go-test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: essera
+          POSTGRES_PASSWORD: essera
+          POSTGRES_DB: essera
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U essera" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+      - name: Placeholder UI for the embedded build
+        run: mkdir -p web/dist && echo '<!doctype html>' > web/dist/index.html
+      - name: Essera integration on PostgreSQL
+        env:
+          ESSERA_TEST_POSTGRES_DSN: host=127.0.0.1 port=5432 user=essera password=essera dbname=essera sslmode=disable
+        run: go test ./essera/...
+      - name: Packages the integration hooks into
+        run: go test ./middleware/... ./model/... ./controller/... ./router/... ./dto/... ./relay/... ./service/...
