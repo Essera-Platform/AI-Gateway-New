@@ -204,6 +204,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	relayInfo.RetryIndex = 0
 	relayInfo.LastError = nil
 
+	// Modified by Essera, 2026-11: a Console customer's request counts against its quotas.
+	if quotaErr := usage.Reserve(c); quotaErr != nil {
+		newAPIError = quotaErr
+		return
+	}
+
 	// Modified by Essera, 2026-11: a Console provider's retries replace the gateway-wide ones.
 	for ; retryParam.GetRetry() <= providerlimits.RetryTimes(c, common.RetryTimes); retryParam.IncreaseRetry() {
 		relayInfo.StreamStatus = nil

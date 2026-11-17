@@ -24,11 +24,21 @@ import (
 // returns the service token's key, so new-api serves the request as the Essera service user;
 // on refusal it aborts the request. handled is false for an ordinary new-api key.
 func esseraAuthenticate(c *gin.Context, presented string) (serviceKey string, handled bool) {
-	if !settings.Managed() || !auth.LooksLikeJWT(presented) {
+	if !settings.Managed() {
 		return "", false
 	}
+	if !auth.LooksLikeJWT(presented) {
+		if !managed.RelayPath(c.Request.URL.Path) {
+			return "", false
+		}
+		// Every request a provider serves is a Console customer's: a new-api key would be served
+		// without the Console's policy, limits or usage.
+		stats.Denial(time.Now(), "authentication", http.StatusUnauthorized)
+		abortWithOpenAiMessage(c, http.StatusUnauthorized, "Use the credential issued in the Essera Operations Console.", types.ErrorCode("essera_unauthenticated"))
+		return "", true
+	}
 	now := time.Now()
-	if !managed.CustomerPathAllowed(c.Request.URL.Path) {
+	if !managed.CustomerRequestAllowed(c.Request.Method, c.Request.URL.Path) {
 		abortWithOpenAiMessage(c, http.StatusNotFound, "This endpoint is not available to customer credentials.", types.ErrorCode("essera_not_available"))
 		return "", true
 	}

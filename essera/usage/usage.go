@@ -80,7 +80,10 @@ func Finished(c *gin.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIE
 	request := value.(*policy.Request)
 	now := time.Now()
 	if info == nil || info.ChannelMeta == nil || info.ChannelId == 0 {
-		stats.Denial(now, "model", statusOf(apiErr))
+		if apiErr == nil || apiErr.GetErrorCode() != types.ErrorCode("essera_quota_exceeded") {
+			stats.Denial(now, "model", statusOf(apiErr))
+		}
+		release(request)
 		return
 	}
 	event, spend := build(c, request, info, apiErr, now)
@@ -90,9 +93,6 @@ func Finished(c *gin.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIE
 	}
 	if err := enqueue(event); err != nil {
 		common.SysError(common.LogText("essera: queueing usage event %s: %s", event.EventID, err.Error()))
-	}
-	if event.Status != "succeeded" {
-		return
 	}
 	if err := limits.Add(request.Subjects, request.Month, request.Currency, event.InputUnits+event.OutputUnits, spend); err != nil {
 		common.SysError(common.LogText("essera: counting usage of %s: %s", request.Caller.ClientID, err.Error()))
@@ -143,8 +143,8 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 			event.OutputUnits = int64(params.CompletionTokens)
 		}
 	}
-	if event.Modality == "image" && event.Status == "succeeded" {
-		event.GeneratedUnits = imagesRequested(info)
+	if event.Status == "succeeded" {
+		measureGenerated(&event, info)
 	}
 	return event, price(request, &event)
 }
@@ -177,12 +177,20 @@ func price(request *policy.Request, event *Event) decimal.Decimal {
 	return rating.Billable(charges, request.Currency)
 }
 
+// unknownProvider names a channel that cannot be looked up, so its event still reaches the
+// Console, which requires a provider and flags the request as unpriced.
+const unknownProvider = "unknown"
+
 func providerOf(channelID int) string {
 	channel, err := model.CacheGetChannel(channelID)
 	if err != nil {
-		return ""
+		return unknownProvider
 	}
-	return strings.TrimPrefix(channel.GetTag(), configsync.TagPrefix)
+	key := strings.TrimPrefix(channel.GetTag(), configsync.TagPrefix)
+	if key == "" {
+		return unknownProvider
+	}
+	return key
 }
 
 func modalityOf(mode int) string {
@@ -197,7 +205,36 @@ func modalityOf(mode int) string {
 	return "text"
 }
 
-func imagesRequested(info *relaycommon.RelayInfo) int64 {
+// audioTokensPerMinute is how new-api measures audio: input audio for transcription and
+// translation, output audio for speech, at 1000 tokens a minute of sound.
+const audioTokensPerMinute = 1000
+
+// measureGenerated turns new-api's counts into the units the Console prices.
+//   - Images: the images actually settled, not the n asked for. new-api writes one prompt token
+//     when the provider reports no usage; that is no token at all.
+//   - Audio: minutes of sound, rounded up, from new-api's per-minute tokens. They are not tokens,
+//     so the token units are cleared.
+func measureGenerated(event *Event, info *relaycommon.RelayInfo) {
+	switch event.Modality {
+	case "image":
+		event.GeneratedUnits = imagesSettled(info)
+		if event.InputUnits <= 1 && event.OutputUnits == 0 {
+			event.InputUnits = 0
+		}
+	case "audio":
+		measured := event.OutputUnits
+		if info.RelayMode == relayconstant.RelayModeAudioTranscription || info.RelayMode == relayconstant.RelayModeAudioTranslation {
+			measured = event.InputUnits
+		}
+		event.GeneratedUnits = (measured + audioTokensPerMinute - 1) / audioTokensPerMinute
+		event.InputUnits, event.OutputUnits = 0, 0
+	}
+}
+
+func imagesSettled(info *relaycommon.RelayInfo) int64 {
+	if info.BillingImageCount != nil {
+		return int64(*info.BillingImageCount)
+	}
 	if request, ok := info.Request.(*dto.ImageRequest); ok && request.N != nil {
 		return int64(*request.N)
 	}
@@ -240,4 +277,41 @@ func enqueue(event Event) error {
 		return errors.New("an event with this id is already queued")
 	}
 	return nil
+}
+
+// Reserve counts a request a customer sent to relay against the request quotas, before its
+// first attempt; past a quota it is refused. A model listing, or a request new-api refuses
+// before relay, never reaches here and is not counted.
+func Reserve(c *gin.Context) *types.NewAPIError {
+	value, ok := c.Get(ContextKey)
+	if !ok {
+		return nil
+	}
+	request := value.(*policy.Request)
+	if request.Reserved {
+		return nil
+	}
+	exceeded, err := limits.Reserve(request.Subjects, request.Month)
+	if err != nil {
+		common.SysError(common.LogText("essera: reserving a request of %s: %s", request.Caller.ClientID, err.Error()))
+		return types.NewErrorWithStatusCode(errors.New("The gateway cannot check this account's limits right now."), types.ErrorCode("essera_unavailable"), http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
+	}
+	if exceeded != "" {
+		stats.Denial(time.Now(), "quota", http.StatusTooManyRequests)
+		return types.NewErrorWithStatusCode(errors.New("This account has reached its monthly "+exceeded+" limit."), types.ErrorCode("essera_quota_exceeded"), http.StatusTooManyRequests, types.ErrOptionWithSkipRetry())
+	}
+	request.Reserved = true
+	return nil
+}
+
+// release gives back the reservation of a request that reached no provider: the Console has
+// no record of it, so it does not count.
+func release(request *policy.Request) {
+	if !request.Reserved {
+		return
+	}
+	if err := limits.Release(request.Subjects, request.Month); err != nil {
+		common.SysError(common.LogText("essera: releasing a request of %s: %s", request.Caller.ClientID, err.Error()))
+	}
+	request.Reserved = false
 }

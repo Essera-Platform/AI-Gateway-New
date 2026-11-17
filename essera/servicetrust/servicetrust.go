@@ -11,6 +11,7 @@ package servicetrust
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -60,7 +61,9 @@ func trustedPrincipals() []string {
 	return patterns
 }
 
-var stsHost = regexp.MustCompile(`^sts(\.[a-z0-9-]+)?\.amazonaws\.com(\.cn)?$`)
+// stsHost is STS's global or regional endpoint and nothing else under amazonaws.com: a looser
+// pattern would let sts.<anything>.amazonaws.com, such as an S3 website, answer for STS.
+var stsHost = regexp.MustCompile(`^sts(\.[a-z]{2}(-gov|-iso[a-z]?)?-[a-z]+-[0-9])?\.amazonaws\.com(\.cn)?$`)
 
 // stsEndpointAllowed accepts only AWS STS, or the local stand-in in development, so the
 // Gateway never forwards a request elsewhere.
@@ -78,10 +81,16 @@ type verified struct {
 	at  time.Time
 }
 
+// signatureLifetime is how long AWS accepts a SigV4 signature after its X-Amz-Date.
+const signatureLifetime = 15 * time.Minute
+
 var (
 	cacheMu sync.Mutex
-	cache   = map[string]verified{}
-	client  = &http.Client{Timeout: 5 * time.Second}
+	cache   = map[[32]byte]verified{}
+	client  = &http.Client{
+		Timeout:       5 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
 )
 
 // Verify returns the caller's ARN when the signed request proves a trusted identity.
@@ -97,17 +106,26 @@ func Verify(ctx context.Context, encoded string) (string, error) {
 	if err := common.Unmarshal(raw, &request); err != nil {
 		return "", errors.New("unreadable identity")
 	}
-	if err := checkShape(request); err != nil {
+	headers, err := canonical(request.Headers)
+	if err != nil {
 		return "", err
 	}
-	authorization := header(request.Headers, "Authorization")
+	if err := checkShape(request, headers); err != nil {
+		return "", err
+	}
+	expires, err := signatureExpiry(headers)
+	if err != nil {
+		return "", err
+	}
+	now := time.Now()
+	key := sha256.Sum256(raw)
 	cacheMu.Lock()
-	hit, ok := cache[authorization]
+	hit, ok := cache[key]
 	cacheMu.Unlock()
-	if ok && time.Since(hit.at) < 5*time.Minute {
+	if ok && now.Sub(hit.at) < 5*time.Minute && now.Before(expires) {
 		return hit.arn, nil
 	}
-	arn, err := callerIdentity(ctx, request)
+	arn, err := callerIdentity(ctx, request, headers)
 	if err != nil {
 		return "", err
 	}
@@ -115,21 +133,41 @@ func Verify(ctx context.Context, encoded string) (string, error) {
 		return "", fmt.Errorf("%s is not trusted", arn)
 	}
 	cacheMu.Lock()
-	cache[authorization] = verified{arn: arn, at: time.Now()}
+	for stale, entry := range cache {
+		if now.Sub(entry.at) >= 5*time.Minute {
+			delete(cache, stale)
+		}
+	}
+	cache[key] = verified{arn: arn, at: now}
 	cacheMu.Unlock()
 	return arn, nil
 }
 
-func header(headers map[string]string, name string) string {
-	for key, value := range headers {
-		if strings.EqualFold(key, name) {
-			return value
+// canonical is the one set of headers that is both checked and forwarded; a name given twice
+// in different cases is refused, so the check and STS cannot see different values.
+func canonical(given map[string]string) (http.Header, error) {
+	headers := http.Header{}
+	for name, value := range given {
+		key := http.CanonicalHeaderKey(name)
+		if _, twice := headers[key]; twice {
+			return nil, fmt.Errorf("the identity repeats the header %s", key)
 		}
+		headers.Set(key, value)
 	}
-	return ""
+	return headers, nil
 }
 
-func checkShape(request SignedRequest) error {
+// signatureExpiry is when AWS stops accepting the signature; a verified identity is not reused
+// past it.
+func signatureExpiry(headers http.Header) (time.Time, error) {
+	signedAt, err := time.Parse("20060102T150405Z", headers.Get("X-Amz-Date"))
+	if err != nil {
+		return time.Time{}, errors.New("the identity has no signing time")
+	}
+	return signedAt.Add(signatureLifetime), nil
+}
+
+func checkShape(request SignedRequest, headers http.Header) error {
 	target, err := url.Parse(request.URL)
 	if err != nil || request.Method != http.MethodPost || !stsEndpointAllowed(target) {
 		return errors.New("the identity is not an STS request")
@@ -137,10 +175,10 @@ func checkShape(request SignedRequest) error {
 	if request.Body != callerIdentityBody {
 		return errors.New("the identity is not GetCallerIdentity")
 	}
-	if header(request.Headers, AudienceHeader) != Audience() {
+	if headers.Get(AudienceHeader) != Audience() {
 		return errors.New("the identity is signed for another service")
 	}
-	authorization := header(request.Headers, "Authorization")
+	authorization := headers.Get("Authorization")
 	_, signed, found := strings.Cut(authorization, "SignedHeaders=")
 	signed, _, _ = strings.Cut(signed, ",")
 	if !found || !strings.Contains(";"+strings.ToLower(signed)+";", ";"+strings.ToLower(AudienceHeader)+";") {
@@ -151,14 +189,12 @@ func checkShape(request SignedRequest) error {
 
 var arnPattern = regexp.MustCompile(`<Arn>([^<]+)</Arn>`)
 
-func callerIdentity(ctx context.Context, request SignedRequest) (string, error) {
+func callerIdentity(ctx context.Context, request SignedRequest, headers http.Header) (string, error) {
 	outgoing, err := http.NewRequestWithContext(ctx, http.MethodPost, request.URL, bytes.NewBufferString(request.Body))
 	if err != nil {
 		return "", err
 	}
-	for key, value := range request.Headers {
-		outgoing.Header.Set(key, value)
-	}
+	outgoing.Header = headers.Clone()
 	response, err := client.Do(outgoing)
 	if err != nil {
 		return "", fmt.Errorf("STS: %w", err)

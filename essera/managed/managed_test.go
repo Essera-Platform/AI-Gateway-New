@@ -53,11 +53,23 @@ func TestGuardIsOffUnlessManaged(t *testing.T) {
 	assert.Equal(t, http.StatusOK, recorder.Code)
 }
 
-func TestCustomerPathAllowed(t *testing.T) {
-	for _, path := range []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/models", "/v1/models/gpt-4o", "/v1/audio/speech", "/v1beta/models/gemini:generateContent"} {
-		assert.True(t, CustomerPathAllowed(path), path)
+func TestCustomerRequestAllowed(t *testing.T) {
+	for _, path := range []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/audio/speech", "/v1beta/models/gemini:generateContent"} {
+		assert.True(t, CustomerRequestAllowed(http.MethodPost, path), path)
+	}
+	for _, path := range []string{"/v1/models", "/v1/models/gpt-4o", "/v1beta/models"} {
+		assert.True(t, CustomerRequestAllowed(http.MethodGet, path), path)
 	}
 	for _, path := range []string{"/v1/video/generations", "/v1/tasks", "/api/token/", "/v1/chat/completionsx", "/pg/chat/completions"} {
-		assert.False(t, CustomerPathAllowed(path), path)
+		assert.False(t, CustomerRequestAllowed(http.MethodPost, path), path)
+	}
+	assert.False(t, CustomerRequestAllowed(http.MethodGet, "/v1/responses"), "a GET opens a WebSocket whose calls are not accounted for")
+	assert.False(t, CustomerRequestAllowed(http.MethodGet, "/v1/chat/completions"))
+	assert.False(t, CustomerRequestAllowed(http.MethodPost, "/v1beta/models/veo:predictLongRunning"), "a task without a usage event")
+}
+
+func TestPluginAndSignInProviderWritesAreTheConsoles(t *testing.T) {
+	for _, path := range []string{"/api/plugin/task/upload", "/api/request_plugin/instances", "/api/custom-oauth-provider/"} {
+		assert.True(t, adminWrites.MatchString(path), path)
 	}
 }

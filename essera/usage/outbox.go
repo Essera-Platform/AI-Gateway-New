@@ -38,9 +38,14 @@ func Send(ctx context.Context) {
 	}
 }
 
+// maxAttempts is how often SQS may refuse an event before it stops being offered; it stays in
+// the outbox, counted in the backlog the Console sees, for someone to look at.
+const maxAttempts = 20
+
 func sendPending(ctx context.Context, queueURL string) error {
 	var pending []records.OutboxEvent
-	if err := model.DB.Order("id").Limit(100).Find(&pending).Error; err != nil {
+	// The least tried first, so events SQS keeps refusing never hold back the ones behind them.
+	if err := model.DB.Where("attempts < ?", maxAttempts).Order("attempts, id").Limit(100).Find(&pending).Error; err != nil {
 		return err
 	}
 	for start := 0; start < len(pending); start += 10 {

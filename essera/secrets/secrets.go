@@ -5,6 +5,7 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -49,13 +50,19 @@ func Resolve(channelKey string) (value string, handled bool, err error) {
 	reference, suffix, _ := strings.Cut(rest, "|")
 	value, err = lookup(reference)
 	if err != nil {
-		return "", true, err
+		// AWS's message names the role and the secret's ARN; it is logged, never sent on to the
+		// customer whose request needed the key.
+		common.SysError(common.LogText("essera: reading provider key %s: %s", reference, err.Error()))
+		return "", true, errKeyUnavailable
 	}
 	if suffix != "" && !strings.Contains(value, "|") {
 		value += "|" + suffix
 	}
 	return value, true, nil
 }
+
+// errKeyUnavailable is what a request learns when its provider's key cannot be read.
+var errKeyUnavailable = errors.New("the provider's key is not available")
 
 // Forget drops every cached value, so a new configuration version reads secrets afresh.
 func Forget() {

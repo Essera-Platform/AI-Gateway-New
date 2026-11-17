@@ -20,9 +20,28 @@ var customerPaths = []string{
 	"/v1/models", "/v1beta/models", "/v1beta/openai/",
 }
 
-// CustomerPathAllowed tells whether a customer may call the path.
-func CustomerPathAllowed(path string) bool {
-	for _, allowed := range customerPaths {
+// listingPaths answer a GET with the models; nothing else a customer may GET: a GET on
+// /v1/responses opens a WebSocket whose calls are not accounted for.
+var listingPaths = []string{"/v1/models", "/v1beta/models"}
+
+// longRunning marks Gemini's asynchronous operations, which run as tasks without a usage event.
+const longRunning = ":predictLongRunning"
+
+// CustomerRequestAllowed tells whether a customer may make the request.
+func CustomerRequestAllowed(method, path string) bool {
+	if method == http.MethodGet {
+		return matches(listingPaths, path)
+	}
+	return matches(customerPaths, path) && !strings.HasSuffix(path, longRunning)
+}
+
+// RelayPath tells whether the path is served to API keys rather than to the admin UI.
+func RelayPath(path string) bool {
+	return !strings.HasPrefix(path, "/api/") && !strings.HasPrefix(path, "/internal/")
+}
+
+func matches(paths []string, path string) bool {
+	for _, allowed := range paths {
 		if path == allowed || strings.HasPrefix(path, allowed+"/") || (strings.HasSuffix(allowed, "/") && strings.HasPrefix(path, allowed)) {
 			return true
 		}
@@ -35,8 +54,9 @@ func CustomerPathAllowed(path string) bool {
 var closedPaths = regexp.MustCompile(`^/(pg|mj|suno)(/|$)|^/[^/]+/mj/|^/v1/(video|videos|tasks)(/|$)`)
 
 // adminWrites change what the Console owns: providers (channels), customers (users),
-// credentials (tokens), prices, models and commerce. Reads stay open.
-var adminWrites = regexp.MustCompile(`^/api/(channel|token|option|models|vendors|prefill_group|subscription|ratio_sync|redemption|deployments)(/|$)|^/api/user/?$|^/api/user/(manage|topup/complete|register|\d+)(/|$)`)
+// credentials (tokens), prices, models and commerce; and plugins and sign-in providers, which
+// could run code on requests or reach provider keys around the Console. Reads stay open.
+var adminWrites = regexp.MustCompile(`^/api/(channel|token|option|models|vendors|prefill_group|subscription|ratio_sync|redemption|deployments|plugin|request_plugin|custom-oauth-provider)(/|$)|^/api/user/?$|^/api/user/(manage|topup/complete|register|\d+)(/|$)`)
 
 // keptWrites stay the Gateway's own even when managed: routing and health policies.
 var keptWrites = regexp.MustCompile(`^/api/option/request_policy`)
