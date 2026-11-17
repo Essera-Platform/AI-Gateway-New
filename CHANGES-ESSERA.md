@@ -25,6 +25,10 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
   - approved and blocked countries;
   - models and providers;
   - monthly request, token and spend limits.
+- **`essera/providerlimits`:** applies each provider's settings from the snapshot to every attempt:
+  - the rate limit in requests per minute, counted across nodes in the database, with 429 `essera_provider_rate_limited` past it;
+  - the provider's retries as the request's retry budget;
+  - its timeout as the time the provider has to start answering.
 - **`essera/rating`:** prices a request with the snapshot's rates, as the Console does, for spend limits and the rate versions on usage events.
 - **`essera/usage`:** one `usage.recorded` event per request a customer had served, sent to the usage queue through a database outbox.
 - **`essera/stats` and `essera/bridge`:** request statistics, and the internal API the Console's backend reads (`/internal/essera/v1`: state and active configuration version, a provider's connection test, a provider's telemetry, and the traffic of the last hour, day or week: requests, latency, HTTP statuses, denials and each provider's availability, latency, retries and timeouts). It is reached inside the cluster only.
@@ -40,7 +44,8 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | `main.go` | Starts the integration before the node sync; installs the managed-mode guard |
 | `middleware/auth.go` | `TokenAuth` hands a customer's access token to the integration before the key is split, and narrows the service token's models to the customer's |
 | `middleware/essera.go` (new) | The customer authentication and policy middleware |
-| `controller/relay.go` | Reports every finished relay request to the integration |
+| `controller/relay.go` | Reports every finished relay request to the integration; admits each attempt against the provider's rate limit and takes the provider's retries as the retry budget |
+| `relay/channel/api_request.go` | Bounds the wait for a provider's answer by the provider's timeout |
 | `controller/essera.go` (new) | Runs the Console's connection tests through new-api's channel test |
 | `router/main.go` | Registers the internal API |
 | `controller/misc.go` | `/api/status` says whether the gateway is managed (`essera_managed`) |
@@ -70,6 +75,7 @@ The fork runs on PostgreSQL only. The Essera tables are:
 - `essera_config_versions`
 - `essera_usage_outbox`
 - `essera_usage_counters`
+- `essera_provider_minutes`
 - `essera_request_stats`
 - `essera_provider_errors`
 

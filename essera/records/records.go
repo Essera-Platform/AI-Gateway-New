@@ -46,6 +46,16 @@ type Counter struct {
 
 func (Counter) TableName() string { return "essera_usage_counters" }
 
+// ProviderMinute counts the attempts sent to one provider in one minute, for the provider's
+// rate limit across every Gateway node.
+type ProviderMinute struct {
+	Provider string    `gorm:"primaryKey;type:varchar(64)"`
+	Minute   time.Time `gorm:"primaryKey"`
+	Requests int64
+}
+
+func (ProviderMinute) TableName() string { return "essera_provider_minutes" }
+
 // RequestStat aggregates the requests of one five-minute bucket, provider, model and outcome
 // for telemetry. Latency is a histogram over fixed bucket edges.
 type RequestStat struct {
@@ -76,5 +86,5 @@ func (ProviderError) TableName() string { return "essera_provider_errors" }
 
 // Migrate creates or updates the Essera tables in the primary database.
 func Migrate() error {
-	return model.DB.AutoMigrate(&ConfigVersion{}, &OutboxEvent{}, &Counter{}, &RequestStat{}, &ProviderError{})
+	return model.DB.AutoMigrate(&ConfigVersion{}, &OutboxEvent{}, &Counter{}, &ProviderMinute{}, &RequestStat{}, &ProviderError{})
 }
