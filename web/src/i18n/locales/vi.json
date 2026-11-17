@@ -7751,6 +7751,8 @@
     "Zoom": "Zoom",
     "By clicking sign in, you agree to our": "Bằng cách nhấp đăng nhập, bạn đồng ý với",
     "By creating an account, you agree to our": "Bằng cách tạo tài khoản, bạn đồng ý với",
-    "Frontend design and development by New API contributors.": "Frontend design and development by New API contributors."
+    "Frontend design and development by New API contributors.": "Frontend design and development by New API contributors.",
+    "Managed by the Essera Operations Console": "Được quản lý bởi Essera Operations Console",
+    "Providers, customers, keys, models and prices are changed in the Essera Operations Console; edits to them here are refused.": "Nhà cung cấp, khách hàng, khóa, mô hình và giá được thay đổi trong Essera Operations Console; các thay đổi tại đây sẽ bị từ chối."
   }
 }

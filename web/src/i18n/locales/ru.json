@@ -7751,6 +7751,8 @@
     "Zoom": "Zoom",
     "By clicking sign in, you agree to our": "Нажимая «Войти», вы соглашаетесь с нашими",
     "By creating an account, you agree to our": "Создавая аккаунт, вы соглашаетесь с нашими",
-    "Frontend design and development by New API contributors.": "Frontend design and development by New API contributors."
+    "Frontend design and development by New API contributors.": "Frontend design and development by New API contributors.",
+    "Managed by the Essera Operations Console": "Управляется из Essera Operations Console",
+    "Providers, customers, keys, models and prices are changed in the Essera Operations Console; edits to them here are refused.": "Провайдеры, клиенты, ключи, модели и цены меняются в Essera Operations Console; изменения здесь отклоняются."
   }
 }
