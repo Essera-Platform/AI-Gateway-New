@@ -31,6 +31,7 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 - **`essera/servicetrust`:** authenticates the Console's backend on the internal API by its AWS role. The backend sends an `sts:GetCallerIdentity` request signed by its task role; the Gateway forwards it to STS and serves only the ARNs in `ESSERA_TRUSTED_PRINCIPALS`. No secret is shared.
 - **`essera/bootstrap`:** sets up the service user and token that customer requests run as. Its group's ratio is zero, so new-api neither reserves nor charges quota; the Console bills. It turns off new-api's consume log, which would duplicate the Console's ledger, and replaces the default root password.
 - **`essera/managed`:** in managed mode, refuses local edits of what the Console owns (channels, users, tokens, prices, models) and closes the playground, Midjourney, Suno, video and task routes.
+- **`web/src/features/essera`:** in managed mode, a badge in the admin header says the Console administers the gateway, and its tooltip says what is changed there.
 
 ### Upstream files changed
 
@@ -42,10 +43,12 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | `controller/relay.go` | Reports every finished relay request to the integration |
 | `controller/essera.go` (new) | Runs the Console's connection tests through new-api's channel test |
 | `router/main.go` | Registers the internal API |
+| `controller/misc.go` | `/api/status` says whether the gateway is managed (`essera_managed`) |
+| `web/src/components/layout/components/app-header.tsx` | Shows the managed badge |
 | `model/channel.go` | `GetNextEnabledKey` resolves a key that is a Secrets Manager reference |
 | `model/essera_hooks.go` (new) | The hook that resolution goes through |
 | `dto/channel_constraints.go`, `model/channel_constraint.go` | A channel filter that limits a model to the providers a customer may use |
-| `web/src/components/layout/components/footer.tsx`, `web/src/i18n/locales/*.json` | The footer shows the AGPLv3 §7(b) notice from `NOTICE` verbatim |
+| `web/src/components/layout/components/footer.tsx`, `web/src/i18n/locales/*.json` | The footer shows the AGPLv3 §7(b) notice from `NOTICE` verbatim; the locales also carry the managed badge's texts |
 | `go.mod`, `go.sum`, `THIRD-PARTY-LICENSES.md` | AWS SDK modules for S3, SQS, Secrets Manager and shared configuration (Apache-2.0) |
 
 ### Settings
