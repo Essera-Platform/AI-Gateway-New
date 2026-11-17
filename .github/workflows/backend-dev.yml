@@ -12,6 +12,7 @@ on:
       - 'constant/**'
       - 'controller/**'
       - 'dto/**'
+      - 'essera/**'
       - 'i18n/**'
       - 'logger/**'
       - 'middleware/**'
