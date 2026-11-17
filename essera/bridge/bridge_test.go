@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -117,4 +118,21 @@ func TestTrafficAnswersTheAskedWindow(t *testing.T) {
 
 	code, _ = ask("?window=30d")
 	assert.Equal(t, http.StatusBadRequest, code)
+}
+
+func TestTheStateCarriesTheTasksLimitsOnECS(t *testing.T) {
+	metadata := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"Limits": {"CPU": 0.5, "Memory": 1024}}`))
+	}))
+	t.Cleanup(metadata.Close)
+	t.Setenv("ECS_CONTAINER_METADATA_URI_V4", metadata.URL)
+	limitsOnce, limits = sync.Once{}, taskLimits{}
+	t.Cleanup(func() { limitsOnce, limits = sync.Once{}, taskLimits{} })
+	recordstest.UseDatabase(t, &model.SystemInstance{})
+
+	state := CurrentState(time.Now(), 0)
+
+	require.NotNil(t, state.MemoryLimitMiB)
+	assert.Equal(t, 1024.0, *state.MemoryLimitMiB)
+	assert.Equal(t, 0.5, *state.CPULimitVCPU)
 }

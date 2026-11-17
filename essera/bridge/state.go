@@ -28,6 +28,8 @@ type State struct {
 	UptimeSeconds              int64                      `json:"uptime_seconds"`
 	CPUPercent                 float64                    `json:"cpu_percent"`
 	MemoryUsedMiB              float64                    `json:"memory_used_mib"`
+	CPULimitVCPU               *float64                   `json:"cpu_limit_vcpu"`
+	MemoryLimitMiB             *float64                   `json:"memory_limit_mib"`
 	RetryTimes                 int                        `json:"retry_times"`
 	Nodes                      []Node                     `json:"nodes"`
 	Providers                  []configsync.ProviderState `json:"providers"`
@@ -49,6 +51,7 @@ func CurrentState(now time.Time, usageBacklog int64) State {
 	started := time.Unix(common.StartTime, 0).UTC()
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
+	task := readTaskLimits()
 	state := State{
 		Schema:           1,
 		Environment:      settings.Environment(),
@@ -58,6 +61,8 @@ func CurrentState(now time.Time, usageBacklog int64) State {
 		UptimeSeconds:    int64(now.Sub(started).Seconds()),
 		CPUPercent:       common.GetSystemStatus().CPUUsage,
 		MemoryUsedMiB:    float64(memory.Sys) / (1 << 20),
+		CPULimitVCPU:     task.CPU,
+		MemoryLimitMiB:   task.Memory,
 		RetryTimes:       common.RetryTimes,
 		Nodes:            nodes(now, view),
 		Providers:        configsync.ProviderStates(),
