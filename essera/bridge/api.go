@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -24,6 +25,7 @@ func RegisterRoutes(router *gin.Engine) {
 	group.GET("/state", state)
 	group.POST("/providers/:key/test", testProvider)
 	group.GET("/providers/:key/telemetry", providerTelemetry)
+	group.GET("/traffic", traffic)
 }
 
 func trustBackend(c *gin.Context) {
@@ -111,4 +113,27 @@ func providerTelemetry(c *gin.Context) {
 		reply.RecentErrors = append(reply.RecentErrors, entry)
 	}
 	c.JSON(http.StatusOK, reply)
+}
+
+// Windows are the spans traffic can be asked for.
+var Windows = []string{"1h", "24h", "7d"}
+
+// traffic answers GatewayClient.traffic(window): requests, latency, the HTTP status
+// distribution, denials and each provider's availability, latency, retries and timeouts.
+func traffic(c *gin.Context) {
+	name := c.DefaultQuery("window", "24h")
+	if !slices.Contains(Windows, name) {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "window is one of 1h, 24h, 7d."})
+		return
+	}
+	telemetry, err := CurrentTelemetry(time.Now())
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Telemetry is not available right now."})
+		return
+	}
+	window := telemetry.Windows[name]
+	if window.Providers == nil {
+		window.Providers = []ProviderTelemetry{}
+	}
+	c.JSON(http.StatusOK, gin.H{"window": name, "observed_at": telemetry.ObservedAt, "traffic": window})
 }

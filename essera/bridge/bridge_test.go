@@ -1,6 +1,9 @@
 package bridge
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -10,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/snapshot/snapshottest"
 	"github.com/QuantumNous/new-api/essera/stats"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,4 +83,38 @@ func TestStateNamesTheActiveVersionAndNodes(t *testing.T) {
 	assert.Equal(t, "node-a", state.Nodes[0].Name)
 	assert.Equal(t, int64(3), state.UsageBacklog)
 	assert.Equal(t, 1, state.Schema)
+}
+
+func TestTrafficAnswersTheAskedWindow(t *testing.T) {
+	recordstest.UseDatabase(t)
+	now := time.Now()
+	stats.Request(now, "openai", "gpt-4o", "succeeded", 200, 800*time.Millisecond, 1)
+	stats.Request(now.Add(-3*time.Hour), "openai", "gpt-4o", "failed", 502, 100*time.Millisecond, 0)
+	require.NoError(t, stats.Flush())
+
+	ask := func(query string) (int, map[string]any) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodGet, "/traffic"+query, nil)
+		traffic(c)
+		var body map[string]any
+		_ = json.Unmarshal(recorder.Body.Bytes(), &body)
+		return recorder.Code, body
+	}
+
+	code, body := ask("?window=1h")
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, "1h", body["window"])
+	hour := body["traffic"].(map[string]any)
+	assert.EqualValues(t, 1, hour["requests"])
+	assert.Equal(t, map[string]any{"200": float64(1)}, hour["http_status"])
+	provider := hour["providers"].([]any)[0].(map[string]any)
+	assert.EqualValues(t, 1, provider["retries"])
+
+	code, body = ask("")
+	require.Equal(t, http.StatusOK, code)
+	assert.EqualValues(t, 2, body["traffic"].(map[string]any)["requests"], "a day by default")
+
+	code, _ = ask("?window=30d")
+	assert.Equal(t, http.StatusBadRequest, code)
 }
