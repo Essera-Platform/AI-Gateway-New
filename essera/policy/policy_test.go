@@ -8,9 +8,11 @@ import (
 	"github.com/QuantumNous/new-api/essera/auth"
 	"github.com/QuantumNous/new-api/essera/limits"
 	"github.com/QuantumNous/new-api/essera/policy"
+	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/records/recordstest"
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/snapshot/snapshottest"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -112,6 +114,8 @@ func TestMonthlyLimitsCountEachLevel(t *testing.T) {
 	for range 2 {
 		request, denial := policy.Evaluate(caller(s, snapshottest.ClientID), "user-1", "US", now)
 		require.Nil(t, denial)
+		_, err := limits.Reserve(request.Subjects, request.Month)
+		require.NoError(t, err)
 		require.NoError(t, limits.Add(request.Subjects, request.Month, request.Currency, 100, decimal.RequireFromString("1.5")))
 	}
 	_, denial := policy.Evaluate(caller(s, snapshottest.ClientID), "user-1", "US", now)
@@ -130,4 +134,35 @@ func TestMonthlyLimitsCountEachLevel(t *testing.T) {
 
 	_, denial = policy.Evaluate(caller(s, snapshottest.ClientID), "", "US", now.AddDate(0, 1, 0))
 	assert.Nil(t, denial, "a new month starts from zero")
+}
+
+func TestOneRequestCountOverCurrencies(t *testing.T) {
+	useDatabase(t)
+	s := snapshottest.Sample()
+	request, denial := policy.Evaluate(caller(s, snapshottest.ClientID), "", "US", now)
+	require.Nil(t, denial)
+	_, err := limits.Reserve(request.Subjects, request.Month)
+	require.NoError(t, err)
+	require.NoError(t, limits.Add(request.Subjects, request.Month, "EUR", 10, decimal.RequireFromString("2")))
+	require.NoError(t, limits.Add(request.Subjects, request.Month, "USD", 5, decimal.Zero))
+
+	var counts []records.Counter
+	require.NoError(t, model.DB.Where("scope = ? AND currency = ?", "customer", limits.Counts).Find(&counts).Error)
+	require.Len(t, counts, 1, "requests and tokens are one count whatever the currency")
+	assert.Equal(t, int64(1), counts[0].Requests)
+	assert.Equal(t, int64(15), counts[0].Tokens)
+}
+
+func TestAScheduledWindowThatHasBegunIsMaintenance(t *testing.T) {
+	useDatabase(t)
+	s := snapshottest.Sample()
+	start, end := now.Add(-time.Minute), now.Add(time.Hour)
+	s.Gateway = snapshot.GatewaySection{MaintenanceStatus: snapshot.MaintenanceScheduled, WindowStart: &start, WindowEnd: &end}
+
+	_, denial := policy.Evaluate(caller(s, snapshottest.ClientID), "", "US", now)
+
+	require.NotNil(t, denial)
+	assert.Equal(t, http.StatusServiceUnavailable, denial.Status)
+	assert.Equal(t, "essera_maintenance", denial.Code)
+	assert.NotEmpty(t, denial.Headers["Retry-After"], "until the window ends")
 }

@@ -42,6 +42,7 @@ Transitive dependencies should be audited before a final external release.
 | backend  | production  | Go        | `github.com/glebarez/sqlite`                            | `v1.11.0`                            | MIT                     |
 | backend  | production  | Go        | `github.com/go-audio/aiff`                              | `v1.1.0`                             | Apache-2.0              |
 | backend  | production  | Go        | `github.com/go-audio/wav`                               | `v1.1.0`                             | Apache-2.0              |
+| backend  | production  | Go        | `github.com/go-jose/go-jose/v4`                         | `v4.1.6`                             | Apache-2.0              |
 | backend  | production  | Go        | `github.com/go-playground/validator/v10`                | `v10.20.0`                           | MIT                     |
 | backend  | production  | Go        | `github.com/go-redis/redis/v8`                          | `v8.11.5`                            | BSD-2-Clause            |
 | backend  | production  | Go        | `github.com/go-sql-driver/mysql`                        | `v1.7.0`                             | MPL-2.0                 |

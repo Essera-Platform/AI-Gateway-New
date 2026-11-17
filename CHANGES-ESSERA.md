@@ -16,21 +16,25 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 
 ### New code (`essera/`)
 
-- **`essera/configsync`:** reads the configuration queue; fetches each snapshot from S3 and checks its SHA-256; keeps the last good version in the database; projects the Console's providers into channels (one channel per provider, tagged `essera/<key>`, in group `essera`).
+- **`essera/configsync`:** reads the configuration queue; fetches each snapshot from S3 and checks its SHA-256; keeps the last good version in the database; projects the Console's providers into channels (one channel per provider, tagged `essera/<key>`, in group `essera`). Only events naming this environment's snapshot bucket and prefix are applied, and none more than 1000 versions ahead of the active one; a version that fails on the way (not an unreadable document) is retried by the queue.
 - **`essera/secrets`:** resolves provider keys from AWS Secrets Manager when a channel is selected. Channels store only a `secretsmanager:` reference, never the key.
-- **`essera/auth`:** authenticates customers by the Cognito client-credentials access tokens of the Console's customer pool (`ESSERA_COGNITO_USER_POOL_ID`, scopes `ESSERA_CUSTOMER_SCOPES`). The `client_id` must be an unexpired credential of an active customer in the active snapshot.
+- **`essera/auth`:** authenticates customers by the Cognito client-credentials access tokens of the Console's customer pool (`ESSERA_COGNITO_USER_POOL_ID`, scopes `ESSERA_CUSTOMER_SCOPES`; with no scopes configured every token is refused). The `client_id` must be an unexpired credential of an active customer in the active snapshot. The pool's signing keys are fetched at most once a minute, so tokens naming unknown keys cannot make the Gateway call Cognito on every request. In managed mode, relay paths accept only these tokens; a new-api key is refused.
 - **`essera/policy` and `essera/limits`:** enforce the snapshot before routing:
-  - maintenance;
+  - maintenance, including a scheduled window once it has begun;
   - partner, customer and end-user status;
   - approved and blocked countries;
   - models and providers;
-  - monthly request, token and spend limits.
+  - monthly request, token and spend limits. A request is reserved against the request quotas when the relay takes it, so concurrent requests cannot all take the last one, and given back if it reaches no provider; tokens and spend are added when it ends, whatever its outcome, as the Console counts them. Requests and tokens are one count per subject whatever the currency; spend is kept by currency.
+- **`essera/providerlimits`:** applies each provider's settings from the snapshot to every attempt:
+  - the rate limit in requests per minute, counted across nodes in the database, with 429 `essera_provider_rate_limited` past it;
+  - the provider's retries as the request's retry budget;
+  - its timeout as the time the provider has to start answering.
 - **`essera/rating`:** prices a request with the snapshot's rates, as the Console does, for spend limits and the rate versions on usage events.
-- **`essera/usage`:** one `usage.recorded` event per request a customer had served, sent to the usage queue through a database outbox.
+- **`essera/usage`:** one `usage.recorded` event per request a customer had served, sent to the usage queue through a database outbox (events SQS keeps refusing are set aside after 20 attempts, so they never hold back the rest). Images are counted as settled, audio in minutes of sound.
 - **`essera/stats` and `essera/bridge`:** request statistics, and the internal API the Console's backend reads (`/internal/essera/v1`: state and active configuration version, a provider's connection test, a provider's telemetry, and the traffic of the last hour, day or week: requests, latency, HTTP statuses, denials and each provider's availability, latency, retries and timeouts). It is reached inside the cluster only.
-- **`essera/servicetrust`:** authenticates the Console's backend on the internal API by its AWS role. The backend sends an `sts:GetCallerIdentity` request signed by its task role; the Gateway forwards it to STS and serves only the ARNs in `ESSERA_TRUSTED_PRINCIPALS`. No secret is shared.
+- **`essera/servicetrust`:** authenticates the Console's backend on the internal API by its AWS role. The backend sends an `sts:GetCallerIdentity` request signed by its task role; the Gateway forwards it to STS (its global or a regional endpoint, nothing else) and serves only the ARNs in `ESSERA_TRUSTED_PRINCIPALS`. A header named twice is refused, and a verified identity is not reused past its signature's lifetime. No secret is shared.
 - **`essera/bootstrap`:** sets up the service user and token that customer requests run as. Its group's ratio is zero, so new-api neither reserves nor charges quota; the Console bills. It turns off new-api's consume log, which would duplicate the Console's ledger, and replaces the default root password.
-- **`essera/managed`:** in managed mode, refuses local edits of what the Console owns (channels, users, tokens, prices, models) and closes the playground, Midjourney, Suno, video and task routes.
+- **`essera/managed`:** in managed mode, refuses local edits of what the Console owns (channels, users, tokens, prices, models) and of plugins and sign-in providers, and closes the playground, Midjourney, Suno, video and task routes. Customers may only POST to the synchronous relay routes (not Gemini's long-running operations) and GET the model lists; a GET on `/v1/responses` would open a WebSocket whose calls are not accounted for.
 - **`web/src/features/essera`:** in managed mode, a badge in the admin header says the Console administers the gateway, and its tooltip says what is changed there.
 
 ### Upstream files changed
@@ -40,7 +44,8 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | `main.go` | Starts the integration before the node sync; installs the managed-mode guard |
 | `middleware/auth.go` | `TokenAuth` hands a customer's access token to the integration before the key is split, and narrows the service token's models to the customer's |
 | `middleware/essera.go` (new) | The customer authentication and policy middleware |
-| `controller/relay.go` | Reports every finished relay request to the integration |
+| `controller/relay.go` | Reports every finished relay request to the integration; reserves a customer's request against its quotas; admits each attempt against the provider's rate limit and takes the provider's retries as the retry budget |
+| `relay/channel/api_request.go` | Bounds the wait for a provider's answer by the provider's timeout |
 | `controller/essera.go` (new) | Runs the Console's connection tests through new-api's channel test |
 | `router/main.go` | Registers the internal API |
 | `controller/misc.go` | `/api/status` says whether the gateway is managed (`essera_managed`) |
@@ -49,7 +54,7 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | `model/essera_hooks.go` (new) | The hook that resolution goes through |
 | `dto/channel_constraints.go`, `model/channel_constraint.go` | A channel filter that limits a model to the providers a customer may use |
 | `web/src/components/layout/components/footer.tsx`, `web/src/i18n/locales/*.json` | The footer shows the AGPLv3 §7(b) notice from `NOTICE` verbatim; the locales also carry the managed badge's texts |
-| `go.mod`, `go.sum`, `THIRD-PARTY-LICENSES.md` | AWS SDK modules for S3, SQS, Secrets Manager and shared configuration (Apache-2.0) |
+| `go.mod`, `go.sum`, `THIRD-PARTY-LICENSES.md` | AWS SDK modules for S3, SQS, Secrets Manager and shared configuration, and go-jose for the customer pool's signing keys (Apache-2.0) |
 
 ### Settings
 
@@ -70,6 +75,7 @@ The fork runs on PostgreSQL only. The Essera tables are:
 - `essera_config_versions`
 - `essera_usage_outbox`
 - `essera_usage_counters`
+- `essera_provider_minutes`
 - `essera_request_stats`
 - `essera_provider_errors`
 

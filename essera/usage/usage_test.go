@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/essera/auth"
+	"github.com/QuantumNous/new-api/essera/limits"
 	"github.com/QuantumNous/new-api/essera/policy"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/records/recordstest"
@@ -47,6 +48,7 @@ func serve(t *testing.T, endUser string) served {
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 	c.Request.Header.Set("X-Essera-Correlation-Id", "corr-1")
 	c.Set(usage.ContextKey, request)
+	require.Nil(t, usage.Reserve(c), "the relay reserves the request before its first attempt")
 	c.Set(common.RequestIdKey, "req-1")
 	c.Set(common.UpstreamRequestIdKey, "chatcmpl-9")
 	common.SetContextKey(c, constant.ContextKeyConsumeLog, &model.RecordConsumeLogParams{PromptTokens: 1_000_000, CompletionTokens: 500_000})
@@ -99,14 +101,15 @@ func TestAServedRequestIsReportedAndCounted(t *testing.T) {
 	assert.GreaterOrEqual(t, event.LatencyMs, int64(1500))
 	assert.Equal(t, http.StatusOK, event.HTTPStatus)
 
-	var counted records.Counter
-	require.NoError(t, model.DB.Where("scope = ? AND subject = ?", "customer", snapshottest.CustomerID).First(&counted).Error)
-	assert.Equal(t, int64(1), counted.Requests)
+	var counted, spent records.Counter
+	require.NoError(t, model.DB.Where("scope = ? AND subject = ? AND currency = ?", "customer", snapshottest.CustomerID, limits.Counts).First(&counted).Error)
+	assert.Equal(t, int64(1), counted.Requests, "reserved when the policy admitted it")
 	assert.Equal(t, int64(1_500_000), counted.Tokens)
-	assert.Equal(t, "8.4", counted.Spend.String(), "2.40 input at the partner's markup plus 6.00 output at the customer's rate")
+	require.NoError(t, model.DB.Where("scope = ? AND subject = ? AND currency = ?", "customer", snapshottest.CustomerID, "USD").First(&spent).Error)
+	assert.Equal(t, "8.4", spent.Spend.String(), "2.40 input at the partner's markup plus 6.00 output at the customer's rate")
 }
 
-func TestAFailedRequestIsReportedButNotCounted(t *testing.T) {
+func TestAFailedRequestIsReportedAndCountedAsTheConsoleCountsIt(t *testing.T) {
 	s := serve(t, "")
 	failure := types.NewErrorWithStatusCode(assert.AnError, types.ErrorCodeBadResponseStatusCode, http.StatusTooManyRequests)
 
@@ -117,9 +120,10 @@ func TestAFailedRequestIsReportedButNotCounted(t *testing.T) {
 	assert.Equal(t, "rate_limited", events[0].Status)
 	assert.Equal(t, http.StatusTooManyRequests, events[0].HTTPStatus)
 	assert.Nil(t, events[0].EndUserID)
-	var count int64
-	model.DB.Model(&records.Counter{}).Count(&count)
-	assert.Zero(t, count)
+	var counted records.Counter
+	require.NoError(t, model.DB.Where("scope = ? AND subject = ? AND currency = ?", "customer", snapshottest.CustomerID, limits.Counts).First(&counted).Error)
+	assert.Equal(t, int64(1), counted.Requests, "every request counts, as in the Console")
+	assert.Equal(t, int64(1_500_000), counted.Tokens, "the tokens it reported count too")
 }
 
 func TestARequestThatReachedNoProviderIsNotReported(t *testing.T) {
@@ -146,4 +150,24 @@ func TestAReplayedEventIsQueuedOnce(t *testing.T) {
 	usage.Finished(s.context, s.info, nil)
 	usage.Finished(s.context, s.info, nil)
 	assert.Len(t, queued(t), 1)
+}
+
+func TestTheLastRequestOfAQuotaGoesToOneRequestAndAnUnservedOneGivesItBack(t *testing.T) {
+	s := serve(t, "user-1") // the end user's quota is 2; this request holds one
+	admitted := func() *gin.Context {
+		request, denial := policy.Evaluate(s.request.Caller, "user-1", "US", time.Now())
+		require.Nil(t, denial)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Set(usage.ContextKey, request)
+		return c
+	}
+	second, third := admitted(), admitted() // both pass the policy while one unit is left
+
+	require.Nil(t, usage.Reserve(second))
+	refused := usage.Reserve(third)
+	require.NotNil(t, refused, "only one of them gets the last unit")
+	assert.Equal(t, http.StatusTooManyRequests, refused.StatusCode)
+
+	usage.Finished(second, &relaycommon.RelayInfo{}, nil) // it reached no provider
+	assert.Nil(t, usage.Reserve(third), "the unserved request gave its unit back")
 }

@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"github.com/MoeForge/moego/regexp"
 	common2 "github.com/QuantumNous/new-api/common"
 	appconstant "github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/essera/providerlimits"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/constant"
@@ -567,6 +569,13 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	}
 
 	common2.SetContextKey(c, appconstant.ContextKeyUpstreamRequestOrigin, req.URL.Scheme+"://"+req.URL.Host)
+	// Modified by Essera, 2026-11: a Console provider's timeout bounds the wait for its answer.
+	if timeout := providerlimits.Timeout(info.ChannelId); timeout > 0 {
+		ctx, cancel := context.WithCancel(req.Context())
+		req = req.WithContext(ctx)
+		answered := time.AfterFunc(timeout, cancel)
+		defer answered.Stop()
+	}
 	resp, err := relayClient.Do(req)
 	if err != nil {
 		// A url.Error quotes the request URL, whose query may carry a

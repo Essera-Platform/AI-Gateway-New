@@ -37,6 +37,7 @@ type Request struct {
 	// serve it.
 	AllowedModels map[string][]string
 	Headers       map[string]string
+	Reserved      bool // counted against the request quotas, once it went to relay
 }
 
 // Evaluate applies the policy to an authenticated caller.
@@ -83,6 +84,12 @@ func maintenance(section snapshot.GatewaySection, now time.Time, request *Reques
 		}
 		return denial
 	case snapshot.MaintenanceScheduled:
+		if section.WindowStart != nil && section.WindowEnd != nil && !now.Before(*section.WindowStart) && now.Before(*section.WindowEnd) {
+			// The announced window has begun: it is maintenance even if nobody switched it on.
+			active := section
+			active.MaintenanceStatus = snapshot.MaintenanceActive
+			return maintenance(active, now, request)
+		}
 		if section.WindowStart != nil && section.WindowEnd != nil {
 			request.Headers["X-Essera-Maintenance"] = "scheduled; start=" + section.WindowStart.UTC().Format(time.RFC3339) + "; end=" + section.WindowEnd.UTC().Format(time.RFC3339)
 		}

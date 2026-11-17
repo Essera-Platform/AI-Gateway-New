@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -71,6 +72,10 @@ func HandleEvent(ctx context.Context, event snapshot.Event) error {
 	if active := snapshot.Current(); active != nil && event.Version <= active.Version {
 		return nil
 	}
+	if err := trusted(event, snapshot.Current()); err != nil {
+		rememberFailure(event.Version, err)
+		return nil // an event that names another place or an implausible version is never applied
+	}
 	data, found, err := awsx.GetObject(ctx, event.Bucket, event.SnapshotKey)
 	if err != nil {
 		return err
@@ -85,18 +90,28 @@ func HandleEvent(ctx context.Context, event snapshot.Event) error {
 	}
 	if err := Apply(event.Version, event.SHA256, data); err != nil {
 		rememberFailure(event.Version, err)
-		recordFailure(event.Version, event.SHA256, data, err)
-		return nil // a document that cannot be applied stays failed; retrying will not help
+		var unreadable *unreadableSnapshot
+		if errors.As(err, &unreadable) {
+			recordFailure(event.Version, event.SHA256, data, err)
+			return nil // a document that cannot be read stays failed; retrying will not help
+		}
+		return err // anything else, such as the database, may pass on the queue's next delivery
 	}
 	return nil
 }
+
+// unreadableSnapshot is a document that will never apply, as opposed to a failure on the way.
+type unreadableSnapshot struct{ cause error }
+
+func (e *unreadableSnapshot) Error() string { return "the snapshot cannot be read: " + e.cause.Error() }
+func (e *unreadableSnapshot) Unwrap() error { return e.cause }
 
 // Apply validates a snapshot document, keeps it and makes it the version every request is
 // served with, on this node now and on every node within seconds.
 func Apply(version int64, digest string, data []byte) error {
 	parsed, err := snapshot.Parse(data)
 	if err != nil {
-		return fmt.Errorf("the snapshot cannot be read: %w", err)
+		return &unreadableSnapshot{cause: err}
 	}
 	var previous *snapshot.Snapshot
 	if active := snapshot.Current(); active != nil {
@@ -226,4 +241,25 @@ func FallbackPolicies() map[string][]string {
 		_ = common.UnmarshalJsonStr(raw, &policies)
 	}
 	return policies
+}
+
+// MaxVersionJump bounds how far ahead of the active version an event may be. The Console
+// numbers versions one after another, with gaps only for failed publications; a version far
+// ahead would make every real one after it look superseded.
+const MaxVersionJump = 1000
+
+// trusted refuses an event outside this environment's snapshot bucket and prefix, or one whose
+// version jumps implausibly far, whoever could put it on the queue.
+func trusted(event snapshot.Event, active *snapshot.View) error {
+	environment := settings.Environment()
+	if !strings.HasPrefix(event.Bucket, "essera-"+environment+"-config-snapshots") {
+		return fmt.Errorf("version %d names bucket %q, not this environment's snapshots", event.Version, event.Bucket)
+	}
+	if !strings.HasPrefix(event.SnapshotKey, environment+"/config/") {
+		return fmt.Errorf("version %d names key %q outside %s/config/", event.Version, event.SnapshotKey, environment)
+	}
+	if active != nil && event.Version > active.Version+MaxVersionJump {
+		return fmt.Errorf("version %d is more than %d ahead of the active %d", event.Version, MaxVersionJump, active.Version)
+	}
+	return nil
 }

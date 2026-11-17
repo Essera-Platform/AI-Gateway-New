@@ -2,10 +2,12 @@ package servicetrust
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/assert"
@@ -41,6 +43,7 @@ func signed(url, authorization, audience string) SignedRequest {
 		Headers: map[string]string{
 			"Authorization":     authorization,
 			"X-Essera-Audience": audience,
+			"X-Amz-Date":        time.Now().UTC().Format("20060102T150405Z"),
 		},
 	}
 }
@@ -88,8 +91,46 @@ func TestSTSHosts(t *testing.T) {
 		"http://sts.us-east-1.amazonaws.com/":               false,
 		"https://sts.us-east-1.amazonaws.com.evil.example/": false,
 		"https://evil.example/":                             false,
+		"https://sts.s3-website-us-east-1.amazonaws.com/":   false,
+		"https://sts.us-gov-west-1.amazonaws.com/":          true,
 	} {
 		request := signed(host, goodAuthorization, Audience())
-		assert.Equal(t, allowed, checkShape(request) == nil, host)
+		headers, err := canonical(request.Headers)
+		require.NoError(t, err)
+		assert.Equal(t, allowed, checkShape(request, headers) == nil, host)
 	}
+}
+
+func TestAHeaderGivenTwiceInDifferentCasesIsRefused(t *testing.T) {
+	sts := fakeSTS(t, "arn:aws:sts::123456789012:assumed-role/essera-dev-task/abc123")
+	request := signed(sts.URL, goodAuthorization+"5", "essera-gateway-dev")
+	request.Headers["x-essera-audience"] = "essera-gateway-prod"
+
+	_, err := Verify(context.Background(), encode(t, request))
+
+	assert.ErrorContains(t, err, "repeats the header")
+}
+
+func TestAnIdentityPastItsSignatureLifetimeIsNotReused(t *testing.T) {
+	sts := fakeSTS(t, "arn:aws:sts::123456789012:assumed-role/essera-dev-task/abc123")
+	request := signed(sts.URL, goodAuthorization+"6", "essera-gateway-dev")
+	request.Headers["X-Amz-Date"] = time.Now().UTC().Add(-20 * time.Minute).Format("20060102T150405Z")
+	encoded := encode(t, request)
+	_, err := Verify(context.Background(), encoded)
+	require.NoError(t, err, "the fake STS accepts it; real STS refuses a signature this old")
+
+	cacheMu.Lock()
+	_, cached := cache[sha256.Sum256(mustDecode(t, encoded))]
+	cacheMu.Unlock()
+	require.True(t, cached)
+	sts.Close() // a reuse would now have to come from the cache
+	_, err = Verify(context.Background(), encoded)
+	assert.Error(t, err, "past X-Amz-Date + 15 minutes the cache does not answer")
+}
+
+func mustDecode(t *testing.T, encoded string) []byte {
+	t.Helper()
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	require.NoError(t, err)
+	return raw
 }

@@ -63,7 +63,7 @@ func remoteKeySet(issuer string) oidc.KeySet {
 		return keys
 	}
 	address := common.GetEnvOrDefaultString("ESSERA_JWKS_URL", issuer+"/.well-known/jwks.json")
-	keys := oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(), client), address)
+	keys := newCachedKeySet(address)
 	keySets[issuer] = keys
 	return keys
 }
@@ -84,7 +84,7 @@ func Authenticate(ctx context.Context, rawToken string, view *snapshot.View, now
 	if view == nil {
 		return nil, &Failure{Code: "essera_unavailable", Message: "The gateway has no configuration yet."}
 	}
-	if settings.CustomerUserPoolID() == "" {
+	if settings.CustomerUserPoolID() == "" || len(settings.CustomerScopes()) == 0 {
 		return nil, &Failure{Code: "essera_unavailable", Message: "No customer token issuer is configured."}
 	}
 	issuerURL := IssuerURL()
@@ -112,9 +112,6 @@ func Authenticate(ctx context.Context, rawToken string, view *snapshot.View, now
 }
 
 func hasScope(granted string, required []string) bool {
-	if len(required) == 0 {
-		return true
-	}
 	return slices.ContainsFunc(strings.Fields(granted), func(scope string) bool {
 		return slices.Contains(required, scope)
 	})
