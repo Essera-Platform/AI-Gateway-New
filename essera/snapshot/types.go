@@ -172,6 +172,7 @@ type Rate struct {
 	PerQuantity    int64            `json:"per_quantity"`
 	CostType       *string          `json:"cost_type"`
 	OrganizationID *string          `json:"organization_id"`
+	EndUser        *string          `json:"end_user_external_id"`
 	Method         string           `json:"method"`
 	Amount         *decimal.Decimal `json:"amount"`
 	Percent        *decimal.Decimal `json:"percent"`
