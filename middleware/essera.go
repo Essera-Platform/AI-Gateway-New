@@ -84,3 +84,27 @@ func esseraLimitModels(c *gin.Context) {
 	c.Set("token_model_limit_enabled", true)
 	c.Set("token_model_limit", allowed)
 }
+
+var countDenial = stats.Denial
+
+// esseraCountRefusal counts a customer's request that new-api refuses after the Essera policy
+// let it through: a model outside the customer's entitlements, no channel to serve it, a
+// request it cannot read. Such a request never reaches relay, so nothing else counts it.
+func esseraCountRefusal(c *gin.Context, status int) {
+	if _, admitted := c.Get(usage.ContextKey); !admitted || c.IsAborted() {
+		return
+	}
+	countDenial(time.Now(), refusalReason(status), status)
+}
+
+func refusalReason(status int) string {
+	switch status {
+	case http.StatusForbidden:
+		return "model"
+	case http.StatusTooManyRequests:
+		return "rate_limit"
+	case http.StatusServiceUnavailable:
+		return "no_channel"
+	}
+	return "invalid_request"
+}

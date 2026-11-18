@@ -44,6 +44,7 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | `main.go` | Starts the integration before the node sync; installs the managed-mode guard |
 | `middleware/auth.go` | `TokenAuth` hands a customer's access token to the integration before the key is split, and narrows the service token's models to the customer's |
 | `middleware/essera.go` (new) | The customer authentication and policy middleware |
+| `middleware/utils.go` | Counts a customer's request that new-api refuses after the Essera policy (a model outside the entitlements, no channel), which never reaches relay |
 | `controller/relay.go` | Reports every finished relay request to the integration; reserves a customer's request against its quotas; admits each attempt against the provider's rate limit and takes the provider's retries as the retry budget |
 | `relay/channel/api_request.go` | Bounds the wait for a provider's answer by the provider's timeout |
 | `controller/essera.go` (new) | Runs the Console's connection tests through new-api's channel test |

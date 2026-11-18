@@ -12,6 +12,7 @@ import (
 )
 
 func abortWithOpenAiMessage(c *gin.Context, statusCode int, message string, code ...types.ErrorCode) {
+	esseraCountRefusal(c, statusCode) // Modified by Essera, 2026-11: counts refusals after the policy
 	codeStr := ""
 	if len(code) > 0 {
 		codeStr = string(code[0])
