@@ -156,10 +156,11 @@ func price(request *policy.Request, event *Event) decimal.Decimal {
 	if rates == nil {
 		return decimal.Zero
 	}
-	buyers := []string{request.Caller.Customer.ID}
+	partnerID := ""
 	if request.Caller.Partner != nil {
-		buyers = append(buyers, request.Caller.Partner.ID)
+		partnerID = request.Caller.Partner.ID
 	}
+	buyers := rating.Buyers(request.Caller.Customer.ID, partnerID, request.EndUserID)
 	charges := rating.Price(rates.Rates, event.Provider, event.Model, buyers, event.TS, rating.Usage{
 		Modality: event.Modality, InputUnits: event.InputUnits, OutputUnits: event.OutputUnits, GeneratedUnits: event.GeneratedUnits,
 	})
