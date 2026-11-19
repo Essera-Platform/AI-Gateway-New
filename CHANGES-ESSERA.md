@@ -81,3 +81,11 @@ The fork runs on PostgreSQL only. The Essera tables are:
 - `essera_provider_errors`
 
 They hold working state; every business record stays in the Console.
+
+## 2026-11 — AWS Bedrock models in eu-west-1
+
+- **Text through Converse:** every model except Claude, Amazon Nova included, goes through Converse and ConverseStream. This covers system prompts, images, documents, video, `input_audio` (Voxtral), tools, stop, sampling, max tokens, cache points and reasoning effort (GPT-oss, Nova 2; at high effort Nova 2 refuses temperature and top_p, so they are dropped, while max_tokens is kept and Bedrock answers 400). Answers are served as chat completions, Anthropic Messages or Responses. Cache reads and writes count as prompt tokens.
+- **Claude** stays on InvokeModel, except on `/v1/responses`, which uses Converse for every model.
+- **Embeddings:** Titan Text Embeddings v2, Titan Multimodal Embeddings, and Cohere Embed v3 and v4, through InvokeModel with each model's native body.
+- **Errors:** Bedrock exceptions map to 429, 400, 403, 404, 503, 504 or 401. Rerank is refused, because it is not offered in eu-west-1. The Gemini request format is not converted for Bedrock.
+- **Files:** `relay/channel/aws/adaptor.go`, `relay-aws.go`, `dto.go` and `mantle.go` were changed. `essera_runtime.go`, `essera_converse.go`, `essera_embedding.go` and `essera_bedrock_test.go` are new.

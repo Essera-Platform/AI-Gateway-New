@@ -1,3 +1,4 @@
+// Modified by Essera, 2026-11: the Nova InvokeModel handler case went with the handler.
 package aws
 
 import (
@@ -402,7 +403,6 @@ func TestAwsHandlersCancelSdkRequestAndSkipRetry(t *testing.T) {
 	}{
 		{name: "non-stream", request: newAwsInvokeModelInput(), handle: awsHandler},
 		{name: "stream", request: newAwsStreamInput(), handle: awsStreamHandler},
-		{name: "nova", request: newAwsInvokeModelInput(), handle: handleNovaRequest},
 	}
 
 	for _, test := range tests {

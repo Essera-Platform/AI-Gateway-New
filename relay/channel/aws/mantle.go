@@ -1,3 +1,4 @@
+// Modified by Essera, 2026-11: Nova is recognised by model id only.
 package aws
 
 import (
@@ -64,7 +65,7 @@ func (a *Adaptor) newMantleRequest(c *gin.Context, info *relaycommon.RelayInfo, 
 	if err != nil {
 		return nil, err
 	}
-	if a.IsNova || isNovaModel(getAwsModelID(info.UpstreamModelName)) {
+	if isNovaModel(getAwsModelID(info.UpstreamModelName)) { // Modified by Essera, 2026-11: Nova has no adaptor flag now
 		return nil, fmt.Errorf("AWS Mantle Messages API requires a Claude model; use InvokeModel for Amazon Nova")
 	}
 	payload, err := io.ReadAll(requestBody)
