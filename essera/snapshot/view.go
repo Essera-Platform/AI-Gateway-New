@@ -179,9 +179,6 @@ func Narrow(parent Entitlements, own Entitlements) Entitlements {
 	if own.BillingCycle != nil {
 		result.BillingCycle = own.BillingCycle
 	}
-	if own.PricingPlan != nil {
-		result.PricingPlan = own.PricingPlan
-	}
 	return result
 }
 

@@ -25,6 +25,7 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
   - approved and blocked countries;
   - models and providers;
   - monthly request, token and spend limits, checked against the totals the Console publishes from its ledger (`usage.totals` on the configuration queue, kept in the database). Spend is the Console's figure only; the Gateway prices nothing. Requests and tokens are the Console's total plus what the Gateway counted from the totals' `as_of` on: a request is reserved when the relay takes it, so concurrent requests cannot all take the last one, and given back if it reaches no provider; tokens are added when it ends, whatever its outcome. Until totals arrive, limits use zero spend and the Gateway's own counts, and this is logged.
+- **Snapshot entitlements:** each account level publishes countries, providers, models, monthly request, token and spend limits, currency and billing cycle; a child narrows its parent. A field the Gateway does not read is ignored, so a snapshot from an older Console that still carries the account's pricing plan applies as before.
 - **`essera/providerlimits`:** applies each provider's settings from the snapshot to every attempt:
   - the rate limit in requests per minute, counted across nodes in the database, with 429 `essera_provider_rate_limited` past it;
   - the provider's retries as the request's retry budget;
