@@ -151,3 +151,16 @@ func TestAdjustIsAPercentOnTheStandardPrice(t *testing.T) {
 	orphan := rating.Price([]snapshot.Rate{cost, discount}, "bedrock", "nova", rating.Buyers(snapshottest.CustomerID, "", ""), at, usage)
 	assert.Nil(t, charge(t, orphan, "input_tokens").Billable, "nothing to apply the percent to")
 }
+
+func TestTheStandardPriceOnEveryUnitDoesNotChargeTheRequestCount(t *testing.T) {
+	list := "list"
+	cost := snapshot.Rate{ID: "cost", Kind: "cost", ProviderKey: "bedrock", ModelKey: "nova", Unit: "input_tokens", PerQuantity: 1_000_000,
+		CostType: &list, Method: "fixed", Amount: price("0.069"), Currency: "USD", EffectiveFrom: at.Add(-time.Hour)}
+	standard := selling("standard", "", "", "*", "*", "*", "markup", "0")
+
+	charges := rating.Price([]snapshot.Rate{cost, standard}, "bedrock", "nova", rating.Buyers(snapshottest.CustomerID, "", ""), at,
+		rating.Usage{Modality: "text", InputUnits: 1_000_000})
+
+	require.Len(t, charges, 1, "Bedrock has no per-request cost, so the request count is not charged")
+	assert.Equal(t, "0.069", charge(t, charges, "input_tokens").Billable.String())
+}

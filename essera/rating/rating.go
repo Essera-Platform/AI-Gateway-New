@@ -91,7 +91,13 @@ func Price(rates []snapshot.Rate, providerKey, modelKey string, buyers []Buyer, 
 		k := key{providerKey, modelKey, q.unit}
 		cost := costFor(rates, k, at, "")
 		selling := sellingFor(rates, k, at, buyers)
-		if cost == nil && selling == nil && !q.required {
+		var price *decimal.Decimal
+		if selling != nil {
+			price = unitPrice(selling, rates, k, at)
+		}
+		// A percent covering every unit, like the standard price at cost, reaches the request
+		// count too; with nothing to apply to there, the request is simply not charged for.
+		if !q.required && cost == nil && price == nil {
 			continue
 		}
 		charge := Charge{Unit: q.unit, Quantity: q.amount}
@@ -101,7 +107,7 @@ func Price(rates []snapshot.Rate, providerKey, modelKey string, buyers []Buyer, 
 		if selling != nil {
 			charge.SellingRateID = selling.ID
 			charge.BillableCurrency = selling.Currency
-			if price := unitPrice(selling, rates, k, at); price != nil {
+			if price != nil {
 				amount := decimal.NewFromInt(q.amount).Mul(*price).RoundBank(6)
 				charge.Billable = &amount
 			}
