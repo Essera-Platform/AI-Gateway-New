@@ -351,6 +351,12 @@ func GetAuditLogs(c *gin.Context) {
 	filter := model.AuditLogFilter{Username: c.Query("username"), Category: c.Query("category"), TokenRef: c.Query("token_ref"), ExcludeTokenRef: c.Query("exclude_token_ref"), RequestId: c.Query("request_id")}
 	viewerRole := c.GetInt("role")
 	if c.FullPath() == "/api/audit/self" {
+		if person, handled := esseraPagePerson(c); handled { // Modified by Essera, 2026-11: a person's audit is the Console's
+			if person != nil {
+				esseraAuditLogs(c, person)
+			}
+			return
+		}
 		filter.UserId = c.GetInt("id")
 		filter.Username = ""
 		filter.SelfView = true

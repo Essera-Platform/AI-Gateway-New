@@ -35,6 +35,7 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { checkIsActive } from '@/components/layout/lib/url-utils'
+import { ESSERA_ACCOUNT_QUERY_KEY } from '@/features/essera/account'
 import { invalidateModelPricing } from '@/features/model-pricing/api'
 import {
   parseSidebarModulesAdmin,
@@ -318,5 +319,98 @@ describe('model pricing badge', () => {
     ).toBeInTheDocument()
     expect(get).not.toHaveBeenCalledWith('/api/option/model_pricing/issues')
     expect(badgedEntries()).toHaveLength(0)
+  })
+})
+
+// Modified by Essera, 2026-11: a managed gateway's sidebar.
+describe('managed gateway sidebar', () => {
+  function ManagedEntries() {
+    const { navGroups } = useSidebarView()
+    return (
+      <ul aria-label='Entries'>
+        {navGroups
+          .flatMap((group) => group.items)
+          .map((item) => (
+            <li key={item.title}>{item.title}</li>
+          ))}
+      </ul>
+    )
+  }
+
+  async function renderManagedSidebar(
+    role: number,
+    account: { role: 'admin' | 'user' } | null,
+    sidebarModulesAdmin = ''
+  ) {
+    vi.spyOn(api, 'get').mockImplementation(async () => ({
+      data: { success: true, data: {} },
+    }))
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    })
+    client.setQueryData(['status'], {
+      essera_managed: true,
+      SidebarModulesAdmin: sidebarModulesAdmin,
+    })
+    client.setQueryData(ESSERA_ACCOUNT_QUERY_KEY, account)
+    useAuthStore.getState().auth.setUser({ id: 7, username: 'person', role })
+    const router = createRouter({
+      routeTree: createRootRoute({ component: ManagedEntries }),
+      history: createMemoryHistory({ initialEntries: ['/dashboard/overview'] }),
+    })
+    await router.load()
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    )
+    const list = await screen.findByRole('list', { name: 'Entries' })
+    return [...list.querySelectorAll('li')].map((item) => item.textContent)
+  }
+
+  it('hides wallet, task logs, redemption codes and subscriptions even when the stored setting shows them', async () => {
+    const allOn = JSON.stringify({
+      console: { enabled: true, task: true, midjourney: true, log: true },
+      personal: { enabled: true, topup: true, personal: true },
+      admin: {
+        enabled: true,
+        redemption: true,
+        subscription: true,
+        user: true,
+      },
+    })
+
+    const titles = await renderManagedSidebar(ROLE.SUPER_ADMIN, null, allOn)
+
+    expect(titles).not.toContain('Wallet')
+    expect(titles).not.toContain('Task Logs')
+    expect(titles).not.toContain('Redemption Codes')
+    expect(titles).not.toContain('Subscriptions')
+    expect(titles).toContain('Usage Logs')
+    expect(titles).toContain('Users')
+  })
+
+  it('shows an admin the Users entry and no other admin entry', async () => {
+    const titles = await renderManagedSidebar(ROLE.USER, { role: 'admin' })
+
+    expect(titles).toContain('Users')
+    expect(titles).not.toContain('Channels')
+    expect(titles).not.toContain('Models')
+    expect(titles).not.toContain('System Settings')
+  })
+
+  it('hides the Users entry from a person with the user role', async () => {
+    const titles = await renderManagedSidebar(ROLE.USER, { role: 'user' })
+
+    expect(titles).not.toContain('Users')
+    expect(titles).not.toContain('Channels')
+  })
+
+  it('keeps the operator admin section', async () => {
+    const titles = await renderManagedSidebar(ROLE.SUPER_ADMIN, null)
+
+    expect(titles).toEqual(
+      expect.arrayContaining(['Channels', 'Models', 'Users', 'System Settings'])
+    )
   })
 })

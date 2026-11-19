@@ -73,6 +73,12 @@ func GetAllLogs(c *gin.Context) {
 }
 
 func GetUserLogs(c *gin.Context) {
+	if person, handled := esseraPagePerson(c); handled { // Modified by Essera, 2026-11: a person's usage is the Console's
+		if person != nil {
+			esseraUserLogs(c, person)
+		}
+		return
+	}
 	pageInfo := common.GetPageQuery(c)
 	filter := logFilterFromQuery(c, false)
 	if c.GetInt("role") < common.RoleAdminUser {
@@ -101,6 +107,12 @@ func ExportAllLogs(c *gin.Context) {
 
 // ExportUserLogs streams the caller's own logs matching the search.
 func ExportUserLogs(c *gin.Context) {
+	if _, handled := esseraPagePerson(c); handled { // Modified by Essera, 2026-11: the Console exports a person's usage
+		if !c.Writer.Written() {
+			common.ApiErrorT(c, "Log export is disabled")
+		}
+		return
+	}
 	if c.GetInt("role") < common.RoleAdminUser && !operation_setting.GetLogSetting().UserExportEnabled {
 		common.ApiErrorT(c, "Log export is disabled")
 		return
@@ -228,6 +240,12 @@ func GetLogsStat(c *gin.Context) {
 }
 
 func GetLogsSelfStat(c *gin.Context) {
+	if person, handled := esseraPagePerson(c); handled { // Modified by Essera, 2026-11: a person's usage is the Console's
+		if person != nil {
+			esseraLogsStat(c, person)
+		}
+		return
+	}
 	username := c.GetString("username")
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)

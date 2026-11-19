@@ -63,6 +63,12 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.POST("/essera/sign-in", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.EsseraSignIn)
 		apiRouter.POST("/essera/sign-in/continue", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.EsseraSignInContinue)
 		apiRouter.GET("/ratio_config", middleware.CriticalRateLimit(), controller.GetRatioConfig)
+		// Modified by Essera, 2026-11: an admin's people, kept by the Console.
+		esseraPeople := apiRouter.Group("/essera/people", middleware.UserAuth(), middleware.DisableCache())
+		esseraPeople.GET("", controller.EsseraPeople)
+		esseraPeople.POST("", middleware.CriticalRateLimit(), controller.EsseraAddPerson)
+		esseraPeople.POST("/:id/:action", middleware.CriticalRateLimit(), controller.EsseraChangePerson)
+		esseraPeople.DELETE("/:id", middleware.CriticalRateLimit(), controller.EsseraChangePerson)
 
 		apiRouter.POST("/stripe/webhook", anonymousRequestBodyLimit, controller.StripeWebhook)
 		apiRouter.POST("/creem/webhook", anonymousRequestBodyLimit, controller.CreemWebhook)

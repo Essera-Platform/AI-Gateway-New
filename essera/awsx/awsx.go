@@ -201,3 +201,16 @@ func SecretString(ctx context.Context, reference string) (string, error) {
 	}
 	return *out.SecretString, nil
 }
+
+// Credentials are the task role's current credentials and the region they sign for.
+func Credentials(ctx context.Context) (aws.Credentials, string, error) {
+	cfg, err := awsConfig(ctx)
+	if err != nil {
+		return aws.Credentials{}, "", err
+	}
+	if cfg.Credentials == nil {
+		return aws.Credentials{}, "", errors.New("no AWS credentials")
+	}
+	credentials, err := cfg.Credentials.Retrieve(ctx)
+	return credentials, cfg.Region, err
+}

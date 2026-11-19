@@ -200,6 +200,16 @@ export type RequestPluginAdminStep = {
 }
 
 export interface LogOtherData {
+  // Modified by Essera, 2026-11: a request from the Console's ledger, priced by the Console.
+  essera?: {
+    provider?: string
+    modality?: string
+    currency?: string
+    billable_amount?: string | null
+    status?: string
+    generated_units?: number
+    latency_ms?: number
+  }
   admin_info?: {
     request_policy?: PolicyEvent[]
     request_plugins?: RequestPluginAdminStep[]

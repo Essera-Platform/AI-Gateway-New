@@ -60,13 +60,17 @@ export function PricingTable(props: PricingTableProps) {
     pageSize: DEFAULT_PRICING_PAGE_SIZE,
   })
 
-  const columns = usePricingColumns({
-    tokenUnit,
-    priceRate,
-    usdExchangeRate,
-    showRechargePrice,
-    selectedGroup,
-  })
+  const columns = usePricingColumns(
+    {
+      tokenUnit,
+      priceRate,
+      usdExchangeRate,
+      showRechargePrice,
+      selectedGroup,
+    },
+    // Modified by Essera, 2026-11: a managed gateway's catalog has its own columns.
+    models.some((model) => model.essera)
+  )
 
   const { table } = useDataTable({
     data: models,

@@ -4,12 +4,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -133,4 +138,62 @@ func mustDecode(t *testing.T, encoded string) []byte {
 	raw, err := base64.StdEncoding.DecodeString(encoded)
 	require.NoError(t, err)
 	return raw
+}
+
+// TestTheGatewaysOwnIdentityIsAValidSignatureForItsAudience signs as the Console's read API
+// expects and checks the signature the way STS does, by signing the same request again.
+func TestTheGatewaysOwnIdentityIsAValidSignatureForItsAudience(t *testing.T) {
+	t.Setenv("AWS_ACCESS_KEY_ID", "AKIDEXAMPLE")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY")
+	t.Setenv("AWS_SESSION_TOKEN", "session-token")
+	t.Setenv("AWS_REGION", "eu-west-1")
+	credentials := aws.Credentials{AccessKeyID: "AKIDEXAMPLE", SecretAccessKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", SessionToken: "session-token"}
+	var checked int
+	sts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		require.Equal(t, callerIdentityBody, string(body))
+		signedAt, err := time.Parse("20060102T150405Z", r.Header.Get("X-Amz-Date"))
+		require.NoError(t, err)
+		_, list, _ := strings.Cut(r.Header.Get("Authorization"), "SignedHeaders=")
+		list, _, _ = strings.Cut(list, ",")
+		again, _ := http.NewRequest(http.MethodPost, "http://"+r.Host+"/", nil)
+		for name := range strings.SplitSeq(list, ";") {
+			if name != "host" {
+				again.Header.Set(name, r.Header.Get(name))
+			}
+		}
+		again.Header.Del("X-Amz-Security-Token")
+		digest := sha256.Sum256(body)
+		require.NoError(t, v4.NewSigner().SignHTTP(context.Background(), credentials, again, hex.EncodeToString(digest[:]), "sts", "eu-west-1", signedAt))
+		if again.Header.Get("Authorization") != r.Header.Get("Authorization") {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		checked++
+		_, _ = w.Write([]byte(`<GetCallerIdentityResponse><GetCallerIdentityResult><Arn>arn:aws:sts::123456789012:assumed-role/essera-dev-task/gw</Arn></GetCallerIdentityResult></GetCallerIdentityResponse>`))
+	}))
+	t.Cleanup(sts.Close)
+	t.Setenv("ESSERA_AWS_ENDPOINT", sts.URL)
+	t.Setenv("ESSERA_ENVIRONMENT", "dev")
+	t.Setenv("ESSERA_TRUSTED_PRINCIPALS", "arn:aws:sts::123456789012:assumed-role/essera-dev-task/*")
+
+	header, err := Identity(context.Background(), Audience())
+	require.NoError(t, err)
+	var request SignedRequest
+	require.NoError(t, common.Unmarshal(mustDecode(t, header), &request))
+	assert.Equal(t, Audience(), request.Headers[AudienceHeader])
+	assert.Contains(t, request.Headers["Authorization"], "x-essera-audience", "the audience is signed")
+	assert.Equal(t, "session-token", request.Headers["X-Amz-Security-Token"])
+
+	arn, err := Verify(context.Background(), header)
+	require.NoError(t, err)
+	assert.Equal(t, "arn:aws:sts::123456789012:assumed-role/essera-dev-task/gw", arn)
+	assert.Equal(t, 1, checked)
+
+	again, err := Identity(context.Background(), Audience())
+	require.NoError(t, err)
+	assert.Equal(t, header, again, "one signature is sent for a while, so the receiver's cache answers")
+	other, err := Identity(context.Background(), "essera-console-dev")
+	require.NoError(t, err)
+	assert.NotEqual(t, header, other, "each audience gets its own")
 }

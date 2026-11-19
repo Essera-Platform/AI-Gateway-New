@@ -24,6 +24,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { esseraAccountStats } from '@/features/essera/account-summary'
+import { toIntlLocale } from '@/i18n/languages'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatCompactNumber, formatQuota } from '@/lib/format'
 import { getRoleLabel } from '@/lib/roles'
@@ -41,7 +43,7 @@ interface ProfileHeaderProps {
 }
 
 export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   if (loading) {
     return (
@@ -84,7 +86,7 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
   const avatarFallback = getUserAvatarFallback(avatarName)
   const avatarFallbackStyle = getUserAvatarStyle(avatarName)
   const roleLabel = getRoleLabel(profile.role)
-  const stats: {
+  let stats: {
     label: string
     value: string
     description: string
@@ -113,6 +115,19 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
       tone: 'chart-4',
     },
   ]
+  // Modified by Essera, 2026-11: a Console person sees this month's spend and limit; there
+  // is no balance on a managed gateway.
+  if (profile.essera) {
+    stats = esseraAccountStats(
+      t,
+      profile.essera,
+      toIntlLocale(i18n.resolvedLanguage || i18n.language)
+    ).map((stat, index) => ({
+      ...stat,
+      icon: stats[index].icon,
+      tone: stats[index].tone,
+    }))
+  }
 
   return (
     <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
@@ -152,7 +167,7 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
                   <span className='truncate'>{profile.email}</span>
                 </>
               )}
-              {profile.group && (
+              {profile.group && !profile.essera && (
                 <>
                   <span>•</span>
                   <span className='truncate'>{profile.group}</span>

@@ -16,6 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type {
+  EsseraModelInfo,
+  EsseraPrice,
+} from '@/features/essera/model-square-format'
+
 // ----------------------------------------------------------------------------
 // Pricing Types
 // ----------------------------------------------------------------------------
@@ -103,6 +108,12 @@ export type PricingModel = {
   input_modalities?: Modality[]
   output_modalities?: Modality[]
   capabilities?: ModelCapability[]
+  // Modified by Essera, 2026-11: a managed gateway lists the Console's models and the
+  // signed-in person's prices.
+  display_name?: string
+  model_type?: string
+  essera_prices?: EsseraPrice[]
+  essera?: EsseraModelInfo
 }
 
 /** Input/output modalities supported by a model. */
@@ -132,6 +143,7 @@ export type PricingData = {
   usable_group: Record<string, { desc: string; ratio: number }>
   supported_endpoint: Record<string, string>
   auto_groups: string[]
+  essera?: { signed_in: boolean; prices_available?: boolean } // Modified by Essera, 2026-11
 }
 
 export type TokenUnit = 'M' | 'K'

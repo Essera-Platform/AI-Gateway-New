@@ -26,6 +26,8 @@ import {
 } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
+import { EsseraModelPrices } from '@/features/essera/model-square'
+import { esseraModelTypeLabel } from '@/features/essera/model-square-format'
 import { getLobeIcon } from '@/lib/lobe-icon'
 
 import { parseTags } from '../lib/filters'
@@ -41,9 +43,80 @@ import { ModelPriceCell, type ModelPriceCellOptions } from './model-price-cell'
 export type PricingColumnsOptions = ModelPriceCellOptions
 
 export function usePricingColumns(
-  options: PricingColumnsOptions = {}
+  options: PricingColumnsOptions = {},
+  managed = false
 ): ColumnDef<PricingModel>[] {
   const { t } = useTranslation()
+
+  // Modified by Essera, 2026-11: a managed gateway shows the model, its type, the person's
+  // prices and the provider; no groups, ratios or endpoints.
+  if (managed) {
+    return [
+      {
+        accessorKey: 'model_name',
+        meta: { label: t('Model') },
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title={t('Model')} />
+        ),
+        cell: ({ row }) => (
+          <div className='flex max-w-full min-w-0 flex-col'>
+            <span className='truncate font-mono text-sm font-medium'>
+              {row.original.model_name}
+            </span>
+            {row.original.essera?.displayName && (
+              <span className='text-muted-foreground truncate text-xs'>
+                {row.original.essera.displayName}
+              </span>
+            )}
+          </div>
+        ),
+        minSize: 200,
+      },
+      {
+        id: 'model_type',
+        header: t('Type'),
+        cell: ({ row }) => (
+          <span className='text-sm'>
+            {esseraModelTypeLabel(t, row.original.essera?.modelType ?? '')}
+          </span>
+        ),
+        size: 110,
+        enableSorting: false,
+      },
+      {
+        id: 'price',
+        meta: { label: t('Price') },
+        header: t('Price'),
+        cell: ({ row }) =>
+          row.original.essera ? (
+            <div className='flex flex-col gap-0.5'>
+              <EsseraModelPrices info={row.original.essera} compact />
+            </div>
+          ) : null,
+        size: 220,
+        enableSorting: false,
+      },
+      {
+        accessorKey: 'vendor_name',
+        header: t('Vendor'),
+        cell: ({ row }) =>
+          row.original.vendor_name ? (
+            <BadgeCell>
+              <StatusBadge
+                label={row.original.vendor_name}
+                autoColor={row.original.vendor_name}
+                size='sm'
+                copyable={false}
+              />
+            </BadgeCell>
+          ) : (
+            <span className='text-muted-foreground/50 text-xs'>—</span>
+          ),
+        size: 130,
+        enableSorting: false,
+      },
+    ]
+  }
 
   return [
     // Model column

@@ -16,11 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { QueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import z from 'zod'
 
+import {
+  esseraAccountQueryOptions,
+  isEsseraAdmin,
+  useEsseraAccount,
+} from '@/features/essera/account'
+import { EsseraPeople } from '@/features/essera/people'
 import { Users } from '@/features/users'
 import { ROLE } from '@/lib/roles'
+import { statusQueryOptions } from '@/lib/status-query'
 import { useAuthStore } from '@/stores/auth-store'
 
 const usersSearchSchema = z.object({
@@ -38,16 +46,43 @@ const usersSearchSchema = z.object({
   group: z.array(z.string()).optional().catch([]),
 })
 
+// Modified by Essera, 2026-11: on a managed gateway an admin sees their customer's
+// people from the Console; operators keep the users page.
+async function isManagedEsseraAdmin(
+  queryClient: QueryClient,
+  role: number
+): Promise<boolean> {
+  try {
+    const status = await queryClient.fetchQuery(statusQueryOptions)
+    if (status?.essera_managed !== true) return false
+    const account = await queryClient.fetchQuery(esseraAccountQueryOptions)
+    return isEsseraAdmin(role, account)
+  } catch {
+    return false
+  }
+}
+
+function UsersPage() {
+  const role = useAuthStore((s) => s.auth.user?.role)
+  const account = useEsseraAccount()
+  return isEsseraAdmin(role, account) ? <EsseraPeople /> : <Users />
+}
+
 export const Route = createFileRoute('/_authenticated/users/')({
-  beforeLoad: () => {
+  beforeLoad: async ({ context }) => {
     const { auth } = useAuthStore.getState()
 
-    if (!auth.user || auth.user.role < ROLE.ADMIN) {
-      throw redirect({
-        to: '/403',
-      })
+    if (auth.user && auth.user.role >= ROLE.ADMIN) return
+    if (
+      auth.user &&
+      (await isManagedEsseraAdmin(context.queryClient, auth.user.role))
+    ) {
+      return
     }
+    throw redirect({
+      to: '/403',
+    })
   },
   validateSearch: usersSearchSchema,
-  component: Users,
+  component: UsersPage,
 })

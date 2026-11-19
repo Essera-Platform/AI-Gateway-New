@@ -82,6 +82,7 @@ export interface PricingToolbarProps {
 
 export function PricingToolbar(props: PricingToolbarProps) {
   const { t } = useTranslation()
+  const managed = props.models.some((model) => model.essera) // Modified by Essera, 2026-11
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const sortLabels = getSortLabels(t)
 
@@ -120,34 +121,43 @@ export function PricingToolbar(props: PricingToolbarProps) {
         </div>
 
         <div className='flex min-w-0 flex-wrap items-center gap-2'>
-          <ToggleGroup
-            value={[props.showRechargePrice ? 'recharge' : 'standard']}
-            onValueChange={(values) => {
-              if (values.length > 0) {
-                props.onRechargePriceChange(values[0] === 'recharge')
-              }
-            }}
-            variant='outline'
-            size='sm'
-            aria-label={t('Price display mode')}
-          >
-            <ToggleGroupItem value='standard'>{t('Standard')}</ToggleGroupItem>
-            <ToggleGroupItem value='recharge'>{t('Recharge')}</ToggleGroupItem>
-          </ToggleGroup>
-          <ToggleGroup
-            value={[props.tokenUnit]}
-            onValueChange={(values) => {
-              if (values[0] === 'M' || values[0] === 'K') {
-                props.onTokenUnitChange(values[0])
-              }
-            }}
-            variant='outline'
-            size='sm'
-            aria-label={t('Token unit')}
-          >
-            <ToggleGroupItem value='M'>/1M</ToggleGroupItem>
-            <ToggleGroupItem value='K'>/1K</ToggleGroupItem>
-          </ToggleGroup>
+          {/* Modified by Essera, 2026-11: Console prices have one form, per 1M tokens. */}
+          {!managed && (
+            <>
+              <ToggleGroup
+                value={[props.showRechargePrice ? 'recharge' : 'standard']}
+                onValueChange={(values) => {
+                  if (values.length > 0) {
+                    props.onRechargePriceChange(values[0] === 'recharge')
+                  }
+                }}
+                variant='outline'
+                size='sm'
+                aria-label={t('Price display mode')}
+              >
+                <ToggleGroupItem value='standard'>
+                  {t('Standard')}
+                </ToggleGroupItem>
+                <ToggleGroupItem value='recharge'>
+                  {t('Recharge')}
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <ToggleGroup
+                value={[props.tokenUnit]}
+                onValueChange={(values) => {
+                  if (values[0] === 'M' || values[0] === 'K') {
+                    props.onTokenUnitChange(values[0])
+                  }
+                }}
+                variant='outline'
+                size='sm'
+                aria-label={t('Token unit')}
+              >
+                <ToggleGroupItem value='M'>/1M</ToggleGroupItem>
+                <ToggleGroupItem value='K'>/1K</ToggleGroupItem>
+              </ToggleGroup>
+            </>
+          )}
 
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger

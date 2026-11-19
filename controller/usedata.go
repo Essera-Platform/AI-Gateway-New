@@ -61,6 +61,12 @@ func GetQuotaDatesByUser(c *gin.Context) {
 }
 
 func GetUserQuotaDates(c *gin.Context) {
+	if person, handled := esseraPagePerson(c); handled { // Modified by Essera, 2026-11: a person's usage is the Console's
+		if person != nil {
+			esseraQuotaDates(c, person)
+		}
+		return
+	}
 	userId := c.GetInt("id")
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
@@ -102,6 +108,12 @@ func GetAllFlowQuotaDates(c *gin.Context) {
 }
 
 func GetUserFlowQuotaDates(c *gin.Context) {
+	if _, handled := esseraPagePerson(c); handled { // Modified by Essera, 2026-11: a person's requests have no new-api flow data
+		if !c.Writer.Written() {
+			common.ApiSuccess(c, []any{})
+		}
+		return
+	}
 	userId := c.GetInt("id")
 	startTimestamp, endTimestamp, ok := parseFlowQuotaTimeRange(c)
 	if !ok {

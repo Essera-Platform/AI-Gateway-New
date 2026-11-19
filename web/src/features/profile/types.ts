@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { EsseraAccount } from '@/features/essera/types'
 import type { UserPermissions } from '@/stores/auth-store'
 
 // ============================================================================
@@ -35,6 +36,8 @@ export interface ApiResponse<T = unknown> {
  * User profile data
  */
 export interface UserProfile {
+  /** Modified by Essera, 2026-11: the person's Console account on a managed gateway. */
+  essera?: EsseraAccount
   has_password?: boolean
   permissions?: UserPermissions
   /** User ID */

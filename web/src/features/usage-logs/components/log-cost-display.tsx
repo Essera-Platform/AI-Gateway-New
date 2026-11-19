@@ -32,6 +32,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { formatSpend } from '@/features/essera/account'
 import { formatLogQuota } from '@/lib/format'
 
 import { hasToolSurcharge } from '../lib/format'
@@ -132,7 +133,15 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
               <TooltipContent>{source}</TooltipContent>
             </Tooltip>
           ) : null}
-          <span className='whitespace-nowrap'>{formatLogQuota(quota)}</span>
+          <span className='whitespace-nowrap'>
+            {/* Modified by Essera, 2026-11: the Console's amount, in its currency. */}
+            {props.other?.essera
+              ? formatSpend(
+                  props.other.essera.billable_amount ?? '-',
+                  props.other.essera.currency ?? ''
+                )
+              : formatLogQuota(quota)}
+          </span>
         </StatusBadge>
         {showToolSurcharge ? <ToolSurchargeMarker /> : null}
       </div>

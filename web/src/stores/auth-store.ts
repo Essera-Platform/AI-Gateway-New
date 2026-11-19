@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { create } from 'zustand'
 
 import type { LoginChallenge } from '@/features/auth/secure-verification/types'
+import type { EsseraAccount } from '@/features/essera/types'
 import type { AdminCapabilities } from '@/lib/admin-permissions'
 
 export type UserPermissions = {
@@ -55,6 +56,7 @@ export interface AuthUser {
   stripe_customer?: string
   sidebar_modules?: string
   permissions?: UserPermissions
+  essera?: EsseraAccount // Modified by Essera, 2026-11: the person's Console account
 }
 
 export interface LoginSession {

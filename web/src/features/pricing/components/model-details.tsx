@@ -48,6 +48,8 @@ import {
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { EsseraModelPrices } from '@/features/essera/model-square'
+import { esseraModelTypeLabel } from '@/features/essera/model-square-format'
 import { getPerfMetrics } from '@/features/performance-metrics/api'
 import {
   formatLatency,
@@ -626,7 +628,14 @@ function ModelHeader(props: { model: PricingModel }) {
           <span className='text-muted-foreground'>{model.vendor_name}</span>
         )}
         <span className='text-muted-foreground/30'>·</span>
-        <ModelBillingModeBadge model={model} />
+        {/* Modified by Essera, 2026-11: the Console model's type. */}
+        {model.essera ? (
+          <span className='text-muted-foreground'>
+            {esseraModelTypeLabel(t, model.essera.modelType)}
+          </span>
+        ) : (
+          <ModelBillingModeBadge model={model} />
+        )}
       </div>
       {description && (
         <p className='text-muted-foreground mt-2 text-sm leading-relaxed'>
@@ -1539,36 +1548,45 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
 
           <section className='bg-card/60 space-y-5 rounded-xl border p-4 shadow-sm'>
             <SectionTitle>{t('Pricing')}</SectionTitle>
-            {showBasePrices && (
-              <PriceSection
-                model={baseModel}
-                priceRate={props.priceRate}
-                usdExchangeRate={props.usdExchangeRate}
-                tokenUnit={props.tokenUnit}
-                showRechargePrice={showRechargePrice}
-              />
+            {/* Modified by Essera, 2026-11: the person's Console prices, no groups or ratios. */}
+            {props.model.essera ? (
+              <div className='grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-2'>
+                <EsseraModelPrices info={props.model.essera} />
+              </div>
+            ) : (
+              <>
+                {showBasePrices && (
+                  <PriceSection
+                    model={baseModel}
+                    priceRate={props.priceRate}
+                    usdExchangeRate={props.usdExchangeRate}
+                    tokenUnit={props.tokenUnit}
+                    showRechargePrice={showRechargePrice}
+                  />
+                )}
+                {isDynamic && !simpleTaskPricing && (
+                  <DynamicPricingBreakdown
+                    billingExpr={baseModel.billing_expr}
+                    usageSchema={baseModel.billing_usage_schema}
+                    taskPriceOptions={{
+                      showRechargePrice,
+                      priceRate: props.priceRate,
+                      usdExchangeRate: props.usdExchangeRate,
+                    }}
+                  />
+                )}
+                <GroupPricingSection
+                  model={props.model}
+                  groupRatio={props.groupRatio}
+                  usableGroup={props.usableGroup}
+                  autoGroups={props.autoGroups}
+                  priceRate={props.priceRate}
+                  usdExchangeRate={props.usdExchangeRate}
+                  tokenUnit={props.tokenUnit}
+                  showRechargePrice={showRechargePrice}
+                />
+              </>
             )}
-            {isDynamic && !simpleTaskPricing && (
-              <DynamicPricingBreakdown
-                billingExpr={baseModel.billing_expr}
-                usageSchema={baseModel.billing_usage_schema}
-                taskPriceOptions={{
-                  showRechargePrice,
-                  priceRate: props.priceRate,
-                  usdExchangeRate: props.usdExchangeRate,
-                }}
-              />
-            )}
-            <GroupPricingSection
-              model={props.model}
-              groupRatio={props.groupRatio}
-              usableGroup={props.usableGroup}
-              autoGroups={props.autoGroups}
-              priceRate={props.priceRate}
-              usdExchangeRate={props.usdExchangeRate}
-              tokenUnit={props.tokenUnit}
-              showRechargePrice={showRechargePrice}
-            />
           </section>
 
           <ModelBackendDetailsSection model={props.model} />
@@ -1676,7 +1694,8 @@ export function ModelDetails() {
     )
   }
 
-  if (!model) {
+  // Modified by Essera, 2026-11: details are for signed-in people on a managed gateway.
+  if (!model || (model.essera && !model.essera.signedIn)) {
     return (
       <PublicLayout>
         <div className='mx-auto max-w-2xl px-4 text-center sm:px-6'>
