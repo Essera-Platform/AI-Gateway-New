@@ -407,6 +407,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       <CardFooter className='mt-auto border-0 bg-transparent pt-0'>
         <ModelPerfBadge
           perf={props.perf}
+          quietWhenEmpty={Boolean(essera)}
           className='border-border/60 border-t pt-2'
         >
           {(!essera || essera.signedIn) && (

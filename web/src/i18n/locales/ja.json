@@ -7754,8 +7754,6 @@
     "Frontend design and development by New API contributors.": "Frontend design and development by New API contributors.",
     "Managed by the Essera Operations Console": "Essera Operations Console で管理されています",
     "Providers, customers, keys, models and prices are changed in the Essera Operations Console; edits to them here are refused.": "プロバイダー、顧客、キー、モデル、価格は Essera Operations Console で変更します。ここでの変更は拒否されます。",
-    "Operator sign-in": "オペレーターのサインイン",
-    "Back to Essera sign-in": "Essera のサインインに戻る",
     "Use a different email": "別のメールアドレスを使用",
     "Choose a new password for your account.": "アカウントの新しいパスワードを設定してください。",
     "Confirm new password": "新しいパスワード（確認）",
@@ -7807,6 +7805,8 @@
     "Check the email and name and try again.": "メールアドレスと名前を確認して、もう一度お試しください。",
     "Admins and your own account cannot be changed here.": "管理者とご自身のアカウントはここでは変更できません。",
     "The Console refused this request.": "コンソールがこのリクエストを拒否しました。",
-    "This account cannot sign in to the Essera gateway.": "このアカウントは Essera ゲートウェイにサインインできません。"
+    "This account cannot sign in to the Essera gateway.": "このアカウントは Essera ゲートウェイにサインインできません。",
+    "No requests yet": "まだリクエストはありません",
+    "Refine models by provider, type, and tags.": "プロバイダー、タイプ、タグでモデルを絞り込みます。"
   }
 }

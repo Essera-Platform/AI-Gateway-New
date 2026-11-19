@@ -284,6 +284,10 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
   const successRate = summary?.success_rate ?? Number.NaN
   const avgTps = summary?.avg_tps ?? 0
   const avgLatency = summary?.avg_latency_ms ?? 0
+  // Modified by Essera, 2026-11: a managed gateway shows no empty metrics for a model nobody called.
+  const hasTraffic =
+    Number.isFinite(successRate) || avgTps > 0 || avgLatency > 0
+  if (props.model.essera && !hasTraffic) return null
 
   return (
     <div className='bg-muted/20 grid overflow-hidden rounded-lg border sm:grid-cols-3 sm:divide-x'>

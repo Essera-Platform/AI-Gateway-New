@@ -8,16 +8,17 @@ import {
   RouterProvider,
 } from '@tanstack/react-router'
 import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 
 import { SignIn } from '..'
 
+let search: Record<string, unknown> = {}
+
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-router')>()),
-  useSearch: () => ({}),
+  useSearch: () => search,
 }))
 
 function renderSignIn(status: Record<string, unknown>) {
@@ -48,6 +49,7 @@ function renderSignIn(status: Record<string, unknown>) {
 }
 
 beforeEach(() => {
+  search = {}
   localStorage.clear()
 })
 
@@ -66,24 +68,17 @@ describe('Sign-in page', () => {
     expect(
       screen.queryByRole('link', { name: 'Sign up' })
     ).not.toBeInTheDocument()
+    expect(screen.queryByText(/operator/i)).not.toBeInTheDocument()
   })
 
-  it('switches to the operator sign-in and back on a managed gateway', async () => {
-    renderSignIn({ essera_managed: true, essera_sign_in: 'password' })
-    const user = userEvent.setup()
+  it('gives operators their sign-in only at its own address', async () => {
+    search = { operator: true }
+    renderSignIn({ essera_managed: true, essera_sign_in: 'email_otp' })
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Operator sign-in' })
-    )
     expect(
       await screen.findByLabelText('Username or Email')
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
-
-    await user.click(
-      screen.getByRole('button', { name: 'Back to Essera sign-in' })
-    )
-    expect(await screen.findByLabelText('Email')).toBeInTheDocument()
   })
 
   it('keeps the upstream sign-in unchanged on an unmanaged gateway', async () => {
@@ -93,8 +88,5 @@ describe('Sign-in page', () => {
       await screen.findByLabelText('Username or Email')
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Sign up' })).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Operator sign-in' })
-    ).not.toBeInTheDocument()
   })
 })

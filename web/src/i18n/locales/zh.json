@@ -7754,8 +7754,6 @@
     "Frontend design and development by New API contributors.": "Frontend design and development by New API contributors.",
     "Managed by the Essera Operations Console": "由 Essera 运营控制台管理",
     "Providers, customers, keys, models and prices are changed in the Essera Operations Console; edits to them here are refused.": "供应商、客户、密钥、模型和价格在 Essera 运营控制台中修改；在此处的修改将被拒绝。",
-    "Operator sign-in": "运维人员登录",
-    "Back to Essera sign-in": "返回 Essera 登录",
     "Use a different email": "使用其他邮箱",
     "Choose a new password for your account.": "请为您的账户设置新密码。",
     "Confirm new password": "确认新密码",
@@ -7807,6 +7805,8 @@
     "Check the email and name and try again.": "请检查邮箱和名称后重试。",
     "Admins and your own account cannot be changed here.": "管理员和您自己的账号无法在此更改。",
     "The Console refused this request.": "控制台拒绝了此请求。",
-    "This account cannot sign in to the Essera gateway.": "此账号无法登录 Essera 网关。"
+    "This account cannot sign in to the Essera gateway.": "此账号无法登录 Essera 网关。",
+    "No requests yet": "暂无请求",
+    "Refine models by provider, type, and tags.": "按供应商、类型和标签筛选模型。"
   }
 }

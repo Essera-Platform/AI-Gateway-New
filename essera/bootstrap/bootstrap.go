@@ -9,6 +9,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/configsync"
+	"github.com/QuantumNous/new-api/essera/settings"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting"
@@ -70,6 +71,19 @@ func ensureOptions() error {
 			return err
 		}
 		if err := model.UpdateOption("UserUsableGroups", string(encoded)); err != nil {
+			return err
+		}
+	}
+	// The name people see is Essera's; the attribution to new-api stays in the footer.
+	branding := map[string]string{"SystemName": settings.SystemName(), "Logo": settings.Logo()}
+	for option, value := range branding {
+		common.OptionMapRWMutex.RLock()
+		current := common.OptionMap[option]
+		common.OptionMapRWMutex.RUnlock()
+		if value == "" || current == value {
+			continue
+		}
+		if err := model.UpdateOption(option, value); err != nil {
 			return err
 		}
 	}

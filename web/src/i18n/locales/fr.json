@@ -7754,8 +7754,6 @@
     "Frontend design and development by New API contributors.": "Frontend design and development by New API contributors.",
     "Managed by the Essera Operations Console": "Géré par l’Essera Operations Console",
     "Providers, customers, keys, models and prices are changed in the Essera Operations Console; edits to them here are refused.": "Les fournisseurs, clients, clés, modèles et prix se modifient dans l’Essera Operations Console ; les modifications faites ici sont refusées.",
-    "Operator sign-in": "Connexion opérateur",
-    "Back to Essera sign-in": "Retour à la connexion Essera",
     "Use a different email": "Utiliser une autre adresse e-mail",
     "Choose a new password for your account.": "Choisissez un nouveau mot de passe pour votre compte.",
     "Confirm new password": "Confirmer le nouveau mot de passe",
@@ -7807,6 +7805,8 @@
     "Check the email and name and try again.": "Vérifiez l'e-mail et le nom, puis réessayez.",
     "Admins and your own account cannot be changed here.": "Les administrateurs et votre propre compte ne peuvent pas être modifiés ici.",
     "The Console refused this request.": "La Console a refusé cette demande.",
-    "This account cannot sign in to the Essera gateway.": "Ce compte ne peut pas se connecter à la passerelle Essera."
+    "This account cannot sign in to the Essera gateway.": "Ce compte ne peut pas se connecter à la passerelle Essera.",
+    "No requests yet": "Aucune requête pour l'instant",
+    "Refine models by provider, type, and tags.": "Affinez les modèles par fournisseur, type et tags."
   }
 }

@@ -7754,8 +7754,6 @@
     "Frontend design and development by New API contributors.": "Frontend design and development by New API contributors.",
     "Managed by the Essera Operations Console": "Управляется из Essera Operations Console",
     "Providers, customers, keys, models and prices are changed in the Essera Operations Console; edits to them here are refused.": "Провайдеры, клиенты, ключи, модели и цены меняются в Essera Operations Console; изменения здесь отклоняются.",
-    "Operator sign-in": "Вход для операторов",
-    "Back to Essera sign-in": "Вернуться ко входу Essera",
     "Use a different email": "Использовать другой email",
     "Choose a new password for your account.": "Задайте новый пароль для своей учётной записи.",
     "Confirm new password": "Подтвердите новый пароль",
@@ -7807,6 +7805,8 @@
     "Check the email and name and try again.": "Проверьте электронную почту и имя и попробуйте снова.",
     "Admins and your own account cannot be changed here.": "Администраторов и собственную учётную запись здесь изменить нельзя.",
     "The Console refused this request.": "Консоль отклонила этот запрос.",
-    "This account cannot sign in to the Essera gateway.": "Эта учётная запись не может войти в шлюз Essera."
+    "This account cannot sign in to the Essera gateway.": "Эта учётная запись не может войти в шлюз Essera.",
+    "No requests yet": "Запросов пока нет",
+    "Refine models by provider, type, and tags.": "Отбор моделей по поставщику, типу и тегам."
   }
 }
