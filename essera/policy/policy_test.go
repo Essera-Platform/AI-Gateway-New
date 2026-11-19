@@ -8,12 +8,9 @@ import (
 	"github.com/QuantumNous/new-api/essera/auth"
 	"github.com/QuantumNous/new-api/essera/limits"
 	"github.com/QuantumNous/new-api/essera/policy"
-	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/records/recordstest"
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/snapshot/snapshottest"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -109,14 +106,15 @@ func TestScheduledMaintenanceIsAnnouncedNotEnforced(t *testing.T) {
 
 func TestMonthlyLimitsCountEachLevel(t *testing.T) {
 	useDatabase(t)
+	t.Setenv("ESSERA_ENVIRONMENT", "test")
 	s := snapshottest.Sample()
 
 	for range 2 {
 		request, denial := policy.Evaluate(caller(s, snapshottest.ClientID), "user-1", "US", now)
 		require.Nil(t, denial)
-		_, err := limits.Reserve(request.Subjects, request.Month)
+		_, err := limits.Reserve(request.Subjects, request.Month, now)
 		require.NoError(t, err)
-		require.NoError(t, limits.Add(request.Subjects, request.Month, request.Currency, 100, decimal.RequireFromString("1.5")))
+		require.NoError(t, limits.Add(request.Subjects, request.Month, now, 100))
 	}
 	_, denial := policy.Evaluate(caller(s, snapshottest.ClientID), "user-1", "US", now)
 	require.NotNil(t, denial, "the end user's two requests are used up")
@@ -126,31 +124,15 @@ func TestMonthlyLimitsCountEachLevel(t *testing.T) {
 	_, denial = policy.Evaluate(caller(s, snapshottest.ClientID), "", "US", now)
 	assert.Nil(t, denial, "the customer itself still has room")
 
-	request, _ := policy.Evaluate(caller(s, snapshottest.ClientID), "", "US", now)
-	require.NoError(t, limits.Add(request.Subjects, request.Month, request.Currency, 0, decimal.RequireFromString("47")))
+	totals := `{"environment": "test", "month": "2026-11", "timezone": "UTC", "as_of": "2026-11-13T12:00:01Z", "subjects": [
+		{"scope": "customer", "id": "` + snapshottest.CustomerID + `", "requests": 2, "tokens": 200, "spend": {"USD": "50.00"}}]}`
+	require.NoError(t, limits.ApplyTotals([]byte(totals)))
 	_, denial = policy.Evaluate(caller(s, snapshottest.ClientID), "", "US", now)
-	require.NotNil(t, denial, "50.00 spent of the customer's 50.00")
+	require.NotNil(t, denial, "the Console counts 50.00 spent of the customer's 50.00")
 	assert.Contains(t, denial.Message, "spend")
 
 	_, denial = policy.Evaluate(caller(s, snapshottest.ClientID), "", "US", now.AddDate(0, 1, 0))
 	assert.Nil(t, denial, "a new month starts from zero")
-}
-
-func TestOneRequestCountOverCurrencies(t *testing.T) {
-	useDatabase(t)
-	s := snapshottest.Sample()
-	request, denial := policy.Evaluate(caller(s, snapshottest.ClientID), "", "US", now)
-	require.Nil(t, denial)
-	_, err := limits.Reserve(request.Subjects, request.Month)
-	require.NoError(t, err)
-	require.NoError(t, limits.Add(request.Subjects, request.Month, "EUR", 10, decimal.RequireFromString("2")))
-	require.NoError(t, limits.Add(request.Subjects, request.Month, "USD", 5, decimal.Zero))
-
-	var counts []records.Counter
-	require.NoError(t, model.DB.Where("scope = ? AND currency = ?", "customer", limits.Counts).Find(&counts).Error)
-	require.Len(t, counts, 1, "requests and tokens are one count whatever the currency")
-	assert.Equal(t, int64(1), counts[0].Requests)
-	assert.Equal(t, int64(15), counts[0].Tokens)
 }
 
 func TestAScheduledWindowThatHasBegunIsMaintenance(t *testing.T) {

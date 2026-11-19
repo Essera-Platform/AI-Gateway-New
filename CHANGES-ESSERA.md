@@ -24,13 +24,12 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
   - partner, customer and end-user status;
   - approved and blocked countries;
   - models and providers;
-  - monthly request, token and spend limits. A request is reserved against the request quotas when the relay takes it, so concurrent requests cannot all take the last one, and given back if it reaches no provider; tokens and spend are added when it ends, whatever its outcome, as the Console counts them. Requests and tokens are one count per subject whatever the currency; spend is kept by currency.
+  - monthly request, token and spend limits, checked against the totals the Console publishes from its ledger (`usage.totals` on the configuration queue, kept in the database). Spend is the Console's figure only; the Gateway prices nothing. Requests and tokens are the Console's total plus what the Gateway counted from the totals' `as_of` on: a request is reserved when the relay takes it, so concurrent requests cannot all take the last one, and given back if it reaches no provider; tokens are added when it ends, whatever its outcome. Until totals arrive, limits use zero spend and the Gateway's own counts, and this is logged.
 - **`essera/providerlimits`:** applies each provider's settings from the snapshot to every attempt:
   - the rate limit in requests per minute, counted across nodes in the database, with 429 `essera_provider_rate_limited` past it;
   - the provider's retries as the request's retry budget;
   - its timeout as the time the provider has to start answering.
-- **`essera/rating`:** prices a request with the snapshot's rates, as the Console does, for spend limits and the rate versions on usage events.
-- **`essera/usage`:** one `usage.recorded` event per request a customer had served, sent to the usage queue through a database outbox (events SQS keeps refusing are set aside after 20 attempts, so they never hold back the rest). Images are counted as settled, audio in minutes of sound.
+- **`essera/usage`:** one `usage.recorded` event per request a customer had served, sent to the usage queue through a database outbox (events SQS keeps refusing are set aside after 20 attempts, so they never hold back the rest). Images are counted as settled, audio in minutes of sound. The event measures and names no rate version; the Console rates it.
 - **`essera/stats` and `essera/bridge`:** request statistics, and the internal API the Console's backend reads (`/internal/essera/v1`: state and active configuration version, a provider's connection test, a provider's telemetry, and the traffic of the last hour, day or week: requests, latency, HTTP statuses, denials and each provider's availability, latency, retries and timeouts). It is reached inside the cluster only.
 - **`essera/servicetrust`:** authenticates the Console's backend on the internal API by its AWS role. The backend sends an `sts:GetCallerIdentity` request signed by its task role; the Gateway forwards it to STS (its global or a regional endpoint, nothing else) and serves only the ARNs in `ESSERA_TRUSTED_PRINCIPALS`. A header named twice is refused, and a verified identity is not reused past its signature's lifetime. No secret is shared.
 - **`essera/bootstrap`:** sets up the service user and token that customer requests run as. Its group's ratio is zero, so new-api neither reserves nor charges quota; the Console bills. It turns off new-api's consume log, which would duplicate the Console's ledger, and replaces the default root password.
@@ -102,7 +101,8 @@ The fork runs on PostgreSQL only. The Essera tables are:
 
 - `essera_config_versions`
 - `essera_usage_outbox`
-- `essera_usage_counters`
+- `essera_console_totals` (the Console's latest usage totals per subject and month)
+- `essera_local_use` (requests and tokens per subject and second since the Console's totals; `essera_usage_counters` is dropped)
 - `essera_provider_minutes`
 - `essera_request_stats`
 - `essera_provider_errors`

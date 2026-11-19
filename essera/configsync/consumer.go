@@ -2,10 +2,12 @@ package configsync
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/awsx"
+	"github.com/QuantumNous/new-api/essera/limits"
 	"github.com/QuantumNous/new-api/essera/settings"
 	"github.com/QuantumNous/new-api/essera/snapshot"
 )
@@ -13,16 +15,23 @@ import (
 // envelope is an EventBridge event; the queue may also carry the detail on its own.
 type envelope struct {
 	DetailType string          `json:"detail-type"`
-	Detail     *snapshot.Event `json:"detail"`
+	Detail     json.RawMessage `json:"detail"`
+}
+
+// decodeMessage returns the event's detail type, "" when the body is a bare detail, and its
+// detail.
+func decodeMessage(body string) (string, []byte) {
+	var wrapped envelope
+	if err := common.UnmarshalJsonStr(body, &wrapped); err == nil && len(wrapped.Detail) > 0 && string(wrapped.Detail) != "null" {
+		return wrapped.DetailType, wrapped.Detail
+	}
+	return "", []byte(body)
 }
 
 func decodeEvent(body string) (snapshot.Event, error) {
-	var wrapped envelope
-	if err := common.UnmarshalJsonStr(body, &wrapped); err == nil && wrapped.Detail != nil {
-		return *wrapped.Detail, nil
-	}
+	_, detail := decodeMessage(body)
 	var event snapshot.Event
-	err := common.UnmarshalJsonStr(body, &event)
+	err := common.Unmarshal(detail, &event)
 	return event, err
 }
 
@@ -53,6 +62,16 @@ func Consume(ctx context.Context) {
 }
 
 func handleMessage(ctx context.Context, queueURL string, message awsx.Message) {
+	if detailType, detail := decodeMessage(message.Body); detailType == limits.TotalsDetailType {
+		if err := limits.ApplyTotals(detail); err != nil {
+			common.SysError(common.LogText("essera: usage totals: %s", err.Error()))
+			return
+		}
+		if err := awsx.Delete(ctx, queueURL, message.ReceiptHandle); err != nil {
+			common.SysError(common.LogText("essera: acknowledging usage totals: %s", err.Error()))
+		}
+		return
+	}
 	event, err := decodeEvent(message.Body)
 	if err != nil {
 		common.SysError(common.LogText("essera: unreadable configuration event: %s", err.Error()))

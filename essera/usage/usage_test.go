@@ -95,18 +95,43 @@ func TestAServedRequestIsReportedAndCounted(t *testing.T) {
 	assert.Equal(t, "succeeded", event.Status)
 	assert.Equal(t, "chatcmpl-9", *event.ProviderRef)
 	assert.Equal(t, "corr-1", *event.CorrelationID)
-	assert.Equal(t, "cost-negotiated", *event.CostRateVersion)
-	assert.Equal(t, "sell-partner", *event.SellingRateVersion)
 	assert.Equal(t, int64(7), event.ConfigurationVersion)
 	assert.GreaterOrEqual(t, event.LatencyMs, int64(1500))
 	assert.Equal(t, http.StatusOK, event.HTTPStatus)
 
-	var counted, spent records.Counter
-	require.NoError(t, model.DB.Where("scope = ? AND subject = ? AND currency = ?", "customer", snapshottest.CustomerID, limits.Counts).First(&counted).Error)
-	assert.Equal(t, int64(1), counted.Requests, "reserved when the policy admitted it")
-	assert.Equal(t, int64(1_500_000), counted.Tokens)
-	require.NoError(t, model.DB.Where("scope = ? AND subject = ? AND currency = ?", "customer", snapshottest.CustomerID, "USD").First(&spent).Error)
-	assert.Equal(t, "8.4", spent.Spend.String(), "2.40 input at the partner's markup plus 6.00 output at the customer's rate")
+	requests, tokens := counted(t, "customer", snapshottest.CustomerID)
+	assert.Equal(t, int64(1), requests, "reserved when the policy admitted it")
+	assert.Equal(t, int64(1_500_000), tokens)
+}
+
+func TestTheGatewayPricesNothing(t *testing.T) {
+	s := serve(t, "user-1") // the snapshot carries rates for this model
+
+	usage.Finished(s.context, s.info, nil)
+
+	var rows []records.OutboxEvent
+	require.NoError(t, model.DB.Find(&rows).Error)
+	require.Len(t, rows, 1)
+	var body map[string]any
+	require.NoError(t, common.UnmarshalJsonStr(rows[0].Body, &body))
+	for _, claim := range []string{"cost_rate_version", "selling_rate_version", "rate_versions"} {
+		assert.NotContains(t, body, claim, "the Console rates every request; the event only measures it")
+	}
+	exceeded, err := limits.Exceeded(s.request.Subjects, s.request.Month, "USD")
+	require.NoError(t, err)
+	assert.Empty(t, exceeded, "1.5M tokens served, yet no spend until the Console publishes one")
+}
+
+// counted is what the Gateway itself counted for a subject this month, before any totals.
+func counted(t *testing.T, scope, subject string) (requests, tokens int64) {
+	t.Helper()
+	var rows []records.LocalUse
+	require.NoError(t, model.DB.Where("scope = ? AND subject = ?", scope, subject).Find(&rows).Error)
+	for _, row := range rows {
+		requests += row.Requests
+		tokens += row.Tokens
+	}
+	return requests, tokens
 }
 
 func TestAFailedRequestIsReportedAndCountedAsTheConsoleCountsIt(t *testing.T) {
@@ -120,10 +145,9 @@ func TestAFailedRequestIsReportedAndCountedAsTheConsoleCountsIt(t *testing.T) {
 	assert.Equal(t, "rate_limited", events[0].Status)
 	assert.Equal(t, http.StatusTooManyRequests, events[0].HTTPStatus)
 	assert.Nil(t, events[0].EndUserID)
-	var counted records.Counter
-	require.NoError(t, model.DB.Where("scope = ? AND subject = ? AND currency = ?", "customer", snapshottest.CustomerID, limits.Counts).First(&counted).Error)
-	assert.Equal(t, int64(1), counted.Requests, "every request counts, as in the Console")
-	assert.Equal(t, int64(1_500_000), counted.Tokens, "the tokens it reported count too")
+	requests, tokens := counted(t, "customer", snapshottest.CustomerID)
+	assert.Equal(t, int64(1), requests, "every request counts, as in the Console")
+	assert.Equal(t, int64(1_500_000), tokens, "the tokens it reported count too")
 }
 
 func TestARequestThatReachedNoProviderIsNotReported(t *testing.T) {
