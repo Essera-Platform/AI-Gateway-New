@@ -24,16 +24,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// esseraAuthenticate handles the key of a relay request: a customer's access token, or an API
-// key a person created and the Console published. On success it returns the service token's
-// key, so new-api serves the request as the Essera service user; on refusal it aborts the
-// request. handled is false for an ordinary new-api key outside the relay routes.
+// esseraAuthenticate handles the key of a relay request, which must be an API key a person
+// created and the Console published; anything else, a Cognito access token among them, is
+// refused. On success it returns the service token's key, so new-api serves the request as the
+// Essera service user; on refusal it aborts the request. handled is false for an ordinary
+// new-api key outside the relay routes.
 func esseraAuthenticate(c *gin.Context, presented string) (serviceKey string, handled bool) {
-	if !settings.Managed() {
-		return "", false
-	}
-	jwt := auth.LooksLikeJWT(presented)
-	if !jwt && !managed.RelayPath(c.Request.URL.Path) {
+	if !settings.Managed() || !managed.RelayPath(c.Request.URL.Path) {
 		return "", false
 	}
 	now := time.Now()
@@ -41,15 +38,9 @@ func esseraAuthenticate(c *gin.Context, presented string) (serviceKey string, ha
 		abortWithOpenAiMessage(c, http.StatusNotFound, "This endpoint is not available to customer credentials.", types.ErrorCode("essera_not_available"))
 		return "", true
 	}
-	var caller *auth.Caller
-	var failure *auth.Failure
-	if jwt {
-		caller, failure = auth.Authenticate(c.Request.Context(), presented, snapshot.Current(), now)
-	} else {
-		// Every request a provider serves is a Console customer's: a new-api key, an operator's
-		// among them, would be served without the Console's policy, limits or usage.
-		caller, failure = keys.Authenticate(presented, snapshot.Current(), now)
-	}
+	// Every request a provider serves is a Console customer's: a new-api key, an operator's
+	// among them, would be served without the Console's policy, limits or usage.
+	caller, failure := keys.Authenticate(presented, snapshot.Current(), now)
 	if failure != nil {
 		status := http.StatusUnauthorized
 		if failure.Code == "essera_unavailable" {

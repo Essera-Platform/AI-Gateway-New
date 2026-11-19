@@ -2,6 +2,9 @@
 package middleware
 
 import (
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +14,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/essera/auth"
 	"github.com/QuantumNous/new-api/essera/configsync"
 	"github.com/QuantumNous/new-api/essera/keys"
 	"github.com/QuantumNous/new-api/essera/policy"
@@ -23,7 +27,9 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -144,7 +150,7 @@ func TestAPersonsKeyWorksOnceTheConsolePublishesItAndUntilItIsRevoked(t *testing
 	require.False(t, c.IsAborted(), recorder.Body.String())
 	value, _ := c.Get(usage.ContextKey)
 	request := value.(*policy.Request)
-	assert.Equal(t, created.KeyID, request.Caller.ClientID)
+	assert.Equal(t, created.KeyID, request.Caller.CredentialRef)
 	assert.Equal(t, snapshottest.CustomerID, request.Caller.Customer.ID)
 	assert.Equal(t, snapshottest.PartnerID, request.Caller.Partner.ID)
 	assert.Equal(t, "user-1", request.EndUserID, "the person's end user, not the one the request names")
@@ -191,6 +197,53 @@ func TestAPublishedKeyIsRefusedWhenExpiredOrMovedToAnotherTenant(t *testing.T) {
 		recorder, c := relayWith(t, created.Key)
 		assert.True(t, c.IsAborted(), name)
 		assert.Equal(t, http.StatusUnauthorized, recorder.Code, name)
+	}
+}
+
+// OWASP ASVS 5.0 V9.2.1/V9.2.3 and V10.3.2: a Cognito client-credentials access token, the
+// service credential the Console issued before API keys, is refused on relay even when it is
+// validly signed by the customer pool, carries the old scope and names a client that a snapshot
+// from before the retirement still lists.
+func TestAFormerClientCredentialsTokenIsRefused(t *testing.T) {
+	esseraPeople(t)
+	t.Setenv("ESSERA_COGNITO_USER_POOL_ID", snapshottest.UserPoolID)
+	t.Setenv("ESSERA_CUSTOMER_SCOPES", "essera-gateway/invoke")
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	previous := auth.KeySetFor
+	auth.KeySetFor = func(string) oidc.KeySet { return &oidc.StaticKeySet{PublicKeys: []crypto.PublicKey{&key.PublicKey}} }
+	t.Cleanup(func() { auth.KeySetFor = previous })
+
+	document, err := common.Marshal(snapshottest.Sample())
+	require.NoError(t, err)
+	var raw map[string]any
+	require.NoError(t, common.Unmarshal(document, &raw))
+	accounts := raw["accounts"].(map[string]any)
+	accounts["credentials"] = append(accounts["credentials"].([]any),
+		map[string]any{"client_id": "1h10cqee0u3rtkj1lu6cdr3eua", "customer_id": snapshottest.CustomerID, "expires_at": nil, "limits": map[string]any{}},
+		map[string]any{"kind": "cognito_client", "client_id": "client-2", "customer_id": snapshottest.CustomerID, "expires_at": nil, "limits": map[string]any{}},
+	)
+	document, err = common.Marshal(raw)
+	require.NoError(t, err)
+	var legacy snapshot.Snapshot
+	require.NoError(t, common.Unmarshal(document, &legacy))
+	snapshot.Activate(snapshot.NewView(4, &legacy))
+
+	now := time.Now()
+	for _, clientID := range []string{"1h10cqee0u3rtkj1lu6cdr3eua", "client-2"} {
+		token, err := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+			"iss": "https://cognito-idp.us-east-1.amazonaws.com/" + snapshottest.UserPoolID, "token_use": "access",
+			"client_id": clientID, "sub": clientID, "scope": "essera-gateway/invoke",
+			"iat": now.Add(-time.Minute).Unix(), "exp": now.Add(time.Hour).Unix(),
+		}).SignedString(key)
+		require.NoError(t, err)
+
+		recorder, c := relayWith(t, token)
+		assert.True(t, c.IsAborted(), clientID)
+		assert.Equal(t, http.StatusUnauthorized, recorder.Code, clientID)
+		assert.Contains(t, recorder.Body.String(), "essera_unauthenticated", clientID)
+		_, admitted := c.Get(usage.ContextKey)
+		assert.False(t, admitted, "nothing is served or counted as the customer")
 	}
 }
 
@@ -241,7 +294,7 @@ func TestThePlaygroundRunsAsTheSignedInPerson(t *testing.T) {
 	value, _ := c.Get(usage.ContextKey)
 	request := value.(*policy.Request)
 	assert.Equal(t, snapshottest.UserPersonID, request.Caller.Person.ID)
-	assert.Empty(t, request.Caller.ClientID, "no credential in the playground")
+	assert.Empty(t, request.Caller.CredentialRef, "no credential in the playground")
 	assert.Equal(t, "user-1", request.EndUserID)
 	assert.Contains(t, request.AllowedModels, "gpt-4o", "the customer's entitlements")
 	assert.True(t, c.GetBool("token_model_limit_enabled"))

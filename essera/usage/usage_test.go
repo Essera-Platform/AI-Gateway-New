@@ -38,9 +38,10 @@ func serve(t *testing.T, endUser string) served {
 	require.NoError(t, model.DB.Create(&channel).Error)
 
 	view := snapshottest.View()
-	credential := view.Credential(snapshottest.ClientID)
+	credential := view.APIKey(snapshottest.AdminKeyID)
 	customer := view.Customer(credential.CustomerID)
-	caller := &auth.Caller{ClientID: snapshottest.ClientID, Credential: credential, Customer: customer, Partner: view.Partner(customer.PartnerID), View: view}
+	caller := &auth.Caller{CredentialRef: snapshottest.AdminKeyID, Credential: credential, Customer: customer, Partner: view.Partner(customer.PartnerID),
+		Person: view.Person(credential.PersonID), View: view}
 	request, denial := policy.Evaluate(caller, endUser, "US", time.Now())
 	require.Nil(t, denial)
 
@@ -86,7 +87,7 @@ func TestAServedRequestIsReportedAndCounted(t *testing.T) {
 	assert.Equal(t, snapshottest.CustomerID, event.CustomerID)
 	assert.Equal(t, snapshottest.PartnerID, *event.TenantID)
 	assert.Equal(t, "user-1", *event.EndUserID)
-	assert.Equal(t, snapshottest.ClientID, event.CredentialRef)
+	assert.Equal(t, snapshottest.AdminKeyID, event.CredentialRef)
 	assert.Equal(t, "openai", event.Provider, "the Console's provider key, not the channel")
 	assert.Equal(t, "gpt-4o", event.Model)
 	assert.Equal(t, "text", event.Modality)

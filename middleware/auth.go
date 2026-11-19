@@ -556,7 +556,7 @@ func TokenAuth() func(c *gin.Context) {
 		if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 			key = strings.TrimSpace(key[7:])
 		}
-		// Modified by Essera, 2026-11: a customer's access token, before the key is split on "-".
+		// Modified by Essera, 2026-11: a customer's API key, before the key is split on "-".
 		if serviceKey, handled := esseraAuthenticate(c, key); handled {
 			if c.IsAborted() {
 				return

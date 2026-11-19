@@ -18,7 +18,6 @@ type View struct {
 
 	partners    map[string]*Organization
 	customers   map[string]*Organization
-	credentials map[string]*Credential // Cognito clients by client id
 	apiKeys     map[string]*Credential // API keys by key id
 	people      map[string]*Person
 	peopleBySub map[string]*Person
@@ -79,7 +78,6 @@ func NewView(version int64, s *Snapshot) *View {
 		Snapshot:    s,
 		partners:    map[string]*Organization{},
 		customers:   map[string]*Organization{},
-		credentials: map[string]*Credential{},
 		apiKeys:     map[string]*Credential{},
 		people:      map[string]*Person{},
 		peopleBySub: map[string]*Person{},
@@ -99,16 +97,11 @@ func NewView(version int64, s *Snapshot) *View {
 			view.customers[s.Accounts.Customers[i].ID] = &s.Accounts.Customers[i]
 		}
 		for i := range s.Accounts.Credentials {
+			// A Cognito app client, which a snapshot from before the Console retired them may
+			// still list, authenticates nothing.
 			credential := &s.Accounts.Credentials[i]
-			switch credential.Kind {
-			case "", CredentialCognitoClient:
-				if credential.ClientID != "" {
-					view.credentials[credential.ClientID] = credential
-				}
-			case CredentialAPIKey:
-				if credential.KeyID != "" {
-					view.apiKeys[credential.KeyID] = credential
-				}
+			if credential.Kind == CredentialAPIKey && credential.KeyID != "" {
+				view.apiKeys[credential.KeyID] = credential
 			}
 		}
 		for i := range s.Accounts.People {
@@ -135,13 +128,12 @@ func NewView(version int64, s *Snapshot) *View {
 	return view
 }
 
-func (v *View) Credential(clientID string) *Credential { return v.credentials[clientID] }
-func (v *View) APIKey(keyID string) *Credential        { return v.apiKeys[keyID] }
-func (v *View) Person(id string) *Person               { return v.people[id] }
-func (v *View) PersonBySub(sub string) *Person         { return v.peopleBySub[sub] }
-func (v *View) Customer(id string) *Organization       { return v.customers[id] }
-func (v *View) Provider(key string) *Provider          { return v.providers[key] }
-func (v *View) Location() *time.Location               { return v.location }
+func (v *View) APIKey(keyID string) *Credential  { return v.apiKeys[keyID] }
+func (v *View) Person(id string) *Person         { return v.people[id] }
+func (v *View) PersonBySub(sub string) *Person   { return v.peopleBySub[sub] }
+func (v *View) Customer(id string) *Organization { return v.customers[id] }
+func (v *View) Provider(key string) *Provider    { return v.providers[key] }
+func (v *View) Location() *time.Location         { return v.location }
 
 func (v *View) Partner(id *string) *Organization {
 	if id == nil {

@@ -144,10 +144,8 @@ type Person struct {
 	Status            string  `json:"status"` // effective: suspended when the person or the customer is
 }
 
-const (
-	CredentialCognitoClient = "cognito_client"
-	CredentialAPIKey        = "api_key"
-)
+// CredentialAPIKey is the only kind of credential the Gateway accepts.
+const CredentialAPIKey = "api_key"
 
 type Organization struct {
 	ID           string       `json:"id"`
@@ -164,11 +162,11 @@ type EndUser struct {
 	Limits     Entitlements `json:"limits"`
 }
 
-// Credential is a Cognito client of a customer, or an API key a person created on the
-// Gateway. A credential with no kind is a Cognito client.
+// Credential is an API key a person created on the Gateway. Snapshots written before the
+// Console retired its Cognito app clients may list those too, with another kind or none; they
+// are ignored.
 type Credential struct {
 	Kind       string       `json:"kind,omitempty"`
-	ClientID   string       `json:"client_id,omitempty"`
 	KeyID      string       `json:"key_id,omitempty"`
 	KeySHA256  string       `json:"key_sha256,omitempty"` // hex SHA-256 of the full key
 	PersonID   string       `json:"person_id,omitempty"`
