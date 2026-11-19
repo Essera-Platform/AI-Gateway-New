@@ -62,16 +62,13 @@ function renderForm(signInMode: 'password' | 'email_otp' = 'email_otp') {
     defaultOptions: { queries: { retry: false } },
   })
   client.setQueryData(['status'], status)
-  const onOperatorSignIn = vi.fn()
   const root = createRootRoute({ component: Outlet })
   const router = createRouter({
     routeTree: root.addChildren([
       createRoute({
         getParentRoute: () => root,
         path: '/sign-in',
-        component: () => (
-          <EsseraSignInForm onOperatorSignIn={onOperatorSignIn} />
-        ),
+        component: () => <EsseraSignInForm />,
       }),
       createRoute({
         getParentRoute: () => root,
@@ -87,7 +84,6 @@ function renderForm(signInMode: 'password' | 'email_otp' = 'email_otp') {
       <Toaster />
     </QueryClientProvider>
   )
-  return { onOperatorSignIn }
 }
 
 beforeEach(() => {
@@ -267,16 +263,6 @@ describe('Essera sign-in by emailed code', () => {
 
     expect(await screen.findByLabelText('Email')).toBeInTheDocument()
     expect(screen.queryByLabelText('Verification code')).not.toBeInTheDocument()
-  })
-
-  it('hands over to the operator sign-in from the first step', async () => {
-    const { onOperatorSignIn } = renderForm()
-
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Operator sign-in' })
-    )
-
-    expect(onOperatorSignIn).toHaveBeenCalledTimes(1)
   })
 })
 

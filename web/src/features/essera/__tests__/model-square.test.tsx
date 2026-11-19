@@ -137,4 +137,34 @@ describe('Model Square on a managed gateway', () => {
     expect(screen.getByText('Prices are temporarily unavailable')).toBeVisible()
     expect(screen.queryByText('No price available')).not.toBeInTheDocument()
   })
+
+  it('shows no groups and one quiet line for a model nobody has called', async () => {
+    const model = await managedModel(true, {
+      ...claude,
+      vendor_id: 1,
+      enable_groups: ['essera'],
+    })
+
+    render(<ModelCard model={model} onClick={vi.fn()} />)
+
+    expect(screen.getByText('No requests yet')).toBeVisible()
+    expect(screen.queryByText('Status')).not.toBeInTheDocument()
+    expect(screen.queryByText('Groups')).not.toBeInTheDocument()
+  })
+
+  it('keeps the performance figures of a model with traffic', async () => {
+    const model = await managedModel(true, { ...claude, vendor_id: 1 })
+
+    render(
+      <ModelCard
+        model={model}
+        onClick={vi.fn()}
+        perf={{ avg_latency_ms: 850, success_rate: 98.75, avg_tps: 600 }}
+      />
+    )
+
+    expect(screen.getByText('Status')).toBeVisible()
+    expect(screen.getByText('850ms')).toBeVisible()
+    expect(screen.queryByText('No requests yet')).not.toBeInTheDocument()
+  })
 })

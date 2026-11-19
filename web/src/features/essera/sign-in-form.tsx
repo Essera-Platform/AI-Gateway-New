@@ -38,7 +38,6 @@ function signInError(error: unknown): AuthOperationError {
 
 type EsseraSignInFormProps = {
   redirectTo?: string
-  onOperatorSignIn: () => void
 }
 
 export function EsseraSignInForm(props: EsseraSignInFormProps) {
@@ -139,16 +138,6 @@ export function EsseraSignInForm(props: EsseraSignInFormProps) {
           onClick={() => setStep('start')}
         >
           {t('Use a different email')}
-        </Button>
-      )}
-      {step === 'start' && (
-        <Button
-          type='button'
-          variant='link'
-          className='text-muted-foreground h-auto justify-self-start p-0 text-sm'
-          onClick={props.onOperatorSignIn}
-        >
-          {t('Operator sign-in')}
         </Button>
       )}
     </div>

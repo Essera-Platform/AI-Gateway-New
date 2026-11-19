@@ -188,7 +188,7 @@ func esseraUserLogs(c *gin.Context, person *snapshot.Person) {
 func consoleLog(id int, row consoleapi.UsageRow, keyNames, people map[string]string, ownEmail string) model.Log {
 	log := model.Log{
 		Id: id, CreatedAt: row.TS.Unix(), Type: model.LogTypeConsume, ModelName: row.Model,
-		PromptTokens: int(row.InputUnits), CompletionTokens: int(row.OutputUnits), Group: settings.Group, Username: ownEmail,
+		PromptTokens: int(row.InputUnits), CompletionTokens: int(row.OutputUnits), Username: ownEmail,
 	}
 	if row.Status != "succeeded" {
 		log.Type = model.LogTypeError
@@ -253,7 +253,7 @@ func esseraQuotaDates(c *gin.Context, person *snapshot.Person) {
 	dates := make([]*model.QuotaData, 0, len(series.Rows))
 	for _, row := range series.Rows {
 		dates = append(dates, &model.QuotaData{
-			ModelName: row.Model, CreatedAt: row.TS.Unix(), UseGroup: settings.Group,
+			ModelName: row.Model, CreatedAt: row.TS.Unix(),
 			Count: int(row.Requests), TokenUsed: int(row.InputUnits + row.OutputUnits), Quota: quotaOf(spendIn(row.Spend, currency)),
 		})
 	}
@@ -549,7 +549,7 @@ func esseraPricingList(c *gin.Context) {
 					continue
 				}
 				models = append(models, esseraPricing{
-					Pricing:      model.Pricing{ModelName: providerModel.Key, VendorID: vendorID + 1, OwnerBy: provider.Name, EnableGroup: []string{settings.Group}},
+					Pricing:      model.Pricing{ModelName: providerModel.Key, VendorID: vendorID + 1, OwnerBy: provider.Name, EnableGroup: []string{}},
 					DisplayName:  providerModel.DisplayName,
 					ModelType:    providerModel.Modality,
 					EsseraPrices: byModel[provider.Key+"/"+providerModel.Key],
@@ -564,8 +564,8 @@ func esseraPricingList(c *gin.Context) {
 		"success":            true,
 		"data":               models,
 		"vendors":            vendors,
-		"group_ratio":        map[string]float64{settings.Group: 1},
-		"usable_group":       map[string]string{settings.Group: "Essera"},
+		"group_ratio":        map[string]float64{},
+		"usable_group":       map[string]string{},
 		"supported_endpoint": model.GetSupportedEndpointMap(),
 		"auto_groups":        []string{},
 		"essera":             gin.H{"signed_in": person != nil, "prices_available": pricesAvailable},

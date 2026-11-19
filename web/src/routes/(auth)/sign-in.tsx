@@ -26,6 +26,8 @@ import { useAuthStore } from '@/stores/auth-store'
 
 const searchSchema = z.object({
   redirect: z.string().optional(),
+  // Modified by Essera, 2026-11: a managed gateway's operator sign-in has no link, only this URL.
+  operator: z.coerce.boolean().optional(),
 })
 
 export const Route = createFileRoute('/(auth)/sign-in')({

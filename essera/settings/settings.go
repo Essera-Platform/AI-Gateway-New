@@ -98,3 +98,14 @@ func SignInMode() string {
 	}
 	return SignInEmailOTP
 }
+
+// SystemName is the gateway's name in its web UI and emails; "Essera AI Gateway" unless
+// ESSERA_SYSTEM_NAME names it otherwise.
+func SystemName() string {
+	return strings.TrimSpace(common.GetEnvOrDefaultString("ESSERA_SYSTEM_NAME", "Essera AI Gateway"))
+}
+
+// Logo is the address of the logo the web UI shows, from ESSERA_LOGO; empty keeps new-api's.
+func Logo() string {
+	return strings.TrimSpace(common.GetEnvOrDefaultString("ESSERA_LOGO", ""))
+}

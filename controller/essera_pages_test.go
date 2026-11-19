@@ -155,6 +155,7 @@ func TestAPersonsUsageLogsAreTheConsolesLedgerInNewAPIsFormat(t *testing.T) {
 	assert.EqualValues(t, 340, log["completion_tokens"])
 	assert.EqualValues(t, 2, log["use_time"])
 	assert.Equal(t, "user-1@acme.example", log["username"], "the end user by their person's email")
+	assert.Empty(t, log["group"], "a managed gateway shows no groups")
 	assert.EqualValues(t, int(0.00915*common.QuotaPerUnit+0.5), log["quota"])
 	assert.Contains(t, log["other"], `"billable_amount":"0.009150"`)
 
@@ -346,6 +347,7 @@ func TestTheModelSquareShowsAPersonOnlyTheirModelsWithTheConsolesPrices(t *testi
 	}
 	first := models[0].(map[string]any)
 	assert.Equal(t, "GPT-4o", first["display_name"])
+	assert.Empty(t, first["enable_groups"], "no groups on a managed gateway")
 	assert.Equal(t, "text", first["model_type"])
 
 	_, names, _ = pricing(users[snapshottest.AdminSub])

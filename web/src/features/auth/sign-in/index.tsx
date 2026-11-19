@@ -16,12 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: on a managed gateway people sign in with the Essera form; operators keep this one.
+// Modified by Essera, 2026-11: on a managed gateway people sign in with the Essera form; operators use /sign-in?operator=1.
 import { Link, useSearch } from '@tanstack/react-router'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Button } from '@/components/ui/button'
 import { EsseraSignInForm } from '@/features/essera/sign-in-form'
 import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { useStatus } from '@/hooks/use-status'
@@ -32,10 +30,9 @@ import { UserAuthForm } from './components/user-auth-form'
 
 export function SignIn() {
   const { t } = useTranslation()
-  const { redirect } = useSearch({ from: '/(auth)/sign-in' })
+  const { redirect, operator } = useSearch({ from: '/(auth)/sign-in' })
   const { status } = useStatus()
   const { managed } = useEsseraManaged()
-  const [operatorSignIn, setOperatorSignIn] = useState(false)
 
   return (
     <AuthLayout>
@@ -60,23 +57,10 @@ export function SignIn() {
             )}
         </div>
 
-        {managed && !operatorSignIn ? (
-          <EsseraSignInForm
-            redirectTo={redirect}
-            onOperatorSignIn={() => setOperatorSignIn(true)}
-          />
+        {managed && !operator ? (
+          <EsseraSignInForm redirectTo={redirect} />
         ) : (
           <UserAuthForm redirectTo={redirect} />
-        )}
-        {managed && operatorSignIn && (
-          <Button
-            type='button'
-            variant='link'
-            className='text-muted-foreground h-auto p-0 text-sm'
-            onClick={() => setOperatorSignIn(false)}
-          >
-            {t('Back to Essera sign-in')}
-          </Button>
         )}
 
         <TermsFooter

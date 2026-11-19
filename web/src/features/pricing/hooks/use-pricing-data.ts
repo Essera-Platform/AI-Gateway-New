@@ -62,10 +62,11 @@ export function usePricingData(enabled = true) {
         group_ratio: data.group_ratio,
       }
       // Modified by Essera, 2026-11: the Console's display name and type stand where new-api
-      // shows a description and tags, so the cards and the tag filter keep working.
+      // shows a description and tags, so the cards and the tag filter keep working; no groups.
       if (!data.essera) return priced
       return {
         ...priced,
+        enable_groups: [],
         description: model.display_name || model.description,
         tags: model.model_type,
         essera: {
