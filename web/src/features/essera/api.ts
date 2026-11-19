@@ -18,7 +18,7 @@ export async function startEsseraSignIn(payload: {
   const res = await api.post<EsseraSignInResponse>(
     '/api/essera/sign-in',
     payload,
-    { skipAuthRefresh: true }
+    { skipAuthRefresh: true, skipErrorHandler: true }
   )
   return res.data
 }
@@ -29,7 +29,7 @@ export async function continueEsseraSignIn(
   const res = await api.post<EsseraSignInResponse>(
     '/api/essera/sign-in/continue',
     payload,
-    { skipAuthRefresh: true }
+    { skipAuthRefresh: true, skipErrorHandler: true }
   )
   return res.data
 }
