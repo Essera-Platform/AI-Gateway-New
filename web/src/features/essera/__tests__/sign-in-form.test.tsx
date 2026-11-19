@@ -138,13 +138,13 @@ describe('Essera sign-in by emailed code', () => {
       1,
       '/api/essera/sign-in',
       { email: EMAIL },
-      { skipAuthRefresh: true }
+      { skipAuthRefresh: true, skipErrorHandler: true }
     )
     expect(post).toHaveBeenNthCalledWith(
       2,
       '/api/essera/sign-in/continue',
       { code: '12345678' },
-      { skipAuthRefresh: true }
+      { skipAuthRefresh: true, skipErrorHandler: true }
     )
     expect(useAuthStore.getState().auth.session?.sid).toBe('person-sid')
   })
@@ -186,7 +186,7 @@ describe('Essera sign-in by emailed code', () => {
     expect(post).toHaveBeenLastCalledWith(
       '/api/essera/sign-in',
       { email: EMAIL },
-      { skipAuthRefresh: true }
+      { skipAuthRefresh: true, skipErrorHandler: true }
     )
     expect(await screen.findByRole('timer')).toHaveTextContent('2:00')
     expect(
@@ -296,7 +296,7 @@ describe('Essera sign-in by password', () => {
     expect(post).toHaveBeenCalledWith(
       '/api/essera/sign-in',
       { email: EMAIL, password: 'Correct-Horse-1' },
-      { skipAuthRefresh: true }
+      { skipAuthRefresh: true, skipErrorHandler: true }
     )
   })
 
@@ -339,7 +339,7 @@ describe('Essera sign-in by password', () => {
     expect(post).toHaveBeenLastCalledWith(
       '/api/essera/sign-in/continue',
       { new_password: 'Another-Horse-22' },
-      { skipAuthRefresh: true }
+      { skipAuthRefresh: true, skipErrorHandler: true }
     )
   })
 
