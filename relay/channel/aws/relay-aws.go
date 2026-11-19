@@ -1,4 +1,5 @@
-// Modified by Essera, 2026-11: Nova left InvokeModel for Converse; SDK errors keep Bedrock's meaning.
+// Modified by Essera, 2026-11: Nova left InvokeModel for Converse; SDK errors keep Bedrock's meaning;
+// a model served only through an inference profile is called through the region's profile.
 package aws
 
 import (
@@ -109,14 +110,8 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 	}
 	a.AwsClient = awsCli
 
-	// 获取对应的AWS模型ID
-	awsModelId := getAwsModelID(info.UpstreamModelName)
-
-	awsRegionPrefix := getAwsRegionPrefix(awsCli.Options().Region)
-	canCrossRegion := awsModelCanCrossRegion(awsModelId, awsRegionPrefix)
-	if canCrossRegion {
-		awsModelId = awsModelCrossRegion(awsModelId, awsRegionPrefix)
-	}
+	// Modified by Essera, 2026-11: the table or an earlier refusal picks the profile.
+	awsModelId := resolveBedrockModelID(info.ChannelId, info.UpstreamModelName, awsCli.Options().Region)
 
 	// init empty request.header
 	requestHeader := http.Header{}
@@ -224,7 +219,13 @@ func awsHandler(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor) (*types
 	ctx, cancel := newAwsInvokeContext(requestContext)
 	defer cancel()
 
-	awsResp, err := a.AwsClient.InvokeModel(ctx, a.AwsReq.(*bedrockruntime.InvokeModelInput))
+	awsReq := a.AwsReq.(*bedrockruntime.InvokeModelInput)
+	awsResp, err := a.AwsClient.InvokeModel(ctx, awsReq)
+	// Modified by Essera, 2026-11: once more through the region's inference profile.
+	if profileID := inferenceProfileRetry(c, info.ChannelId, a.AwsClient.Options().Region, aws.ToString(awsReq.ModelId), awsSDKError(err)); profileID != "" {
+		awsReq.ModelId = aws.String(profileID)
+		awsResp, err = a.AwsClient.InvokeModel(ctx, awsReq)
+	}
 	if err != nil {
 		return newAwsInvokeError(requestContext, err, "InvokeModel"), nil
 	}
@@ -254,7 +255,14 @@ func awsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor) (
 	ctx, cancel := newAwsInvokeContext(requestContext)
 	defer cancel()
 
-	awsResp, err := a.AwsClient.InvokeModelWithResponseStream(ctx, a.AwsReq.(*bedrockruntime.InvokeModelWithResponseStreamInput))
+	awsReq := a.AwsReq.(*bedrockruntime.InvokeModelWithResponseStreamInput)
+	awsResp, err := a.AwsClient.InvokeModelWithResponseStream(ctx, awsReq)
+	// Modified by Essera, 2026-11: once more through the region's inference profile,
+	// which the refusal allows: it comes before any event reaches the client.
+	if profileID := inferenceProfileRetry(c, info.ChannelId, a.AwsClient.Options().Region, aws.ToString(awsReq.ModelId), awsSDKError(err)); profileID != "" {
+		awsReq.ModelId = aws.String(profileID)
+		awsResp, err = a.AwsClient.InvokeModelWithResponseStream(ctx, awsReq)
+	}
 	if err != nil {
 		return newAwsInvokeError(requestContext, err, "InvokeModelWithResponseStream"), nil
 	}

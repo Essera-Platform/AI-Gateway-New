@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -104,15 +105,65 @@ func parseBedrockCredentials(key string) (bedrockCredentials, error) {
 	return creds, nil
 }
 
-// resolveBedrockModelID applies the short-name map and, for the models listed
-// there, the region's cross-region inference profile.
-func resolveBedrockModelID(upstreamModel, region string) string {
+// resolveBedrockModelID applies the short-name map and the region's
+// geographic inference profile to a model that is known to need it: listed in
+// the cross-region table, or refused on demand before on this channel.
+func resolveBedrockModelID(channelID int, upstreamModel, region string) string {
 	modelID := getAwsModelID(upstreamModel)
-	regionPrefix := getAwsRegionPrefix(region)
-	if awsModelCanCrossRegion(modelID, regionPrefix) {
-		modelID = awsModelCrossRegion(modelID, regionPrefix)
+	if awsModelCanCrossRegion(modelID, getAwsRegionPrefix(region)) {
+		return awsModelCrossRegion(modelID, getAwsRegionPrefix(region))
+	}
+	if _, known := profileOnlyModels.Load(profileOnlyModelKey(channelID, region, modelID)); known {
+		return regionalProfileID(modelID, region)
 	}
 	return modelID
+}
+
+// profileOnlyModels holds the models Bedrock has refused on demand per channel
+// and region, so later calls go straight to the region's inference profile.
+var profileOnlyModels sync.Map
+
+func profileOnlyModelKey(channelID int, region, modelID string) string {
+	return strconv.Itoa(channelID) + "|" + region + "|" + modelID
+}
+
+// inferenceProfilePrefixes start a model id that already names an inference
+// profile; Bedrock's own profile ids and ARNs are never prefixed again.
+var inferenceProfilePrefixes = []string{"arn:", "us.", "us-gov.", "eu.", "apac.", "jp.", "au.", "ca.", "global."}
+
+// regionalProfileID is modelID through the geographic inference profile of
+// region (eu. for eu-west-1), or "" when the id already names a profile or the
+// region has none. It is never global., which may run outside the geography.
+func regionalProfileID(modelID, region string) string {
+	for _, prefix := range inferenceProfilePrefixes {
+		if strings.HasPrefix(modelID, prefix) {
+			return ""
+		}
+	}
+	geo, ok := awsRegionCrossModelPrefixMap[getAwsRegionPrefix(region)]
+	if !ok {
+		return ""
+	}
+	return geo + "." + modelID
+}
+
+// inferenceProfileRetry is the model id to call again when Bedrock refused
+// modelID because the model is served in region only through an inference
+// profile, and remembers that for the channel. It is "" for any other error,
+// for an id that already names a profile, and once the client got any bytes.
+func inferenceProfileRetry(c *gin.Context, channelID int, region, modelID string, apiErr *types.NewAPIError) string {
+	if apiErr == nil || apiErr.GetErrorCode() != "invalid_request" || c.Writer.Written() {
+		return ""
+	}
+	message := strings.ToLower(apiErr.Error())
+	if !strings.Contains(message, "on-demand throughput") || !strings.Contains(message, "inference profile") {
+		return ""
+	}
+	profileID := regionalProfileID(modelID, region)
+	if profileID != "" {
+		profileOnlyModels.Store(profileOnlyModelKey(channelID, region, modelID), struct{}{})
+	}
+	return profileID
 }
 
 func bedrockRuntimeURL(info *relaycommon.RelayInfo, region, modelID, action string) (*url.URL, error) {
