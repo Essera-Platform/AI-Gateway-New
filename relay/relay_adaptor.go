@@ -1,10 +1,15 @@
+// Modified by Essera, 2026-11: Bedrock video tasks run on the native AWS task adaptor, and a
+// finished one's video URL is presigned on every read.
 package relay
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
 	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
 	_ "github.com/QuantumNous/new-api/plugins"
 	"github.com/QuantumNous/new-api/relay/channel"
@@ -188,7 +193,13 @@ func TaskPlatformUnavailableError(platform constant.TaskPlatform) (string, strin
 	return "invalid_api_platform", fmt.Sprintf("invalid api platform: %s", platform)
 }
 
+// awsTaskPlatform is the platform of a task submitted on an AWS channel.
+var awsTaskPlatform = constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeAws))
+
 func GetTaskAdaptor(platform constant.TaskPlatform) channel.TaskAdaptor {
+	if platform == awsTaskPlatform {
+		return &aws.AsyncVideoAdaptor{}
+	}
 	plugin, ok := ResolveTaskPluginForPlatform(pluginruntime.DefaultRegistry.Generation(), platform)
 	if !ok {
 		return nil
@@ -223,6 +234,9 @@ func getTaskAdaptorForRequest(c *gin.Context, platform constant.TaskPlatform) (c
 			return platform, nil
 		}
 	}
+	if platform == awsTaskPlatform {
+		return platform, &aws.AsyncVideoAdaptor{}
+	}
 	generation := pluginruntime.DefaultRegistry.Generation()
 	plugin, ok := ResolveTaskPluginForPlatform(generation, platform)
 	if !ok {
@@ -235,4 +249,27 @@ func getTaskAdaptorForRequest(c *gin.Context, platform constant.TaskPlatform) (c
 		})
 	}
 	return platform, jspluginadaptor.New(plugin)
+}
+
+// taskResultPresigner is an adaptor whose results are read through a URL signed per read.
+type taskResultPresigner interface {
+	PresignResult(ctx context.Context, task *model.Task) (string, error)
+}
+
+// PresignTaskResult replaces, in memory only, a finished task's result URL with a freshly
+// signed one when its adaptor signs results per read; the stored task keeps no signature.
+func PresignTaskResult(ctx context.Context, task *model.Task) {
+	if task == nil || task.Status != model.TaskStatusSuccess {
+		return
+	}
+	presigner, ok := GetTaskAdaptor(task.Platform).(taskResultPresigner)
+	if !ok {
+		return
+	}
+	url, err := presigner.PresignResult(ctx, task)
+	if err != nil {
+		common.SysError(common.LogText("presigning the result of task %s: %s", task.TaskID, err.Error()))
+		return
+	}
+	task.PrivateData.ResultURL = url
 }

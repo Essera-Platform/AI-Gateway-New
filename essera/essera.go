@@ -26,6 +26,7 @@ func Start(ctx context.Context) error {
 		return nil
 	}
 	model.ResolveChannelKey = secrets.Resolve
+	service.TaskFinishedFunc = usage.TaskFinished
 	if common.IsMasterNode {
 		if err := records.Migrate(); err != nil {
 			return err

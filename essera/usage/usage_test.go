@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	taskdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/essera/auth"
 	"github.com/QuantumNous/new-api/essera/limits"
 	"github.com/QuantumNous/new-api/essera/policy"
@@ -170,4 +171,93 @@ func TestTheLastRequestOfAQuotaGoesToOneRequestAndAnUnservedOneGivesItBack(t *te
 
 	usage.Finished(second, &relaycommon.RelayInfo{}, nil) // it reached no provider
 	assert.Nil(t, usage.Reserve(third), "the unserved request gave its unit back")
+}
+
+const videoInvocation = "arn:aws:bedrock:us-west-2:123456789012:async-invoke/inv0123"
+
+// submitVideoTask submits a Bedrock video task as the relay does once the provider accepted it.
+func submitVideoTask(t *testing.T, taskID string) *model.Task {
+	t.Helper()
+	s := serve(t, "user-1")
+	tag := "essera/bedrock"
+	channel := model.Channel{Tag: &tag, Name: "Bedrock", Key: "ref", Models: "luma.ray-v2:0", Group: "essera"}
+	require.NoError(t, model.DB.Create(&channel).Error)
+	s.context.Set(common.RequestIdKey, "req-"+taskID)
+	s.info.ChannelMeta = &relaycommon.ChannelMeta{ChannelId: channel.Id}
+	s.info.OriginModelName = "luma.ray-v2:0"
+	s.info.RelayMode = relayconstant.RelayModeVideoSubmit
+	s.info.PriceData.AddOtherRatio("seconds", 9)
+	task := &model.Task{TaskID: taskID, Status: model.TaskStatusSubmitted, PrivateData: model.TaskPrivateData{UpstreamTaskID: videoInvocation}}
+	usage.TaskSubmission(s.context, s.info, task, nil)
+	return task
+}
+
+func TestAVideoTaskIsReportedOnceWhenItEndsWithTheCallerOfItsSubmission(t *testing.T) {
+	task := submitVideoTask(t, "task_ok")
+	assert.Empty(t, queued(t), "nothing is generated until the video is done")
+	owner, found, err := usage.TaskCustomer("task_ok")
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, snapshottest.CustomerID, owner)
+
+	task.Status, task.FinishTime = model.TaskStatusSuccess, time.Now().Unix()
+	usage.TaskFinished(task)
+	usage.TaskFinished(task)
+
+	events := queued(t)
+	require.Len(t, events, 1, "a task is reported once, however often it is ended")
+	event := events[0]
+	assert.Equal(t, "gw-req-task_ok", event.EventID)
+	assert.Equal(t, "video", event.Modality)
+	assert.Equal(t, int64(9), event.GeneratedUnits, "video seconds")
+	assert.Zero(t, event.InputUnits)
+	assert.Zero(t, event.OutputUnits)
+	assert.Equal(t, "succeeded", event.Status)
+	assert.Equal(t, snapshottest.ClientID, event.CredentialRef, "the credential that submitted it")
+	assert.Equal(t, snapshottest.CustomerID, event.CustomerID)
+	assert.Equal(t, snapshottest.PartnerID, *event.TenantID)
+	assert.Equal(t, "user-1", *event.EndUserID)
+	assert.Equal(t, "bedrock", event.Provider)
+	assert.Equal(t, "luma.ray-v2:0", event.Model)
+	assert.Equal(t, videoInvocation, *event.ProviderRef)
+	assert.Equal(t, int64(7), event.ConfigurationVersion)
+	var counted records.Counter
+	require.NoError(t, model.DB.Where("scope = ? AND subject = ? AND currency = ?", "customer", snapshottest.CustomerID, limits.Counts).First(&counted).Error)
+	assert.Equal(t, int64(1), counted.Requests)
+}
+
+func TestAFailedVideoTaskIsReportedFailedWithNoUnits(t *testing.T) {
+	task := submitVideoTask(t, "task_failed")
+
+	task.Status, task.FailReason = model.TaskStatusFailure, "blocked by content filters"
+	usage.TaskFinished(task)
+
+	events := queued(t)
+	require.Len(t, events, 1)
+	assert.Equal(t, "failed", events[0].Status)
+	assert.Zero(t, events[0].GeneratedUnits)
+	assert.Equal(t, http.StatusBadGateway, events[0].HTTPStatus)
+	assert.Equal(t, "task_failed", *events[0].ErrorCategory)
+	assert.Equal(t, snapshottest.ClientID, events[0].CredentialRef)
+}
+
+func TestAVideoSubmissionThatFailsIsReportedOnlyIfItReachedTheProvider(t *testing.T) {
+	s := serve(t, "")
+	s.info.RelayMode = relayconstant.RelayModeVideoSubmit
+	usage.TaskSubmission(s.context, s.info, nil, &taskdto.TaskError{Code: "fail_to_fetch_task", Message: "ValidationException", StatusCode: http.StatusBadRequest})
+	events := queued(t)
+	require.Len(t, events, 1, "the provider refused it")
+	assert.Equal(t, "video", events[0].Modality)
+	assert.Equal(t, "failed", events[0].Status)
+	assert.Zero(t, events[0].GeneratedUnits)
+
+	refused := serve(t, "")
+	usage.TaskSubmission(refused.context, refused.info, nil, &taskdto.TaskError{Code: "invalid_request", Message: "seconds must be 5 or 9", StatusCode: http.StatusBadRequest, LocalError: true})
+	assert.Empty(t, queued(t), "the gateway refused it before any provider")
+	var counted records.Counter
+	require.NoError(t, model.DB.Where("scope = ? AND subject = ? AND currency = ?", "customer", snapshottest.CustomerID, limits.Counts).First(&counted).Error)
+	assert.Zero(t, counted.Requests, "its reservation is given back")
+	_, found, err := usage.TaskCustomer("task_unknown")
+	require.NoError(t, err)
+	assert.False(t, found)
 }

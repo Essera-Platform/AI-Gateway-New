@@ -6,6 +6,7 @@ package managed
 import (
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/QuantumNous/new-api/essera/settings"
@@ -13,7 +14,8 @@ import (
 )
 
 // customerPaths are the synchronous relay routes a customer's credential may call: each
-// produces one measured usage event. Task, video and plugin routes do not.
+// produces one measured usage event. Task and plugin routes do not; video routes are served
+// for Bedrock video models only (VideoSubmission).
 var customerPaths = []string{
 	"/v1/chat/completions", "/v1/completions", "/v1/responses", "/v1/messages", "/v1/embeddings",
 	"/v1/images/generations", "/v1/images/edits", "/v1/audio/", "/v1/rerank", "/v1/moderations",
@@ -27,12 +29,36 @@ var listingPaths = []string{"/v1/models", "/v1beta/models"}
 // longRunning marks Gemini's asynchronous operations, which run as tasks without a usage event.
 const longRunning = ":predictLongRunning"
 
+// videoSubmitPaths start a Bedrock video task, reported to the Console when it ends.
+var videoSubmitPaths = []string{"/v1/video/generations", "/v1/videos"}
+
+// videoReadPath reads a video task, its id the first group: the task, or its video.
+var videoReadPath = regexp.MustCompile(`^/v1/(?:video/generations|videos)/([^/]+)$|^/v1/videos/([^/]+)/content$`)
+
 // CustomerRequestAllowed tells whether a customer may make the request.
 func CustomerRequestAllowed(method, path string) bool {
 	if method == http.MethodGet {
-		return matches(listingPaths, path)
+		_, isVideoRead := VideoTaskRead(method, path)
+		return matches(listingPaths, path) || isVideoRead
 	}
-	return matches(customerPaths, path) && !strings.HasSuffix(path, longRunning)
+	return matches(customerPaths, path) && !strings.HasSuffix(path, longRunning) || VideoSubmission(method, path)
+}
+
+// VideoSubmission tells whether the request starts a video task.
+func VideoSubmission(method, path string) bool {
+	return method == http.MethodPost && slices.Contains(videoSubmitPaths, path)
+}
+
+// VideoTaskRead names the task a request reads, its status or its video.
+func VideoTaskRead(method, path string) (taskID string, ok bool) {
+	if method != http.MethodGet && method != http.MethodHead {
+		return "", false
+	}
+	found := videoReadPath.FindStringSubmatch(path)
+	if found == nil {
+		return "", false
+	}
+	return found[1] + found[2], true
 }
 
 // RelayPath tells whether the path is served to API keys rather than to the admin UI.
@@ -49,9 +75,12 @@ func matches(paths []string, path string) bool {
 	return false
 }
 
-// closedPaths serve requests the Console cannot account for: the playground, asynchronous
-// tasks, video and Midjourney.
-var closedPaths = regexp.MustCompile(`^/(pg|mj|suno)(/|$)|^/[^/]+/mj/|^/v1/(video|videos|tasks)(/|$)`)
+// closedPaths serve requests the Console cannot account for: the playground, Midjourney,
+// the plugins' task routes, and the video routes other than submitting and reading a video.
+var closedPaths = regexp.MustCompile(`^/(pg|mj|suno)(/|$)|^/[^/]+/mj/|^/v1/tasks(/|$)|^/v1/video(/|$)|^/v1/videos/[^/]+/remix$`)
+
+// openVideoPaths are the video routes a Bedrock video is submitted and read on.
+var openVideoPaths = regexp.MustCompile(`^/v1/video/generations(/[^/]+)?$`)
 
 // adminWrites change what the Console owns: providers (channels), customers (users),
 // credentials (tokens), prices, models and commerce; and plugins and sign-in providers, which
@@ -69,7 +98,7 @@ func Guard() gin.HandlerFunc {
 			return
 		}
 		path := c.Request.URL.Path
-		if closedPaths.MatchString(path) {
+		if closedPaths.MatchString(path) && !openVideoPaths.MatchString(path) {
 			refuse(c, http.StatusNotFound, "essera_not_available", "This endpoint is not available on the Essera gateway.")
 			return
 		}

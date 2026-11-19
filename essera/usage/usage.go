@@ -17,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/policy"
 	"github.com/QuantumNous/new-api/essera/rating"
 	"github.com/QuantumNous/new-api/essera/records"
+	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/stats"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -152,15 +153,20 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 // price names the rate versions in force and returns the billable amount in the request's
 // currency, which counts against the spend limit.
 func price(request *policy.Request, event *Event) decimal.Decimal {
-	rates := request.Caller.View.Snapshot.Rates
-	if rates == nil {
-		return decimal.Zero
-	}
 	partnerID := ""
 	if request.Caller.Partner != nil {
 		partnerID = request.Caller.Partner.ID
 	}
-	buyers := rating.Buyers(request.Caller.Customer.ID, partnerID, request.EndUserID)
+	return priceIn(request.Caller.View, request.Caller.Customer.ID, partnerID, request.EndUserID, request.Currency, event)
+}
+
+// priceIn prices the event with the rates of a configuration version.
+func priceIn(view *snapshot.View, customerID, partnerID, endUserID, currency string, event *Event) decimal.Decimal {
+	if view == nil || view.Snapshot == nil || view.Snapshot.Rates == nil {
+		return decimal.Zero
+	}
+	rates := view.Snapshot.Rates
+	buyers := rating.Buyers(customerID, partnerID, endUserID)
 	charges := rating.Price(rates.Rates, event.Provider, event.Model, buyers, event.TS, rating.Usage{
 		Modality: event.Modality, InputUnits: event.InputUnits, OutputUnits: event.OutputUnits, GeneratedUnits: event.GeneratedUnits,
 	})
@@ -175,7 +181,7 @@ func price(request *policy.Request, event *Event) decimal.Decimal {
 			}
 		}
 	}
-	return rating.Billable(charges, request.Currency)
+	return rating.Billable(charges, currency)
 }
 
 // unknownProvider names a channel that cannot be looked up, so its event still reaches the
@@ -202,6 +208,8 @@ func modalityOf(mode int) string {
 		return "image"
 	case relayconstant.RelayModeAudioSpeech, relayconstant.RelayModeAudioTranscription, relayconstant.RelayModeAudioTranslation:
 		return "audio"
+	case relayconstant.RelayModeVideoSubmit:
+		return "video"
 	}
 	return "text"
 }

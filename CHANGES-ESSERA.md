@@ -34,7 +34,8 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 - **`essera/stats` and `essera/bridge`:** request statistics, and the internal API the Console's backend reads (`/internal/essera/v1`: state and active configuration version, a provider's connection test, a provider's telemetry, and the traffic of the last hour, day or week: requests, latency, HTTP statuses, denials and each provider's availability, latency, retries and timeouts). It is reached inside the cluster only.
 - **`essera/servicetrust`:** authenticates the Console's backend on the internal API by its AWS role. The backend sends an `sts:GetCallerIdentity` request signed by its task role; the Gateway forwards it to STS (its global or a regional endpoint, nothing else) and serves only the ARNs in `ESSERA_TRUSTED_PRINCIPALS`. A header named twice is refused, and a verified identity is not reused past its signature's lifetime. No secret is shared.
 - **`essera/bootstrap`:** sets up the service user and token that customer requests run as. Its group's ratio is zero, so new-api neither reserves nor charges quota; the Console bills. It turns off new-api's consume log, which would duplicate the Console's ledger, and replaces the default root password.
-- **`essera/managed`:** in managed mode, refuses local edits of what the Console owns (channels, users, tokens, prices, models) and of plugins and sign-in providers, and closes the playground, Midjourney, Suno, video and task routes. Customers may only POST to the synchronous relay routes (not Gemini's long-running operations) and GET the model lists; a GET on `/v1/responses` would open a WebSocket whose calls are not accounted for.
+- **`essera/managed`:** in managed mode, refuses local edits of what the Console owns (channels, users, tokens, prices, models) and of plugins and sign-in providers, and closes the playground, Midjourney, Suno, the plugins' task routes (`/v1/tasks`) and video remix. Customers may only POST to the synchronous relay routes (not Gemini's long-running operations) and GET the model lists; a GET on `/v1/responses` would open a WebSocket whose calls are not accounted for. The video routes are open to customers for Bedrock video models only: `POST /v1/video/generations` and `POST /v1/videos` for a model Bedrock serves by asynchronous invocation, and `GET /v1/video/generations/:id`, `/v1/videos/:id` and `/v1/videos/:id/content` for the customer's own tasks (every customer runs as one new-api user, so the Gateway checks the task's customer itself).
+- **Bedrock video (`relay/channel/aws/async_video.go`, `essera/usage/tasks.go`):** a native Go task adaptor starts Nova Reel and Luma Ray videos with `StartAsyncInvoke`, writing to `s3://$BEDROCK_OUTPUT_BUCKET/<task>/`, and polls them with `GetAsyncInvoke`. A finished video is read through a GET URL presigned for 15 minutes on every fetch; the task stores none. Bedrock is called with the task role (an API key cannot write to S3), or with the channel's access key when it holds one. A customer's task submission goes through the same policy, request quota, provider rate limit and retries as a relayed request; its caller is kept in `essera_tasks`, and when the task ends one `usage.recorded` event reports it: modality `video`, `generated_units` the video's seconds, or `failed` with no units. A submission the provider refused is reported failed at once; one that never reached it gives its reservation back.
 - **`web/src/features/essera`:** in managed mode, a badge in the admin header says the Console administers the gateway, and its tooltip says what is changed there.
 
 ### Upstream files changed
@@ -45,7 +46,11 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | `middleware/auth.go` | `TokenAuth` hands a customer's access token to the integration before the key is split, and narrows the service token's models to the customer's |
 | `middleware/essera.go` (new) | The customer authentication and policy middleware |
 | `middleware/utils.go` | Counts a customer's request that new-api refuses after the Essera policy (a model outside the entitlements, no channel), which never reaches relay |
-| `controller/relay.go` | Reports every finished relay request to the integration; reserves a customer's request against its quotas; admits each attempt against the provider's rate limit and takes the provider's retries as the retry budget |
+| `controller/relay.go` | Reports every finished relay request to the integration; reserves a customer's request against its quotas; admits each attempt against the provider's rate limit and takes the provider's retries as the retry budget. Does the same for task submissions, and hands each one's outcome to the integration |
+| `relay/relay_adaptor.go` | A task on an AWS channel runs on the native Bedrock video adaptor; `PresignTaskResult` signs a finished task's URL per read |
+| `relay/relay_task.go`, `controller/video_proxy.go` | A task fetch and the video proxy read a Bedrock video through a freshly presigned URL |
+| `service/task_polling.go` | `TaskFinishedFunc` receives every task that reaches its final state, including tasks failed in bulk |
+| `relay/channel/aws/async_video.go` (new) | The Bedrock asynchronous video adaptor |
 | `relay/channel/api_request.go` | Bounds the wait for a provider's answer by the provider's timeout |
 | `controller/essera.go` (new) | Runs the Console's connection tests through new-api's channel test |
 | `router/main.go` | Registers the internal API |
@@ -67,6 +72,7 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | `ESSERA_TRUSTED_PRINCIPALS` | IAM ARN patterns allowed to call the internal API, e.g. `arn:aws:sts::<account>:assumed-role/essera-dev-task/*` |
 | `ESSERA_PROVIDER_TYPES` | Optional adapter per provider key, `{"acme-llm": 1}`, for keys the defaults do not recognise |
 | `ESSERA_FALLBACK_POLICIES` | Optional, `{"fallback/openai-to-azure": ["azure-openai"]}` |
+| `BEDROCK_OUTPUT_BUCKET` | The bucket Bedrock writes generated videos to, in the provider's region; the task role needs `bedrock:StartAsyncInvoke`, `bedrock:GetAsyncInvoke`, and `s3:PutObject` and `s3:GetObject` on it |
 | `ESSERA_AWS_ENDPOINT`, `ESSERA_JWKS_URL`, `ESSERA_PROVIDER_BASE_URLS` | Development only: local stand-ins for AWS, Cognito and providers |
 
 ### Database
@@ -79,5 +85,6 @@ The fork runs on PostgreSQL only. The Essera tables are:
 - `essera_provider_minutes`
 - `essera_request_stats`
 - `essera_provider_errors`
+- `essera_tasks`
 
 They hold working state; every business record stays in the Console.

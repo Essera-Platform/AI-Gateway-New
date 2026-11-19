@@ -1,3 +1,4 @@
+// Modified by Essera, 2026-11: every task that reaches its final state is handed to TaskFinishedFunc.
 package service
 
 import (
@@ -70,9 +71,16 @@ var GetTaskAdaptorFunc func(platform constant.TaskPlatform) TaskPollingAdaptor
 // state to the request plugins' report hooks (requestplugin.ReportTask).
 var ReportTaskFunc func(task *model.Task)
 
+// TaskFinishedFunc, when set, receives every task once its final state is stored: the Essera
+// integration reports a customer's task to the Console then.
+var TaskFinishedFunc func(task *model.Task)
+
 // reportFinalTask reports a task once, after its final state is stored and
 // settled. A task no instance may report costs nothing.
 func reportFinalTask(task *model.Task) {
+	if TaskFinishedFunc != nil {
+		TaskFinishedFunc(task)
+	}
 	if ReportTaskFunc != nil && task.PrivateData.RequestPlugins != nil {
 		ReportTaskFunc(task)
 	}
@@ -82,7 +90,7 @@ func reportFinalTask(task *model.Task) {
 func reportFailedTasks(tasks []*model.Task, reason string) {
 	now := time.Now().Unix()
 	for _, task := range tasks {
-		if task == nil || task.PrivateData.RequestPlugins == nil {
+		if task == nil {
 			continue
 		}
 		task.Status, task.Progress, task.FailReason = model.TaskStatusFailure, "100%", reason

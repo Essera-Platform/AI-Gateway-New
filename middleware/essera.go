@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/stats"
 	"github.com/QuantumNous/new-api/essera/usage"
+	"github.com/QuantumNous/new-api/relay/channel/aws"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
@@ -64,9 +65,40 @@ func esseraAuthenticate(c *gin.Context, presented string) (serviceKey string, ha
 	for name, value := range request.Headers {
 		c.Header(name, value)
 	}
+	if !esseraVideoAllowed(c, caller.Customer.ID) {
+		return "", true
+	}
 	c.Set(usage.ContextKey, request)
 	service.GetChannelConstraints(c).AddFilter(dto.ChannelFilter{Kind: dto.FilterEsseraProviders, EsseraTagsByModel: request.AllowedModels})
 	return bootstrap.ServiceTokenKey(), true
+}
+
+// esseraVideoAllowed admits a video request: a submission only for a Bedrock video model, the
+// one kind of task the Console is told the outcome of, and a read only of the customer's own
+// task. Every customer runs as the same new-api user, so new-api cannot tell their tasks apart.
+func esseraVideoAllowed(c *gin.Context, customerID string) bool {
+	if managed.VideoSubmission(c.Request.Method, c.Request.URL.Path) {
+		requested, err := getModelFromRequest(c)
+		if err != nil || !aws.IsAsyncVideoModel(requested.Model) {
+			abortWithOpenAiMessage(c, http.StatusNotFound, "This endpoint serves Bedrock video models only.", types.ErrorCode("essera_not_available"))
+			return false
+		}
+		return true
+	}
+	taskID, isRead := managed.VideoTaskRead(c.Request.Method, c.Request.URL.Path)
+	if !isRead {
+		return true
+	}
+	owner, found, err := usage.TaskCustomer(taskID)
+	if err != nil {
+		abortWithOpenAiMessage(c, http.StatusServiceUnavailable, "The gateway cannot read this task right now.", types.ErrorCode("essera_unavailable"))
+		return false
+	}
+	if !found || owner != customerID {
+		abortWithOpenAiMessage(c, http.StatusNotFound, "Task not found.", types.ErrorCode("task_not_exist"))
+		return false
+	}
+	return true
 }
 
 // esseraLimitModels narrows the service token's models to the customer's, once new-api has

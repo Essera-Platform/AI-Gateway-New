@@ -84,7 +84,32 @@ type ProviderError struct {
 
 func (ProviderError) TableName() string { return "essera_provider_errors" }
 
+// Task is a customer's asynchronous task (a Bedrock video): who asked for it, so its one usage
+// event is written when it ends, and so only that customer may read it.
+type Task struct {
+	TaskID               string `gorm:"primaryKey;type:varchar(64)"`
+	RequestID            string `gorm:"type:varchar(128)"`
+	CustomerID           string `gorm:"type:varchar(128)"`
+	TenantID             string `gorm:"type:varchar(128)"`
+	CredentialRef        string `gorm:"type:varchar(200)"`
+	EndUserID            string `gorm:"type:varchar(200)"`
+	CorrelationID        string `gorm:"type:varchar(64)"`
+	Provider             string `gorm:"type:varchar(64)"`
+	Model                string `gorm:"type:varchar(200)"`
+	ProviderRef          string `gorm:"type:varchar(200)"`
+	ConfigurationVersion int64
+	Currency             string `gorm:"type:varchar(3)"`
+	Month                string `gorm:"type:varchar(7)"`
+	Subjects             string `gorm:"type:text"` // JSON [{"Scope":…,"ID":…}], the limits it counts against
+	Seconds              int64  // the video's length, as requested and bounded
+	Retries              int
+	SubmittedAt          time.Time
+	ReportedAt           *time.Time `gorm:"index"`
+}
+
+func (Task) TableName() string { return "essera_tasks" }
+
 // Migrate creates or updates the Essera tables in the primary database.
 func Migrate() error {
-	return model.DB.AutoMigrate(&ConfigVersion{}, &OutboxEvent{}, &Counter{}, &ProviderMinute{}, &RequestStat{}, &ProviderError{})
+	return model.DB.AutoMigrate(&ConfigVersion{}, &OutboxEvent{}, &Counter{}, &ProviderMinute{}, &RequestStat{}, &ProviderError{}, &Task{})
 }

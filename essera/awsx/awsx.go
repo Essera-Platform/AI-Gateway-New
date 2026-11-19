@@ -1,6 +1,6 @@
 // Package awsx is the Gateway's one seam to the AWS services the Essera integration uses:
-// the configuration bucket, the configuration and usage queues, and Secrets Manager.
-// Credentials come from the ECS task role through the default chain.
+// the configuration bucket, the configuration and usage queues, Secrets Manager, and the
+// Bedrock output bucket. Credentials come from the ECS task role through the default chain.
 package awsx
 
 import (
@@ -34,6 +34,19 @@ func awsConfig(ctx context.Context) (aws.Config, error) {
 		}
 	})
 	return loaded, loadErr
+}
+
+// Credentials are the task role's, for the calls a provider key cannot make: Bedrock's
+// asynchronous invocations, which write to S3, and its bidirectional streams.
+func Credentials(ctx context.Context) (aws.CredentialsProvider, error) {
+	cfg, err := awsConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Credentials == nil {
+		return nil, errors.New("no AWS credentials are configured")
+	}
+	return cfg.Credentials, nil
 }
 
 func s3Client(ctx context.Context) (*s3.Client, error) {

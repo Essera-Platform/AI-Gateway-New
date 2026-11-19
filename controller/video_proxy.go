@@ -1,3 +1,4 @@
+// Modified by Essera, 2026-11: a Bedrock video is proxied from a freshly presigned URL.
 package controller
 
 import (
@@ -21,6 +22,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/jsplugin"
+	"github.com/QuantumNous/new-api/relay"
 	relaychannel "github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/system_setting"
@@ -113,6 +115,7 @@ func VideoProxy(c *gin.Context) {
 		}
 	}
 	if descriptor == nil {
+		relay.PresignTaskResult(c.Request.Context(), task) // Modified by Essera, 2026-11
 		resultURL := task.GetResultURL()
 		if isTaskMediaFallbackLoop(resultURL, task.TaskID) {
 			writeTaskMediaProxyError(c, &taskMediaProxyError{

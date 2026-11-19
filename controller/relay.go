@@ -572,6 +572,15 @@ func RelayTask(c *gin.Context) {
 	if action := c.GetString("task_action"); action != "" {
 		relayInfo.Action = action
 	}
+	var outcome *taskSubmissionOutcome
+	// Modified by Essera, 2026-11: a Console customer's task is reported to the Console when it ends.
+	defer func() {
+		var task *model.Task
+		if outcome != nil {
+			task = outcome.Task
+		}
+		usage.TaskSubmission(c, relayInfo, task, taskErr)
+	}()
 
 	if taskErr = relay.ResolveOriginTask(c, relayInfo); taskErr != nil {
 		respondTaskSubmissionError(c, taskErr)
@@ -582,7 +591,6 @@ func RelayTask(c *gin.Context) {
 		return
 	}
 
-	var outcome *taskSubmissionOutcome
 	outcome, taskErr = executeTaskSubmission(c, relayInfo)
 	if taskErr != nil {
 		respondTaskSubmissionError(c, taskErr)
@@ -680,7 +688,16 @@ func executeTaskSubmissionWith(
 		Retry:       common.GetPointer(0),
 	}
 
-	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
+	// Modified by Essera, 2026-11: a Console customer's task counts against its quotas, and each
+	// attempt against its provider's rate limit and retries, as a relayed request does.
+	if quotaErr := usage.Reserve(c); quotaErr != nil {
+		taskErr = service.TaskErrorFromAPIError(quotaErr)
+		taskErr.LocalError = true
+		diagnostics.failed(stage, "essera_quota", taskErr, false)
+		return nil, taskErr
+	}
+
+	for ; retryParam.GetRetry() <= providerlimits.RetryTimes(c, common.RetryTimes); retryParam.IncreaseRetry() {
 		stage = "select_channel"
 		if requestErr := c.Request.Context().Err(); requestErr != nil {
 			diagnostics.cancelled("before_attempt", retryParam.GetRetry()+1)
@@ -710,6 +727,11 @@ func executeTaskSubmissionWith(
 		diagnostics.attempt(retryParam.GetRetry()+1, channel, relayInfo.LockedChannel != nil)
 
 		service.AppendUsedChannel(c, channel.Id)
+		if limitErr := providerlimits.Admit(c, channel.Id, time.Now()); limitErr != nil { // Modified by Essera, 2026-11
+			taskErr = service.TaskErrorFromAPIError(limitErr)
+			taskErr.LocalError = true
+			break
+		}
 		bodyStorage, bodyErr := common.GetBodyStorage(c)
 		if bodyErr != nil {
 			stage = "read_body"
@@ -736,7 +758,7 @@ func executeTaskSubmissionWith(
 
 		taskAPIError := taskSubmissionAPIError(taskErr)
 		relayInfo.LastError = taskAPIError
-		decision := decideTaskRetry(c, taskErr, common.RetryTimes-retryParam.GetRetry())
+		decision := decideTaskRetry(c, taskErr, providerlimits.RetryTimes(c, common.RetryTimes)-retryParam.GetRetry()) // Modified by Essera, 2026-11
 		service.RecordPolicyFailure(c, channel.Id, taskAPIError, decision)
 		if !taskErr.LocalError {
 			processChannelError(c,

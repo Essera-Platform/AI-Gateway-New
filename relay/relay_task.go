@@ -1,3 +1,4 @@
+// Modified by Essera, 2026-11: a fetch reads a Bedrock video through a freshly presigned URL.
 package relay
 
 import (
@@ -517,6 +518,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	}
 
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
+	PresignTaskResult(c.Request.Context(), originTask) // Modified by Essera, 2026-11
 
 	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
 	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
