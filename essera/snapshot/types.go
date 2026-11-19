@@ -186,7 +186,6 @@ type Entitlements struct {
 	MonthlySpendLimit   *decimal.Decimal `json:"monthly_spend_limit"`
 	Currency            *string          `json:"currency"`
 	BillingCycle        *string          `json:"billing_cycle"`
-	PricingPlan         *string          `json:"pricing_plan"`
 }
 
 type RatesCatalog struct {

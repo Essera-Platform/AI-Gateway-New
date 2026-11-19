@@ -13,11 +13,12 @@ import (
 func ptr[T any](v T) *T { return &v }
 
 func TestParseReadsTheConsolesDocument(t *testing.T) {
-	// The Console writes decimals as strings and may add fields this Gateway does not know.
+	// The Console writes decimals as strings and may add fields this Gateway does not know, or
+	// still send ones it no longer reads, such as an older snapshot's pricing_plan.
 	document := []byte(`{"general":{"default_timezone":"Europe/Berlin","default_currency":"EUR","supported_currencies":["EUR"]},` +
 		`"gateway":{"maintenance_status":"operational","message":"","window_start":null,"window_end":null},` +
 		`"regions":{"approved_countries":[],"blocked_countries":[]},"billing":{},"notifications":{"routes":[]},"retention":{},"contacts":{"emergency":[]},` +
-		`"accounts":{"partners":[],"customers":[{"id":"c","partner_id":null,"status":"active","entitlements":{"monthly_spend_limit":"12000.00","currency":null}}],` +
+		`"accounts":{"partners":[],"customers":[{"id":"c","partner_id":null,"status":"active","entitlements":{"monthly_spend_limit":"12000.00","currency":null,"pricing_plan":"Enterprise"}}],` +
 		`"end_users":[],"credentials":[],"a_field_added_later":true}}`)
 
 	parsed, err := snapshot.Parse(document)
