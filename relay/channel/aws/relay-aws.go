@@ -1,8 +1,8 @@
+// Modified by Essera, 2026-11: Nova left InvokeModel for Converse; SDK errors keep Bedrock's meaning.
 package aws
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -52,6 +52,14 @@ func newAwsInvokeError(requestContext context.Context, err error, operation stri
 	options := make([]types.NewAPIErrorOptions, 0, 1)
 	if requestContext.Err() != nil {
 		options = append(options, types.ErrOptionWithSkipRetry())
+	}
+	// Modified by Essera, 2026-11: a Bedrock exception keeps its meaning
+	// (throttling 429, validation 400, access denied 403, model not ready 503).
+	if mapped := awsSDKError(err); mapped != nil {
+		for _, option := range options {
+			option(mapped)
+		}
+		return mapped
 	}
 	return types.NewOpenAIError(
 		errors.Wrap(err, operation),
@@ -121,58 +129,36 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 		requestHeader.Set(key, value)
 	}
 
-	if isNovaModel(awsModelId) {
-		var novaReq *NovaRequest
-		err = common.DecodeJson(requestBody, &novaReq)
-		if err != nil {
-			return nil, types.NewError(errors.Wrap(err, "decode nova request fail"), types.ErrorCodeBadRequestBody)
-		}
+	// Modified by Essera, 2026-11: Amazon Nova moved to Converse; only Claude is here.
+	awsClaudeReq, err := formatRequest(requestBody, requestHeader)
+	if err != nil {
+		return nil, types.NewError(errors.Wrap(err, "format aws request fail"), types.ErrorCodeBadRequestBody)
+	}
 
-		// 使用InvokeModel API，但使用Nova格式的请求体
+	if info.IsStream {
+		awsReq := &bedrockruntime.InvokeModelWithResponseStreamInput{
+			ModelId:     aws.String(awsModelId),
+			Accept:      aws.String("application/json"),
+			ContentType: aws.String("application/json"),
+		}
+		awsReq.Body, err = buildAwsRequestBody(c, info, awsClaudeReq)
+		if err != nil {
+			return nil, types.NewError(errors.Wrap(err, "marshal aws request fail"), types.ErrorCodeBadRequestBody)
+		}
+		a.AwsReq = awsReq
+		return nil, nil
+	} else {
 		awsReq := &bedrockruntime.InvokeModelInput{
 			ModelId:     aws.String(awsModelId),
 			Accept:      aws.String("application/json"),
 			ContentType: aws.String("application/json"),
 		}
-
-		reqBody, err := common.Marshal(novaReq)
+		awsReq.Body, err = buildAwsRequestBody(c, info, awsClaudeReq)
 		if err != nil {
-			return nil, types.NewError(errors.Wrap(err, "marshal nova request"), types.ErrorCodeBadResponseBody)
+			return nil, types.NewError(errors.Wrap(err, "marshal aws request fail"), types.ErrorCodeBadRequestBody)
 		}
-		awsReq.Body = reqBody
 		a.AwsReq = awsReq
 		return nil, nil
-	} else {
-		awsClaudeReq, err := formatRequest(requestBody, requestHeader)
-		if err != nil {
-			return nil, types.NewError(errors.Wrap(err, "format aws request fail"), types.ErrorCodeBadRequestBody)
-		}
-
-		if info.IsStream {
-			awsReq := &bedrockruntime.InvokeModelWithResponseStreamInput{
-				ModelId:     aws.String(awsModelId),
-				Accept:      aws.String("application/json"),
-				ContentType: aws.String("application/json"),
-			}
-			awsReq.Body, err = buildAwsRequestBody(c, info, awsClaudeReq)
-			if err != nil {
-				return nil, types.NewError(errors.Wrap(err, "marshal aws request fail"), types.ErrorCodeBadRequestBody)
-			}
-			a.AwsReq = awsReq
-			return nil, nil
-		} else {
-			awsReq := &bedrockruntime.InvokeModelInput{
-				ModelId:     aws.String(awsModelId),
-				Accept:      aws.String("application/json"),
-				ContentType: aws.String("application/json"),
-			}
-			awsReq.Body, err = buildAwsRequestBody(c, info, awsClaudeReq)
-			if err != nil {
-				return nil, types.NewError(errors.Wrap(err, "marshal aws request fail"), types.ErrorCodeBadRequestBody)
-			}
-			a.AwsReq = awsReq
-			return nil, nil
-		}
 	}
 }
 
@@ -317,61 +303,4 @@ streamLoop:
 	_ = stream.Close()
 	claude.HandleStreamFinalResponse(c, info, claudeInfo)
 	return nil, claudeInfo.Usage
-}
-
-// Nova模型处理函数
-func handleNovaRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor) (*types.NewAPIError, *dto.Usage) {
-
-	requestContext := c.Request.Context()
-	ctx, cancel := newAwsInvokeContext(requestContext)
-	defer cancel()
-
-	awsResp, err := a.AwsClient.InvokeModel(ctx, a.AwsReq.(*bedrockruntime.InvokeModelInput))
-	if err != nil {
-		return newAwsInvokeError(requestContext, err, "InvokeModel"), nil
-	}
-
-	// 解析Nova响应
-	var novaResp struct {
-		Output struct {
-			Message struct {
-				Content []struct {
-					Text string `json:"text"`
-				} `json:"content"`
-			} `json:"message"`
-		} `json:"output"`
-		Usage struct {
-			InputTokens  int `json:"inputTokens"`
-			OutputTokens int `json:"outputTokens"`
-			TotalTokens  int `json:"totalTokens"`
-		} `json:"usage"`
-	}
-
-	if err := json.Unmarshal(awsResp.Body, &novaResp); err != nil {
-		return types.NewError(errors.Wrap(err, "unmarshal nova response"), types.ErrorCodeBadResponseBody), nil
-	}
-
-	// 构造OpenAI格式响应
-	response := dto.OpenAITextResponse{
-		Id:      helper.GetResponseID(c),
-		Object:  "chat.completion",
-		Created: common.GetTimestamp(),
-		Model:   info.UpstreamModelName,
-		Choices: []dto.OpenAITextResponseChoice{{
-			Index: 0,
-			Message: dto.Message{
-				Role:    "assistant",
-				Content: novaResp.Output.Message.Content[0].Text,
-			},
-			FinishReason: "stop",
-		}},
-		Usage: dto.Usage{
-			PromptTokens:     novaResp.Usage.InputTokens,
-			CompletionTokens: novaResp.Usage.OutputTokens,
-			TotalTokens:      novaResp.Usage.TotalTokens,
-		},
-	}
-
-	c.JSON(http.StatusOK, response)
-	return nil, &response.Usage
 }
