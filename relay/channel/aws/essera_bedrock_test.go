@@ -29,6 +29,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/aws/smithy-go"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -573,4 +575,172 @@ func TestBedrockRerankIsRefused(t *testing.T) {
 	require.ErrorAs(t, err, &apiErr)
 	assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
 	assert.True(t, relaytypes.IsSkipRetryError(apiErr))
+}
+
+// onDemandRefusal is Bedrock's answer for a model that a region serves only
+// through an inference profile, as eu-west-1 gave it for Nova 2 Lite.
+func onDemandRefusal(modelID string) bedrockReplyFixture {
+	return bedrockReplyFixture{status: 400, header: map[string]string{"X-Amzn-ErrorType": "ValidationException:http://internal.amazon.com/coral/com.amazon.bedrock/"}, body: []byte(`{"message":"Invocation of model ID ` + modelID + ` with on-demand throughput isn’t supported. Retry your request with the ID or ARN of an inference profile that contains this model."}`)}
+}
+
+func TestBedrockInferenceProfiles(t *testing.T) {
+	originalTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = originalTimeout })
+
+	t.Run("models eu-west-1 serves only through the eu. profile resolve to it", func(t *testing.T) {
+		for _, model := range []string{
+			"amazon.nova-2-lite-v1:0", "amazon.nova-lite-v1:0", "amazon.nova-micro-v1:0", "amazon.nova-pro-v1:0",
+			"anthropic.claude-haiku-4-5-20251001-v1:0", "anthropic.claude-opus-4-5-20251101-v1:0", "anthropic.claude-opus-4-6-v1",
+			"anthropic.claude-opus-4-7", "anthropic.claude-opus-4-8", "anthropic.claude-opus-5",
+			"anthropic.claude-sonnet-4-5-20250929-v1:0", "anthropic.claude-sonnet-4-6", "anthropic.claude-sonnet-5",
+			"mistral.pixtral-large-2502-v1:0",
+		} {
+			assert.Equal(t, "eu."+model, resolveBedrockModelID(0, model, "eu-west-1"), model)
+		}
+	})
+
+	t.Run("an id that already names a profile is not touched", func(t *testing.T) {
+		for _, model := range []string{
+			"eu.amazon.nova-2-lite-v1:0", "us.amazon.nova-2-lite-v1:0", "apac.amazon.nova-2-lite-v1:0", "global.amazon.nova-2-lite-v1:0",
+			"arn:aws:bedrock:eu-west-1:123456789012:inference-profile/eu.amazon.nova-2-lite-v1:0",
+		} {
+			assert.Equal(t, model, resolveBedrockModelID(0, model, "eu-west-1"), model)
+			server, captured := startBedrockStub(t, onDemandRefusal(model))
+			c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+			info := newBedrockTestInfo(server, relayconstant.RelayModeChatCompletions, relaytypes.RelayFormatOpenAI, model, false)
+			request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "Hi"}}}
+			_, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertOpenAIRequest(c, info, request) })
+			require.NotNil(t, apiErr, model)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+			assert.Len(t, captured(), 1, model)
+		}
+	})
+
+	tests := []struct {
+		name       string
+		channelID  int
+		stream     bool
+		fixtures   func(*testing.T) []bedrockReplyFixture
+		wantPaths  []string
+		wantStatus int
+		wantNext   string
+	}{
+		{
+			name: "a refusal on demand is retried once through the eu. profile and remembered", channelID: 9101,
+			fixtures: func(*testing.T) []bedrockReplyFixture {
+				return []bedrockReplyFixture{onDemandRefusal("amazon.nova-9-test-v1:0"), jsonFixture(converseTextReply)}
+			},
+			wantPaths: []string{"/model/amazon.nova-9-test-v1%3A0/converse", "/model/eu.amazon.nova-9-test-v1%3A0/converse"},
+			wantNext:  "/model/eu.amazon.nova-9-test-v1%3A0/converse",
+		},
+		{
+			name: "a streaming request is retried before anything reaches the client", channelID: 9102, stream: true,
+			fixtures: func(t *testing.T) []bedrockReplyFixture {
+				return []bedrockReplyFixture{onDemandRefusal("amazon.nova-9-test-v1:0"), converseStreamEvents(t)}
+			},
+			wantPaths: []string{"/model/amazon.nova-9-test-v1%3A0/converse-stream", "/model/eu.amazon.nova-9-test-v1%3A0/converse-stream"},
+			wantNext:  "/model/eu.amazon.nova-9-test-v1%3A0/converse-stream",
+		},
+		{
+			name: "another validation error is not retried", channelID: 9103,
+			fixtures: func(*testing.T) []bedrockReplyFixture {
+				return []bedrockReplyFixture{{status: 400, header: map[string]string{"X-Amzn-ErrorType": "ValidationException"}, body: []byte(`{"message":"messages: text field is blank"}`)}}
+			},
+			wantPaths:  []string{"/model/amazon.nova-9-test-v1%3A0/converse"},
+			wantStatus: http.StatusBadRequest,
+			wantNext:   "/model/amazon.nova-9-test-v1%3A0/converse",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			const model = "amazon.nova-9-test-v1:0"
+			server, captured := startBedrockStub(t, test.fixtures(t)...)
+			recorder := httptest.NewRecorder()
+			c := newAwsTestContext(recorder, context.Background())
+			info := newBedrockTestInfo(server, relayconstant.RelayModeChatCompletions, relaytypes.RelayFormatOpenAI, model, test.stream)
+			info.ChannelId = test.channelID
+			request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "Hi"}}}
+
+			usage, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertOpenAIRequest(c, info, request) })
+			var paths []string
+			for _, r := range captured() {
+				paths = append(paths, r.path)
+			}
+			assert.Equal(t, test.wantPaths, paths)
+			if test.wantStatus != 0 {
+				require.NotNil(t, apiErr)
+				assert.Equal(t, test.wantStatus, apiErr.StatusCode)
+			} else {
+				require.Nil(t, apiErr)
+				assert.Positive(t, usage.CompletionTokens)
+				assert.Contains(t, recorder.Body.String(), `"model":"`+model+`"`, "the answer names the catalog model, not the profile")
+			}
+			assert.Equal(t, model, info.UpstreamModelName, "usage keeps the catalog model")
+
+			next, nextCaptured := startBedrockStub(t, jsonFixture(converseTextReply))
+			c = newAwsTestContext(httptest.NewRecorder(), context.Background())
+			info = newBedrockTestInfo(next, relayconstant.RelayModeChatCompletions, relaytypes.RelayFormatOpenAI, model, false)
+			info.ChannelId = test.channelID
+			if test.stream {
+				test.wantNext = strings.TrimSuffix(test.wantNext, "-stream")
+			}
+			_, apiErr = relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertOpenAIRequest(c, info, request) })
+			require.Nil(t, apiErr)
+			require.Len(t, nextCaptured(), 1)
+			assert.Equal(t, test.wantNext, nextCaptured()[0].path, "the next call on the channel")
+		})
+	}
+
+	t.Run("a region without a geographic profile never falls back to global.", func(t *testing.T) {
+		for _, region := range []string{"sa-east-1", "me-central-1"} {
+			server, captured := startBedrockStub(t, onDemandRefusal("amazon.nova-9-test-v1:0"))
+			c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+			info := newBedrockTestInfo(server, relayconstant.RelayModeChatCompletions, relaytypes.RelayFormatOpenAI, "amazon.nova-9-test-v1:0", false)
+			info.ApiKey = "test-api-key|" + region
+			info.ChannelId = 9104
+			request := &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "Hi"}}}
+			_, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertOpenAIRequest(c, info, request) })
+			require.NotNil(t, apiErr)
+			requests := captured()
+			require.Len(t, requests, 1, region)
+			assert.Equal(t, "/model/amazon.nova-9-test-v1%3A0/converse", requests[0].path)
+			assert.Equal(t, "amazon.nova-9-test-v1:0", resolveBedrockModelID(9104, "amazon.nova-9-test-v1:0", region))
+		}
+	})
+
+	t.Run("Claude on InvokeModel is retried through the eu. profile", func(t *testing.T) {
+		const model = "anthropic.claude-test-profile-only"
+		var paths []string
+		client := bedrockruntime.New(bedrockruntime.Options{
+			Region:       "eu-west-1",
+			BaseEndpoint: aws.String("https://bedrock.test"),
+			Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("access-key", "secret-key", "")),
+			Retryer:      aws.NopRetryer{},
+			HTTPClient: awsHTTPClientFunc(func(request *http.Request) (*http.Response, error) {
+				paths = append(paths, request.URL.EscapedPath())
+				if len(paths) == 1 {
+					refusal := onDemandRefusal(model)
+					return &http.Response{StatusCode: refusal.status, Header: http.Header{"Content-Type": {"application/json"}, "X-Amzn-Errortype": {refusal.header["X-Amzn-ErrorType"]}}, Body: io.NopCloser(bytes.NewReader(refusal.body)), Request: request}, nil
+				}
+				body := `{"id":"msg_1","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"Hello"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":2}}`
+				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
+			}),
+		})
+		input := &bedrockruntime.InvokeModelInput{ModelId: aws.String(model), Body: []byte(`{}`), Accept: aws.String("application/json"), ContentType: aws.String("application/json")}
+		adaptor := &Adaptor{AwsClient: client, AwsReq: input}
+		recorder := httptest.NewRecorder()
+		c := newAwsTestContext(recorder, context.Background())
+		info := newAwsTestRelayInfo()
+		info.IsStream = false
+		info.ChannelId = 9105
+		info.UpstreamModelName = model
+
+		apiErr, usage := awsHandler(c, info, adaptor)
+		require.Nil(t, apiErr)
+		assert.Equal(t, []string{"/model/" + model + "/invoke", "/model/eu." + model + "/invoke"}, paths)
+		assert.Equal(t, 2, usage.CompletionTokens)
+		assert.Equal(t, model, info.UpstreamModelName)
+		assert.Equal(t, "eu."+model, resolveBedrockModelID(9105, model, "eu-west-1"))
+	})
 }

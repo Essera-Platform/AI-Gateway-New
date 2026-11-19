@@ -1,3 +1,4 @@
+// Modified by Essera, 2026-11: the models eu-west-1 serves only through the eu. inference profile.
 package aws
 
 import "strings"
@@ -144,6 +145,21 @@ var awsModelCanCrossRegionMap = map[string]map[string]bool{
 		"us":   true,
 		"eu":   true,
 		"apac": true,
+	},
+	// Modified by Essera, 2026-11: invocable in eu-west-1 only through the eu.
+	// inference profile (list-foundation-models and list-inference-profiles).
+	// Other regions find out at the first call (essera_runtime.go).
+	"amazon.nova-2-lite-v1:0": {
+		"eu": true,
+	},
+	"anthropic.claude-opus-5": {
+		"eu": true,
+	},
+	"anthropic.claude-sonnet-5": {
+		"eu": true,
+	},
+	"mistral.pixtral-large-2502-v1:0": {
+		"eu": true,
 	},
 }
 

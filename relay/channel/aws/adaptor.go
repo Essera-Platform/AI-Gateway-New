@@ -1,5 +1,5 @@
 // Modified by Essera, 2026-11: every Bedrock model through Converse and ConverseStream,
-// /v1/responses, embeddings and Bedrock error mapping (see essera_*.go).
+// /v1/responses, embeddings, Bedrock error mapping and the inference profile retry (see essera_*.go).
 package aws
 
 import (
@@ -202,26 +202,35 @@ func (a *Adaptor) doRuntimeRequest(c *gin.Context, info *relaycommon.RelayInfo, 
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeChannelAwsClientError)
 	}
-	a.modelID = resolveBedrockModelID(info.UpstreamModelName, creds.region)
+	a.modelID = resolveBedrockModelID(info.ChannelId, info.UpstreamModelName, creds.region)
 	body, err := nativeRequestBody(info, requestBody)
 	if err != nil {
 		return err
 	}
 	send := func(action string, payload []byte, stream bool) error {
-		resp, err := sendBedrockRuntime(c, info, a.modelID, action, payload, stream)
-		if err != nil {
-			return err
-		}
-		if stream && resp.StatusCode == http.StatusOK {
-			a.stream = resp
+		// At most two calls: a profile id never gets another retry.
+		for {
+			resp, err := sendBedrockRuntime(c, info, a.modelID, action, payload, stream)
+			if err != nil {
+				return err
+			}
+			if stream && resp.StatusCode == http.StatusOK {
+				a.stream = resp
+				return nil
+			}
+			reply, err := readBedrockReply(resp)
+			if err != nil {
+				return err
+			}
+			if reply.status != http.StatusOK {
+				if profileID := inferenceProfileRetry(c, info.ChannelId, creds.region, a.modelID, bedrockReplyError(reply)); profileID != "" {
+					a.modelID = profileID
+					continue
+				}
+			}
+			a.replies = append(a.replies, reply)
 			return nil
 		}
-		reply, err := readBedrockReply(resp)
-		if err != nil {
-			return err
-		}
-		a.replies = append(a.replies, reply)
-		return nil
 	}
 	if a.route == routeConverse {
 		if info.IsStream {
