@@ -7807,6 +7807,24 @@
     "The Console refused this request.": "The Console refused this request.",
     "This account cannot sign in to the Essera gateway.": "This account cannot sign in to the Essera gateway.",
     "No requests yet": "No requests yet",
-    "Refine models by provider, type, and tags.": "Refine models by provider, type, and tags."
+    "Refine models by provider, type, and tags.": "Refine models by provider, type, and tags.",
+    "API key revoked": "API key revoked",
+    "API key rotated": "API key rotated",
+    "API key expiry changed": "API key expiry changed",
+    "User added": "User added",
+    "User changed": "User changed",
+    "User suspended": "User suspended",
+    "User reactivated": "User reactivated",
+    "User removed": "User removed",
+    "Users uploaded": "Users uploaded",
+    "Sign-in given": "Sign-in given",
+    "Sign-in email changed": "Sign-in email changed",
+    "Sign-in removed": "Sign-in removed",
+    "Sign-in set up": "Sign-in set up",
+    "Invitation sent again": "Invitation sent again",
+    "Account created": "Account created",
+    "Account details changed": "Account details changed",
+    "Account limits changed": "Account limits changed",
+    "Account status changed": "Account status changed"
   }
 }

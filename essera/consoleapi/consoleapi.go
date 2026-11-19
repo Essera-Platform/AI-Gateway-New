@@ -218,6 +218,7 @@ type AuditRow struct {
 	ResourceType  *string   `json:"resource_type"`
 	ResourceID    *string   `json:"resource_id"`
 	Result        string    `json:"result"`
+	NewStatus     *string   `json:"new_status"`
 }
 
 // SeriesRow is the totals of one provider and model in one hour or day, ts its UTC start.

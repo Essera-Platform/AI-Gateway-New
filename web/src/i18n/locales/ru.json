@@ -7807,6 +7807,24 @@
     "The Console refused this request.": "Консоль отклонила этот запрос.",
     "This account cannot sign in to the Essera gateway.": "Эта учётная запись не может войти в шлюз Essera.",
     "No requests yet": "Запросов пока нет",
-    "Refine models by provider, type, and tags.": "Отбор моделей по поставщику, типу и тегам."
+    "Refine models by provider, type, and tags.": "Отбор моделей по поставщику, типу и тегам.",
+    "API key revoked": "API-ключ отозван",
+    "API key rotated": "API-ключ заменён",
+    "API key expiry changed": "Срок действия API-ключа изменён",
+    "User added": "Пользователь добавлен",
+    "User changed": "Пользователь изменён",
+    "User suspended": "Пользователь приостановлен",
+    "User reactivated": "Пользователь возобновлён",
+    "User removed": "Пользователь удалён",
+    "Users uploaded": "Пользователи загружены",
+    "Sign-in given": "Вход разрешён",
+    "Sign-in email changed": "Email для входа изменён",
+    "Sign-in removed": "Вход отключён",
+    "Sign-in set up": "Вход настроен",
+    "Invitation sent again": "Приглашение отправлено повторно",
+    "Account created": "Аккаунт создан",
+    "Account details changed": "Данные аккаунта изменены",
+    "Account limits changed": "Лимиты аккаунта изменены",
+    "Account status changed": "Статус аккаунта изменён"
   }
 }

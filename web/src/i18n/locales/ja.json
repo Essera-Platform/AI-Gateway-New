@@ -7807,6 +7807,24 @@
     "The Console refused this request.": "コンソールがこのリクエストを拒否しました。",
     "This account cannot sign in to the Essera gateway.": "このアカウントは Essera ゲートウェイにサインインできません。",
     "No requests yet": "まだリクエストはありません",
-    "Refine models by provider, type, and tags.": "プロバイダー、タイプ、タグでモデルを絞り込みます。"
+    "Refine models by provider, type, and tags.": "プロバイダー、タイプ、タグでモデルを絞り込みます。",
+    "API key revoked": "API キーを失効しました",
+    "API key rotated": "API キーをローテーションしました",
+    "API key expiry changed": "API キーの有効期限を変更しました",
+    "User added": "ユーザーを追加しました",
+    "User changed": "ユーザーを変更しました",
+    "User suspended": "ユーザーを停止しました",
+    "User reactivated": "ユーザーを再開しました",
+    "User removed": "ユーザーを削除しました",
+    "Users uploaded": "ユーザーをアップロードしました",
+    "Sign-in given": "サインインを許可しました",
+    "Sign-in email changed": "サインイン用メールを変更しました",
+    "Sign-in removed": "サインインを取り消しました",
+    "Sign-in set up": "サインインを設定しました",
+    "Invitation sent again": "招待を再送しました",
+    "Account created": "アカウントを作成しました",
+    "Account details changed": "アカウント情報を変更しました",
+    "Account limits changed": "アカウントの上限を変更しました",
+    "Account status changed": "アカウントの状態を変更しました"
   }
 }

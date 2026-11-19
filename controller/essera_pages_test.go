@@ -378,7 +378,9 @@ func TestTheDashboardAndAuditOfAPersonAreTheConsoles(t *testing.T) {
 		{"ts":"2026-11-19T11:00:00Z","provider":"openai","model":"gpt-4o","requests":1,"input_units":10,"output_units":5,"generated_units":0,"spend":{"EUR":"0.004000","USD":"0.001000"}}],
 		"total":{"requests":3,"input_units":310,"output_units":105,"generated_units":0,"spend":{"USD":"0.031000"}},"truncated":false}`)
 	console.on("GET /internal/v1/audit", http.StatusOK, `{"data":[{"id":"0b8f8a52-63a4-4bd4-8c86-5f3a1f0d4e21","ts":"2026-11-19T09:12:44Z","action":"credential.create",
-		"actor":"person","actor_person_id":"`+snapshottest.UserPersonID+`","resource_type":"customer_credential","resource_id":"k_9f3a","result":"success"}],"total":1,"page":1,"page_size":20}`)
+		"actor":"person","actor_person_id":"`+snapshottest.UserPersonID+`","resource_type":"customer_credential","resource_id":"k_9f3a","result":"success","new_status":null},
+		{"id":"5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f","ts":"2026-11-19T09:10:00Z","action":"end_user.update",
+		"actor":"person","actor_person_id":"`+snapshottest.UserPersonID+`","resource_type":"end_user","resource_id":"e_1","result":"success","new_status":"suspended"}],"total":2,"page":1,"page_size":20}`)
 
 	dates := page(t, users[snapshottest.UserSub], http.MethodGet, "/api/data/self?default_time=hour&start_timestamp=1795000000", "", GetUserQuotaDates, "/api/data/self")
 	require.True(t, dates.Success, dates.raw)
@@ -403,6 +405,10 @@ func TestTheDashboardAndAuditOfAPersonAreTheConsoles(t *testing.T) {
 	require.True(t, audit.Success, audit.raw)
 	row := audit.Data["items"].([]any)[0].(map[string]any)
 	assert.Equal(t, "credential.create", row["action"])
+	assert.Equal(t, "customer_credential k_9f3a", row["content"])
+	assert.Equal(t, map[string]any{"action": "credential.create", "params": map[string]any{"source": "console"}}, row["other"].(map[string]any)["op"])
+	suspended := audit.Data["items"].([]any)[1].(map[string]any)["other"].(map[string]any)["op"]
+	assert.Equal(t, map[string]any{"action": "end_user.update", "params": map[string]any{"source": "console", "new_status": "suspended"}}, suspended, "the status the Console's event set")
 	assert.Equal(t, "user-1@acme.example", row["username"], "the acting person by email")
 	assert.Equal(t, true, row["success"])
 	assert.Equal(t, snapshottest.UserPersonID, console.lastCall(t).person)

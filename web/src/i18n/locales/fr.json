@@ -7807,6 +7807,24 @@
     "The Console refused this request.": "La Console a refusé cette demande.",
     "This account cannot sign in to the Essera gateway.": "Ce compte ne peut pas se connecter à la passerelle Essera.",
     "No requests yet": "Aucune requête pour l'instant",
-    "Refine models by provider, type, and tags.": "Affinez les modèles par fournisseur, type et tags."
+    "Refine models by provider, type, and tags.": "Affinez les modèles par fournisseur, type et tags.",
+    "API key revoked": "Clé API révoquée",
+    "API key rotated": "Clé API renouvelée",
+    "API key expiry changed": "Expiration de la clé API modifiée",
+    "User added": "Utilisateur ajouté",
+    "User changed": "Utilisateur modifié",
+    "User suspended": "Utilisateur suspendu",
+    "User reactivated": "Utilisateur réactivé",
+    "User removed": "Utilisateur supprimé",
+    "Users uploaded": "Utilisateurs importés",
+    "Sign-in given": "Connexion accordée",
+    "Sign-in email changed": "E-mail de connexion modifié",
+    "Sign-in removed": "Connexion retirée",
+    "Sign-in set up": "Connexion configurée",
+    "Invitation sent again": "Invitation renvoyée",
+    "Account created": "Compte créé",
+    "Account details changed": "Informations du compte modifiées",
+    "Account limits changed": "Limites du compte modifiées",
+    "Account status changed": "Statut du compte modifié"
   }
 }

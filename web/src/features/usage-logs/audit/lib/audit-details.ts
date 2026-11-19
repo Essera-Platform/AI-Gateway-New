@@ -16,8 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the Console's audit events are named by their action.
 import type { TFunction } from 'i18next'
 
+import {
+  consoleAuditActionLabel,
+  isConsoleAuditEvent,
+} from '@/features/essera/audit-actions'
 import { loginMethodLabel } from '@/features/security/components/login-session-utils'
 import type { PermissionResourceDef } from '@/lib/admin-permissions'
 import dayjs from '@/lib/dayjs'
@@ -454,6 +459,13 @@ export function buildAuditDetails(
       },
       t
     ) || (entry.content && entry.content !== action ? entry.content : fallback)
+  let consoleSummary = ''
+  if (isConsoleAuditEvent(params)) {
+    const label = consoleAuditActionLabel(action, params.new_status, t)
+    consoleSummary = entry.content ? `${label} · ${entry.content}` : label
+    delete params.source
+    delete params.new_status
+  }
   const admin = isAuditDetailObject(metadata.admin_info)
     ? metadata.admin_info
     : {}
@@ -617,7 +629,7 @@ export function buildAuditDetails(
     if (Object.keys(auditExtra).length) extra.audit_info = auditExtra
   }
   return {
-    summary: operation?.summary ?? summary,
+    summary: consoleSummary || (operation?.summary ?? summary),
     tokenOperation,
     quotaOperation,
     operation,
