@@ -37,7 +37,8 @@ type Request struct {
 	// serve it.
 	AllowedModels map[string][]string
 	Headers       map[string]string
-	Reserved      bool // counted against the request quotas, once it went to relay
+	Reserved      bool      // counted against the request quotas, once it went to relay
+	ReservedAt    time.Time // when, so an unserved request gives back that count
 }
 
 // Evaluate applies the policy to an authenticated caller.

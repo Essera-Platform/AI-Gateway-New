@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/model"
-	"github.com/shopspring/decimal"
 )
 
 // ConfigVersion is one configuration version the Gateway received, with its document so the
@@ -33,18 +32,33 @@ type OutboxEvent struct {
 
 func (OutboxEvent) TableName() string { return "essera_usage_outbox" }
 
-// Counter is what one subject used in one month, for its monthly limits.
-type Counter struct {
+// ConsoleTotal is what one subject used in one month as the Console last published it
+// (usage.totals): the only source of its spend.
+type ConsoleTotal struct {
 	Scope    string `gorm:"primaryKey;type:varchar(16)"`  // partner, customer, credential, end_user
-	Subject  string `gorm:"primaryKey;type:varchar(256)"` // its id, client id or customer/external id
+	Subject  string `gorm:"primaryKey;type:varchar(400)"` // its id, client or key id, or customer/external id
 	Month    string `gorm:"primaryKey;type:varchar(7)"`   // 2026-11, in the platform's timezone
-	Currency string `gorm:"primaryKey;type:varchar(3)"`
 	Requests int64
 	Tokens   int64
-	Spend    decimal.Decimal `gorm:"type:numeric(20,6)"`
+	Spend    string    `gorm:"type:text"` // JSON object of currency to decimal string
+	AsOf     time.Time `gorm:"index"`     // every request in these totals was recorded before it
 }
 
-func (Counter) TableName() string { return "essera_usage_counters" }
+func (ConsoleTotal) TableName() string { return "essera_console_totals" }
+
+// LocalUse counts the requests one subject was admitted for, and the tokens of the requests that
+// finished, in one second; the Console's totals do not hold them yet when the second is at or
+// after their as_of. Measurement only, never money.
+type LocalUse struct {
+	Scope    string    `gorm:"primaryKey;type:varchar(16)"`
+	Subject  string    `gorm:"primaryKey;type:varchar(400)"`
+	Month    string    `gorm:"primaryKey;type:varchar(7)"`
+	At       time.Time `gorm:"primaryKey"` // the second
+	Requests int64
+	Tokens   int64
+}
+
+func (LocalUse) TableName() string { return "essera_local_use" }
 
 // ProviderMinute counts the attempts sent to one provider in one minute, for the provider's
 // rate limit across every Gateway node.
@@ -134,6 +148,10 @@ func (SignInAttempt) TableName() string { return "essera_sign_in_attempts" }
 
 // Migrate creates or updates the Essera tables in the primary database.
 func Migrate() error {
-	return model.DB.AutoMigrate(&ConfigVersion{}, &OutboxEvent{}, &Counter{}, &ProviderMinute{}, &RequestStat{}, &ProviderError{},
+	// The Gateway's own monthly counters, spend included, gave way to the Console's totals.
+	if err := model.DB.Migrator().DropTable("essera_usage_counters"); err != nil {
+		return err
+	}
+	return model.DB.AutoMigrate(&ConfigVersion{}, &OutboxEvent{}, &ConsoleTotal{}, &LocalUse{}, &ProviderMinute{}, &RequestStat{}, &ProviderError{},
 		&PersonUser{}, &Key{}, &CognitoSession{}, &SignInAttempt{})
 }

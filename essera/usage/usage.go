@@ -1,7 +1,7 @@
 // Package usage reports every request a customer's credential had served to the Console, as
 // the usage.recorded event of the Console's contract (F8, ADR-010), through an outbox so a
-// queue outage loses nothing. The same moment counts it against the monthly limits and in
-// the telemetry.
+// queue outage loses nothing. The same moment counts its tokens for the monthly limits and in
+// the telemetry. It measures; it never prices: the Console rates every event.
 package usage
 
 import (
@@ -15,7 +15,6 @@ import (
 	"github.com/QuantumNous/new-api/essera/configsync"
 	"github.com/QuantumNous/new-api/essera/limits"
 	"github.com/QuantumNous/new-api/essera/policy"
-	"github.com/QuantumNous/new-api/essera/rating"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/stats"
 	"github.com/QuantumNous/new-api/model"
@@ -24,7 +23,6 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
-	"github.com/shopspring/decimal"
 	"gorm.io/gorm/clause"
 )
 
@@ -34,40 +32,30 @@ const ContextKey = "essera_request"
 // SkipContextKey marks a request that must not be reported, such as a connection test.
 const SkipContextKey = "essera_skip_usage"
 
-// RateVersions names the versions that priced one unit.
-type RateVersions struct {
-	Unit               string `json:"unit"`
-	CostRateVersion    string `json:"cost_rate_version,omitempty"`
-	SellingRateVersion string `json:"selling_rate_version,omitempty"`
-}
-
 // Event is usage.recorded, with the optional fields the Console stores in the record's payload.
 type Event struct {
-	EventID              string         `json:"event_id"`
-	TS                   time.Time      `json:"ts"`
-	TenantID             *string        `json:"tenant_id,omitempty"`
-	CustomerID           string         `json:"customer_id"`
-	EndUserID            *string        `json:"end_user_id,omitempty"`
-	CredentialRef        string         `json:"credential_ref,omitempty"` // none in the playground
-	RequestID            string         `json:"request_id"`
-	Provider             string         `json:"provider"`
-	Model                string         `json:"model"`
-	Modality             string         `json:"modality"`
-	InputUnits           int64          `json:"input_units"`
-	OutputUnits          int64          `json:"output_units"`
-	GeneratedUnits       int64          `json:"generated_units"`
-	Status               string         `json:"status"`
-	ProviderRef          *string        `json:"provider_ref,omitempty"`
-	CostRateVersion      *string        `json:"cost_rate_version,omitempty"`
-	SellingRateVersion   *string        `json:"selling_rate_version,omitempty"`
-	CorrelationID        *string        `json:"correlation_id,omitempty"`
-	ConfigurationVersion int64          `json:"configuration_version"`
-	LatencyMs            int64          `json:"latency_ms"`
-	FirstTokenMs         *int64         `json:"first_token_ms,omitempty"`
-	HTTPStatus           int            `json:"http_status"`
-	ErrorCategory        *string        `json:"error_category,omitempty"`
-	Retries              int            `json:"retries"`
-	RateVersions         []RateVersions `json:"rate_versions,omitempty"`
+	EventID              string    `json:"event_id"`
+	TS                   time.Time `json:"ts"`
+	TenantID             *string   `json:"tenant_id,omitempty"`
+	CustomerID           string    `json:"customer_id"`
+	EndUserID            *string   `json:"end_user_id,omitempty"`
+	CredentialRef        string    `json:"credential_ref,omitempty"` // none in the playground
+	RequestID            string    `json:"request_id"`
+	Provider             string    `json:"provider"`
+	Model                string    `json:"model"`
+	Modality             string    `json:"modality"`
+	InputUnits           int64     `json:"input_units"`
+	OutputUnits          int64     `json:"output_units"`
+	GeneratedUnits       int64     `json:"generated_units"`
+	Status               string    `json:"status"`
+	ProviderRef          *string   `json:"provider_ref,omitempty"`
+	CorrelationID        *string   `json:"correlation_id,omitempty"`
+	ConfigurationVersion int64     `json:"configuration_version"`
+	LatencyMs            int64     `json:"latency_ms"`
+	FirstTokenMs         *int64    `json:"first_token_ms,omitempty"`
+	HTTPStatus           int       `json:"http_status"`
+	ErrorCategory        *string   `json:"error_category,omitempty"`
+	Retries              int       `json:"retries"`
 }
 
 // Finished reports a relayed request once its outcome is final. A request that never reached
@@ -86,7 +74,7 @@ func Finished(c *gin.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIE
 		release(request)
 		return
 	}
-	event, spend := build(c, request, info, apiErr, now)
+	event := build(c, request, info, apiErr, now)
 	stats.Request(now, event.Provider, event.Model, event.Status, event.HTTPStatus, time.Duration(event.LatencyMs)*time.Millisecond, event.Retries)
 	if apiErr != nil {
 		stats.ProviderError(now, event.Provider, event.Model, event.HTTPStatus, apiErr.Error())
@@ -94,12 +82,12 @@ func Finished(c *gin.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIE
 	if err := enqueue(event); err != nil {
 		common.SysError(common.LogText("essera: queueing usage event %s: %s", event.EventID, err.Error()))
 	}
-	if err := limits.Add(request.Subjects, request.Month, request.Currency, event.InputUnits+event.OutputUnits, spend); err != nil {
+	if err := limits.Add(request.Subjects, request.Month, now, event.InputUnits+event.OutputUnits); err != nil {
 		common.SysError(common.LogText("essera: counting usage of %s: %s", request.Caller.ClientID, err.Error()))
 	}
 }
 
-func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo, apiErr *types.NewAPIError, now time.Time) (Event, decimal.Decimal) {
+func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo, apiErr *types.NewAPIError, now time.Time) Event {
 	caller := request.Caller
 	requestID := c.GetString(common.RequestIdKey)
 	event := Event{
@@ -146,36 +134,7 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 	if event.Status == "succeeded" {
 		measureGenerated(&event, info)
 	}
-	return event, price(request, &event)
-}
-
-// price names the rate versions in force and returns the billable amount in the request's
-// currency, which counts against the spend limit.
-func price(request *policy.Request, event *Event) decimal.Decimal {
-	rates := request.Caller.View.Snapshot.Rates
-	if rates == nil {
-		return decimal.Zero
-	}
-	partnerID := ""
-	if request.Caller.Partner != nil {
-		partnerID = request.Caller.Partner.ID
-	}
-	buyers := rating.Buyers(request.Caller.Customer.ID, partnerID, request.EndUserID)
-	charges := rating.Price(rates.Rates, event.Provider, event.Model, buyers, event.TS, rating.Usage{
-		Modality: event.Modality, InputUnits: event.InputUnits, OutputUnits: event.OutputUnits, GeneratedUnits: event.GeneratedUnits,
-	})
-	for _, charge := range charges {
-		event.RateVersions = append(event.RateVersions, RateVersions{Unit: charge.Unit, CostRateVersion: charge.CostRateID, SellingRateVersion: charge.SellingRateID})
-		if charge.Unit == "input_tokens" {
-			if charge.CostRateID != "" {
-				event.CostRateVersion = &charge.CostRateID
-			}
-			if charge.SellingRateID != "" {
-				event.SellingRateVersion = &charge.SellingRateID
-			}
-		}
-	}
-	return rating.Billable(charges, request.Currency)
+	return event
 }
 
 // unknownProvider names a channel that cannot be looked up, so its event still reaches the
@@ -292,7 +251,8 @@ func Reserve(c *gin.Context) *types.NewAPIError {
 	if request.Reserved {
 		return nil
 	}
-	exceeded, err := limits.Reserve(request.Subjects, request.Month)
+	at := time.Now()
+	exceeded, err := limits.Reserve(request.Subjects, request.Month, at)
 	if err != nil {
 		common.SysError(common.LogText("essera: reserving a request of %s: %s", request.Caller.ClientID, err.Error()))
 		return types.NewErrorWithStatusCode(errors.New("The gateway cannot check this account's limits right now."), types.ErrorCode("essera_unavailable"), http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
@@ -301,7 +261,7 @@ func Reserve(c *gin.Context) *types.NewAPIError {
 		stats.Denial(time.Now(), "quota", http.StatusTooManyRequests)
 		return types.NewErrorWithStatusCode(errors.New("This account has reached its monthly "+exceeded+" limit."), types.ErrorCode("essera_quota_exceeded"), http.StatusTooManyRequests, types.ErrOptionWithSkipRetry())
 	}
-	request.Reserved = true
+	request.Reserved, request.ReservedAt = true, at
 	return nil
 }
 
@@ -311,7 +271,7 @@ func release(request *policy.Request) {
 	if !request.Reserved {
 		return
 	}
-	if err := limits.Release(request.Subjects, request.Month); err != nil {
+	if err := limits.Release(request.Subjects, request.Month, request.ReservedAt); err != nil {
 		common.SysError(common.LogText("essera: releasing a request of %s: %s", request.Caller.ClientID, err.Error()))
 	}
 	request.Reserved = false
