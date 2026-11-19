@@ -1,6 +1,6 @@
 // Package snapshottest builds configuration snapshots for tests: a partner with one customer,
-// a direct customer, credentials and an API key, end users, people, three providers and
-// rates, shaped as the Console publishes them.
+// a direct customer, API keys, end users, people, three providers and rates, shaped as the
+// Console publishes them.
 package snapshottest
 
 import (
@@ -16,10 +16,7 @@ const (
 	PartnerID        = "11111111-1111-1111-1111-111111111111"
 	CustomerID       = "22222222-2222-2222-2222-222222222222"
 	DirectCustomerID = "33333333-3333-3333-3333-333333333333"
-	ClientID         = "client-acme"
-	DirectClientID   = "client-direct"
-	UserPoolID       = "us-east-1_TestPool"
-	Scope            = "https://api.example/invoke"
+	UserPoolID       = "us-east-1_TestPool" // the pool people sign in with
 
 	EndUserID = "44444444-4444-4444-4444-444444444444" // external id "user-1"
 
@@ -34,9 +31,12 @@ const (
 	SuspendedSub      = "sub-suspended"
 	DirectSub         = "sub-direct"
 
-	// APIKey is the end user's key, published as KeyID with its SHA-256.
-	APIKey = "sk-0123456789abcdefAbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCd"
-	KeyID  = "k_0123456789abcdef"
+	// APIKey is the end user's key, published as KeyID with its SHA-256. AdminKeyID and
+	// DirectKeyID are the keys of the two customers' admins, with no limits of their own.
+	APIKey      = "sk-0123456789abcdefAbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCd"
+	KeyID       = "k_0123456789abcdef"
+	AdminKeyID  = "k_1111111111111111"
+	DirectKeyID = "k_2222222222222222"
 )
 
 // SHA256 is the hex SHA-256 the Console publishes for a key.
@@ -91,8 +91,10 @@ func Sample() *snapshot.Snapshot {
 				{ID: "55555555-5555-5555-5555-555555555555", CustomerID: CustomerID, ExternalID: "user-off", Status: "suspended"},
 			},
 			Credentials: []snapshot.Credential{
-				{ClientID: ClientID, CustomerID: CustomerID},
-				{ClientID: DirectClientID, CustomerID: DirectCustomerID},
+				{Kind: snapshot.CredentialAPIKey, KeyID: AdminKeyID, KeySHA256: SHA256("admin"), CustomerID: CustomerID,
+					PersonID: AdminPersonID},
+				{Kind: snapshot.CredentialAPIKey, KeyID: DirectKeyID, KeySHA256: SHA256("direct"), CustomerID: DirectCustomerID,
+					PersonID: DirectPersonID},
 				{Kind: snapshot.CredentialAPIKey, KeyID: KeyID, KeySHA256: SHA256(APIKey), CustomerID: CustomerID,
 					PersonID: UserPersonID, EndUserID: ptr(EndUserID), ExpiresAt: ptr(time.Date(2027, 2, 17, 0, 0, 0, 0, time.UTC)),
 					Limits: snapshot.Entitlements{MonthlyRequestQuota: ptr(int64(2))}},

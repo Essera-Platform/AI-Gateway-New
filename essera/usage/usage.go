@@ -83,7 +83,7 @@ func Finished(c *gin.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIE
 		common.SysError(common.LogText("essera: queueing usage event %s: %s", event.EventID, err.Error()))
 	}
 	if err := limits.Add(request.Subjects, request.Month, now, event.InputUnits+event.OutputUnits); err != nil {
-		common.SysError(common.LogText("essera: counting usage of %s: %s", request.Caller.ClientID, err.Error()))
+		common.SysError(common.LogText("essera: counting usage of %s: %s", request.Caller.CredentialRef, err.Error()))
 	}
 }
 
@@ -94,7 +94,7 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 		EventID:              "gw-" + requestID,
 		TS:                   info.StartTime.UTC(),
 		CustomerID:           caller.Customer.ID,
-		CredentialRef:        caller.ClientID,
+		CredentialRef:        caller.CredentialRef,
 		RequestID:            requestID,
 		Provider:             providerOf(info.ChannelId),
 		Model:                info.OriginModelName,
@@ -254,7 +254,7 @@ func Reserve(c *gin.Context) *types.NewAPIError {
 	at := time.Now()
 	exceeded, err := limits.Reserve(request.Subjects, request.Month, at)
 	if err != nil {
-		common.SysError(common.LogText("essera: reserving a request of %s: %s", request.Caller.ClientID, err.Error()))
+		common.SysError(common.LogText("essera: reserving a request of %s: %s", request.Caller.CredentialRef, err.Error()))
 		return types.NewErrorWithStatusCode(errors.New("The gateway cannot check this account's limits right now."), types.ErrorCode("essera_unavailable"), http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
 	}
 	if exceeded != "" {
@@ -272,7 +272,7 @@ func release(request *policy.Request) {
 		return
 	}
 	if err := limits.Release(request.Subjects, request.Month, request.ReservedAt); err != nil {
-		common.SysError(common.LogText("essera: releasing a request of %s: %s", request.Caller.ClientID, err.Error()))
+		common.SysError(common.LogText("essera: releasing a request of %s: %s", request.Caller.CredentialRef, err.Error()))
 	}
 	request.Reserved = false
 }

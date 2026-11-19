@@ -105,7 +105,7 @@ func TestAVersionWithoutCatalogsKeepsThePreviousOnes(t *testing.T) {
 	view := snapshot.Current()
 	assert.Equal(t, int64(4), view.Version)
 	assert.Equal(t, snapshot.MaintenanceActive, view.Snapshot.Gateway.MaintenanceStatus)
-	assert.NotNil(t, view.Credential(snapshottest.ClientID), "accounts carried over")
+	assert.NotNil(t, view.APIKey(snapshottest.KeyID), "accounts carried over")
 	assert.Len(t, channels(t), 3, "providers carried over")
 }
 

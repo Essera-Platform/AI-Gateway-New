@@ -125,7 +125,7 @@ func Caller(view *snapshot.View, person *snapshot.Person, credential *snapshot.C
 		if credential.PersonID != person.ID || credential.CustomerID != person.CustomerID {
 			return nil, notActive
 		}
-		caller.ClientID, caller.Credential = credential.KeyID, credential
+		caller.CredentialRef, caller.Credential = credential.KeyID, credential
 	}
 	caller.Customer = view.Customer(person.CustomerID)
 	if caller.Customer == nil {

@@ -125,7 +125,7 @@ func subjects(caller *auth.Caller, endUser *snapshot.EndUser) []limits.Subject {
 	}
 	all = append(all, limits.Subject{Scope: "customer", ID: caller.Customer.ID, Limits: caller.Customer.Entitlements})
 	if caller.Credential != nil {
-		all = append(all, limits.Subject{Scope: "credential", ID: caller.ClientID, Limits: caller.Credential.Limits})
+		all = append(all, limits.Subject{Scope: "credential", ID: caller.CredentialRef, Limits: caller.Credential.Limits})
 	}
 	if endUser != nil {
 		all = append(all, limits.Subject{Scope: "end_user", ID: caller.Customer.ID + "/" + endUser.ExternalID, Limits: endUser.Limits})
