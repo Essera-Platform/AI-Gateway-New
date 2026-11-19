@@ -19,11 +19,13 @@ For commercial licensing, please contact support@quantumnous.com
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { AuthenticatedLayout } from '@/components/layout'
+import { isManagedClosedPath } from '@/features/essera/menu'
 import { resolveAuthentication } from '@/lib/auth-session'
+import { statusQueryOptions } from '@/lib/status-query'
 import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/_authenticated')({
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     // The root guard may have skipped its refresh because no session hint was
     // present. That skip is an optimization for public pages and must not
     // decide a protected route, so resolve against the server before
@@ -37,6 +39,16 @@ export const Route = createFileRoute('/_authenticated')({
         to: '/sign-in',
         search: { redirect: location.href },
       })
+    }
+
+    // Modified by Essera, 2026-11: what the Console owns stays closed on a managed gateway.
+    if (isManagedClosedPath(location.pathname)) {
+      const status = await context.queryClient
+        .fetchQuery(statusQueryOptions)
+        .catch(() => null)
+      if (status?.essera_managed === true) {
+        throw redirect({ to: '/dashboard', replace: true })
+      }
     }
   },
   component: AuthenticatedLayout,

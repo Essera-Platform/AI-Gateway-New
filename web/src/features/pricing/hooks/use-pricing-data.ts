@@ -53,13 +53,28 @@ export function usePricingData(enabled = true) {
       const vendor = model.vendor_id
         ? vendorMap.get(model.vendor_id)
         : undefined
-      return {
+      const priced = {
         ...model,
         key: model.model_name,
         vendor_name: vendor?.name,
         vendor_icon: vendor?.icon,
         vendor_description: vendor?.description,
         group_ratio: data.group_ratio,
+      }
+      // Modified by Essera, 2026-11: the Console's display name and type stand where new-api
+      // shows a description and tags, so the cards and the tag filter keep working.
+      if (!data.essera) return priced
+      return {
+        ...priced,
+        description: model.display_name || model.description,
+        tags: model.model_type,
+        essera: {
+          signedIn: data.essera.signed_in,
+          pricesAvailable: data.essera.prices_available !== false,
+          displayName: model.display_name ?? model.model_name,
+          modelType: model.model_type ?? '',
+          prices: model.essera_prices ?? [],
+        },
       }
     })
   }, [data])

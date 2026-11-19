@@ -27,7 +27,11 @@ import { Button } from '@/components/ui/button'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
 import type { QuotaDataItem } from '@/features/dashboard/types'
+import { useEsseraAccount } from '@/features/essera/account'
+import { esseraAccountStats } from '@/features/essera/account-summary'
+import { EsseraSummaryPanel } from '@/features/essera/summary-panel'
 import { useStatus } from '@/hooks/use-status'
+import { toIntlLocale } from '@/i18n/languages'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
 import { formatNumber, formatQuota } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
@@ -138,9 +142,18 @@ const HEALTH_CONFIG: Record<
 }
 
 export function SummaryCards() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
   const { status, loading } = useStatus()
+  // Modified by Essera, 2026-11: a Console person's spend and limit replace the balance.
+  const esseraAccount = useEsseraAccount()
+  const esseraStats = esseraAccount
+    ? esseraAccountStats(
+        t,
+        esseraAccount,
+        toIntlLocale(i18n.resolvedLanguage || i18n.language)
+      )
+    : null
 
   const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
   const remainQuota = Number(user?.quota ?? 0)
@@ -236,12 +249,15 @@ export function SummaryCards() {
     currencyLabel,
   }).map((config, index) => {
     const tones = ['accent-1', 'accent-2', 'accent-3'] as const
+    const essera = esseraStats?.find(
+      (stat) => stat.key === (config.key === 'usage' ? 'spend' : config.key)
+    )
 
     return {
       key: config.key,
-      title: config.title,
-      value: config.value,
-      desc: config.description,
+      title: essera?.label ?? config.title,
+      value: essera?.value ?? config.value,
+      desc: essera?.description ?? config.description,
       icon: config.icon,
       tone: tones[index] ?? 'accent-3',
       sparkline:
@@ -288,70 +304,74 @@ export function SummaryCards() {
           </StaggerContainer>
         </div>
 
-        <div className='flex flex-col justify-between gap-3 border-t bg-[linear-gradient(135deg,color-mix(in_oklch,var(--overview-accent-2)_12%,var(--background))_0%,color-mix(in_oklch,oklch(0.82_0.04_155)_8%,var(--background))_48%,color-mix(in_oklch,var(--overview-accent-1)_7%,var(--background))_100%)] p-3 sm:gap-4 sm:p-5 xl:border-t-0 xl:border-l'>
-          <div className='flex flex-col gap-2 sm:gap-3'>
-            <div className='flex items-center justify-between'>
-              <span className='text-muted-foreground text-xs font-medium'>
-                {t('Credit remaining')}
-              </span>
-              <span className='flex items-center gap-1.5'>
-                <span
-                  className={cn('size-1.5 rounded-full', healthCfg.dotClass)}
-                  aria-hidden='true'
-                />
-                <span className='text-muted-foreground text-[11px] font-medium'>
-                  {t(healthCfg.labelKey)}
+        {esseraStats ? (
+          <EsseraSummaryPanel stats={esseraStats} />
+        ) : (
+          <div className='flex flex-col justify-between gap-3 border-t bg-[linear-gradient(135deg,color-mix(in_oklch,var(--overview-accent-2)_12%,var(--background))_0%,color-mix(in_oklch,oklch(0.82_0.04_155)_8%,var(--background))_48%,color-mix(in_oklch,var(--overview-accent-1)_7%,var(--background))_100%)] p-3 sm:gap-4 sm:p-5 xl:border-t-0 xl:border-l'>
+            <div className='flex flex-col gap-2 sm:gap-3'>
+              <div className='flex items-center justify-between'>
+                <span className='text-muted-foreground text-xs font-medium'>
+                  {t('Credit remaining')}
                 </span>
-              </span>
-            </div>
+                <span className='flex items-center gap-1.5'>
+                  <span
+                    className={cn('size-1.5 rounded-full', healthCfg.dotClass)}
+                    aria-hidden='true'
+                  />
+                  <span className='text-muted-foreground text-[11px] font-medium'>
+                    {t(healthCfg.labelKey)}
+                  </span>
+                </span>
+              </div>
 
-            <div className='font-mono text-xl font-semibold tracking-tight sm:text-2xl'>
-              {formatQuota(remainQuota)}
-            </div>
+              <div className='font-mono text-xl font-semibold tracking-tight sm:text-2xl'>
+                {formatQuota(remainQuota)}
+              </div>
 
-            <div className='grid grid-cols-2 gap-2'>
-              <div className='bg-background/60 rounded-lg px-2.5 py-2'>
-                <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
-                  <Flame className='size-3 shrink-0' aria-hidden='true' />
-                  <span className='truncate'>{t('Last 24h usage')}</span>
+              <div className='grid grid-cols-2 gap-2'>
+                <div className='bg-background/60 rounded-lg px-2.5 py-2'>
+                  <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
+                    <Flame className='size-3 shrink-0' aria-hidden='true' />
+                    <span className='truncate'>{t('Last 24h usage')}</span>
+                  </div>
+                  <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
+                    {formatQuota(recentUsage)}
+                  </div>
                 </div>
-                <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
-                  {formatQuota(recentUsage)}
+                <div className='bg-background/60 rounded-lg px-2.5 py-2'>
+                  <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
+                    {runwayDays !== null && runwayDays < 3 ? (
+                      <TrendingDown
+                        className='size-3 shrink-0'
+                        aria-hidden='true'
+                      />
+                    ) : (
+                      <ShieldCheck
+                        className='size-3 shrink-0'
+                        aria-hidden='true'
+                      />
+                    )}
+                    <span className='truncate'>{t('Runway')}</span>
+                  </div>
+                  <div
+                    className={cn(
+                      'mt-1.5 truncate text-xs font-semibold tabular-nums',
+                      healthLevel === 'critical' && 'text-destructive',
+                      healthLevel === 'caution' && 'text-warning'
+                    )}
+                  >
+                    {runwayDisplay}
+                  </div>
                 </div>
               </div>
-              <div className='bg-background/60 rounded-lg px-2.5 py-2'>
-                <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
-                  {runwayDays !== null && runwayDays < 3 ? (
-                    <TrendingDown
-                      className='size-3 shrink-0'
-                      aria-hidden='true'
-                    />
-                  ) : (
-                    <ShieldCheck
-                      className='size-3 shrink-0'
-                      aria-hidden='true'
-                    />
-                  )}
-                  <span className='truncate'>{t('Runway')}</span>
-                </div>
-                <div
-                  className={cn(
-                    'mt-1.5 truncate text-xs font-semibold tabular-nums',
-                    healthLevel === 'critical' && 'text-destructive',
-                    healthLevel === 'caution' && 'text-warning'
-                  )}
-                >
-                  {runwayDisplay}
-                </div>
-              </div>
             </div>
+
+            <Button className='justify-between' render={<Link to='/wallet' />}>
+              <span>{t('Wallet')}</span>
+              <ArrowRight data-icon='inline-end' />
+            </Button>
           </div>
-
-          <Button className='justify-between' render={<Link to='/wallet' />}>
-            <span>{t('Wallet')}</span>
-            <ArrowRight data-icon='inline-end' />
-          </Button>
-        </div>
+        )}
       </div>
     </div>
   )

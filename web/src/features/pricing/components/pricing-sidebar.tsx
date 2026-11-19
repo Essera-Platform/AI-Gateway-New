@@ -151,6 +151,7 @@ export const PricingSidebar = memo(function PricingSidebar(
   props: PricingSidebarProps
 ) {
   const { t } = useTranslation()
+  const managed = props.models.some((model) => model.essera) // Modified by Essera, 2026-11
   const counts = useMemo(() => {
     const vendors = new Map<string, number>()
     const tags = new Map<string, number>()
@@ -287,12 +288,16 @@ export const PricingSidebar = memo(function PricingSidebar(
       )}
 
       <div className='space-y-1'>
-        <FilterSection
-          title={t('Groups')}
-          value={props.groupFilter}
-          options={groupOptions}
-          onChange={props.onGroupChange}
-        />
+        {/* Modified by Essera, 2026-11: no groups, pricing types or endpoints on a managed
+            gateway; its models' tags are their types. */}
+        {!managed && (
+          <FilterSection
+            title={t('Groups')}
+            value={props.groupFilter}
+            options={groupOptions}
+            onChange={props.onGroupChange}
+          />
+        )}
         <FilterSection
           title={t('All Vendors')}
           value={props.vendorFilter}
@@ -300,23 +305,27 @@ export const PricingSidebar = memo(function PricingSidebar(
           onChange={props.onVendorChange}
         />
         <FilterSection
-          title={t('Model Tags')}
+          title={managed ? t('Type') : t('Model Tags')}
           value={props.tagFilter}
           options={tagOptions}
           onChange={props.onTagChange}
         />
-        <FilterSection
-          title={t('Pricing Type')}
-          value={props.quotaTypeFilter}
-          options={quotaOptions}
-          onChange={props.onQuotaTypeChange}
-        />
-        <FilterSection
-          title={t('Endpoint Type')}
-          value={props.endpointTypeFilter}
-          options={endpointOptions}
-          onChange={props.onEndpointTypeChange}
-        />
+        {!managed && (
+          <FilterSection
+            title={t('Pricing Type')}
+            value={props.quotaTypeFilter}
+            options={quotaOptions}
+            onChange={props.onQuotaTypeChange}
+          />
+        )}
+        {!managed && (
+          <FilterSection
+            title={t('Endpoint Type')}
+            value={props.endpointTypeFilter}
+            options={endpointOptions}
+            onChange={props.onEndpointTypeChange}
+          />
+        )}
       </div>
     </aside>
   )

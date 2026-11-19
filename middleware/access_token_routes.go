@@ -42,12 +42,17 @@ func accessTokenScopeRule(scope string) accessTokenRouteRule {
 // DeclareAccessTokenPermissionRoute when they are registered.
 var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	// router/api-router.go: top level
-	"GET /api/models":                     accessTokenScopeRule("profile:read"),
-	"GET /api/status/test":                accessTokenScopeRule("log:read"),
-	"GET /api/pricing":                    accessTokenAnyRule,
-	"GET /api/perf-metrics/summary":       accessTokenAnyRule,
-	"GET /api/perf-metrics":               accessTokenAnyRule,
-	"GET /api/rankings":                   accessTokenAnyRule,
+	"GET /api/models":               accessTokenScopeRule("profile:read"),
+	"GET /api/status/test":          accessTokenScopeRule("log:read"),
+	"GET /api/pricing":              accessTokenAnyRule,
+	"GET /api/perf-metrics/summary": accessTokenAnyRule,
+	"GET /api/perf-metrics":         accessTokenAnyRule,
+	"GET /api/rankings":             accessTokenAnyRule,
+	// Modified by Essera, 2026-11: an admin manages their customer's people in the browser only.
+	"GET /api/essera/people":              accessTokenSessionRule,
+	"POST /api/essera/people":             accessTokenSessionRule,
+	"POST /api/essera/people/:id/:action": accessTokenSessionRule,
+	"DELETE /api/essera/people/:id":       accessTokenSessionRule,
 	"POST /api/oauth/state":               accessTokenSessionRule,
 	"POST /api/oauth/email/bind/start":    accessTokenScopeRule("account_security:write"),
 	"POST /api/oauth/email/bind/resend":   accessTokenScopeRule("account_security:write"),

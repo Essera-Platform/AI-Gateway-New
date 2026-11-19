@@ -48,6 +48,7 @@ import {
 } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
 import type { ApiKey } from '@/features/keys/types'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
@@ -480,6 +481,7 @@ export function OverviewDashboard() {
   const remainQuota = Number(user?.quota ?? 0)
   const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
+  const { managed } = useEsseraManaged()
 
   const apiKeysQuery = useQuery({
     queryKey: ['dashboard', 'overview', 'api-keys'],
@@ -504,7 +506,7 @@ export function OverviewDashboard() {
     [apiKeysQuery.data]
   )
 
-  const startSteps = useMemo<StartStep[]>(
+  const allStartSteps = useMemo<StartStep[]>(
     () => [
       {
         title: t('Create API Key'),
@@ -530,6 +532,10 @@ export function OverviewDashboard() {
     ],
     [preferredKey, remainQuota, requestCount, t, usedQuota]
   )
+  // Modified by Essera, 2026-11: the Console bills; there are no credits to add.
+  const startSteps = managed
+    ? allStartSteps.filter((step) => step.to !== '/wallet')
+    : allStartSteps
 
   const quickActions = useMemo<QuickAction[]>(
     () => [

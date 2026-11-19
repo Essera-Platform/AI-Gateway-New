@@ -83,9 +83,15 @@ export function Pricing() {
     clearSearch,
   } = useFilters(models || [])
 
-  const handleModelClick = useCallback((modelName: string) => {
-    setSelectedModelName(modelName)
-  }, [])
+  // Modified by Essera, 2026-11: a guest on a managed gateway sees names and types only.
+  const handleModelClick = useCallback(
+    (modelName: string) => {
+      const model = (models || []).find((item) => item.model_name === modelName)
+      if (model?.essera && !model.essera.signedIn) return
+      setSelectedModelName(modelName)
+    },
+    [models]
+  )
 
   const selectedModel = useMemo(
     () =>

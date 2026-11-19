@@ -39,6 +39,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { getGroups } from '@/features/users/api'
 import { useMediaQuery } from '@/hooks'
 import { getUserGroups } from '@/lib/api'
@@ -127,6 +128,8 @@ export function CommonLogsFilterBar<TData>(
   const { isAdminView: isAdmin } = useLogsViewScope()
   const { sensitiveVisible, setSensitiveVisible } = useUsageLogsContext()
   const fetchingLogs = useIsFetching({ queryKey: ['logs'] })
+  // Modified by Essera, 2026-11: one group on a managed gateway, and people export their usage in the Console.
+  const { managed } = useEsseraManaged()
   const { data: adminGroups } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => requireServerSuccess(await getGroups()),
@@ -135,7 +138,7 @@ export function CommonLogsFilterBar<TData>(
   const { data: userGroups } = useQuery({
     queryKey: ['user-groups'],
     queryFn: async () => requireServerSuccess(await getUserGroups()),
-    enabled: !isAdmin,
+    enabled: !isAdmin && !managed,
   })
   const groupOptions = useMemo(() => {
     const groups = isAdmin
@@ -344,7 +347,7 @@ export function CommonLogsFilterBar<TData>(
       />
     </LogsFilterField>
   )
-  const groupFilter = (
+  const groupFilter = managed ? null : (
     <LogsFilterField className={sensitiveInputClass}>
       <Combobox
         options={groupOptions}
@@ -490,7 +493,7 @@ export function CommonLogsFilterBar<TData>(
       compactMobile
       stats={statsBar}
       actionStart={sensitiveToggle}
-      actionEnd={<ExportLogsDialog />}
+      actionEnd={managed && !isAdmin ? undefined : <ExportLogsDialog />}
       primaryFilters={
         <>
           {dateRangeFilter}

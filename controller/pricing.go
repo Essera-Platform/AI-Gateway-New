@@ -4,6 +4,7 @@ import (
 	"maps"
 
 	"github.com/QuantumNous/new-api/common"
+	esserasettings "github.com/QuantumNous/new-api/essera/settings"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -36,6 +37,10 @@ func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string
 }
 
 func GetPricing(c *gin.Context) {
+	if esserasettings.Managed() { // Modified by Essera, 2026-11: the Model Square lists the Console's models and the person's prices
+		esseraPricingList(c)
+		return
+	}
 	pricing := model.GetPricing()
 	userId, exists := c.Get("id")
 	usableGroup := map[string]string{}

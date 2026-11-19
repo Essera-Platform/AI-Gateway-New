@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 
 import type { NavGroup, NavItem } from '@/components/layout/types'
+import { applyManagedSidebarModules } from '@/features/essera/menu'
 import { useStatus } from '@/hooks/use-status'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -120,6 +121,18 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/subscriptions': { section: 'admin', module: 'subscription' },
   '/system-settings': { section: 'admin', module: 'setting' },
   '/system-settings/site': { section: 'admin', module: 'setting' },
+}
+
+/**
+ * Modified by Essera, 2026-11: a gateway the Console administers hides the modules it does
+ * not serve, even when the stored setting or a cached status says otherwise.
+ */
+function parseAdminSidebarConfig(
+  value: string | null | undefined,
+  managed: boolean
+): SidebarModulesAdminConfig {
+  const config = parseSidebarConfig(value)
+  return managed ? applyManagedSidebarModules(config) : config
 }
 
 /**
@@ -280,12 +293,14 @@ export function useSidebarConfig(navGroups: NavGroup[]): NavGroup[] {
   const { status } = useStatus()
   const { auth } = useAuthStore()
 
+  const managed = status?.essera_managed === true
   const adminConfig = useMemo(
     () =>
-      parseSidebarConfig(
-        status?.SidebarModulesAdmin as string | null | undefined
+      parseAdminSidebarConfig(
+        status?.SidebarModulesAdmin as string | null | undefined,
+        managed
       ),
-    [status?.SidebarModulesAdmin]
+    [status?.SidebarModulesAdmin, managed]
   )
 
   const userConfig = useMemo(() => {
@@ -323,8 +338,9 @@ export function useIsSidebarModuleVisible(url: string): boolean {
   const { status } = useStatus()
   const { auth } = useAuthStore()
 
-  const adminConfig = parseSidebarConfig(
-    status?.SidebarModulesAdmin as string | null | undefined
+  const adminConfig = parseAdminSidebarConfig(
+    status?.SidebarModulesAdmin as string | null | undefined,
+    status?.essera_managed === true
   )
   const userConfig =
     auth?.user?.permissions?.sidebar_settings === false

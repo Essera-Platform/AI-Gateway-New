@@ -486,6 +486,12 @@ func GetSelf(c *gin.Context) {
 	permissions := calculateUserPermissions(userRole)
 	permissions["admin_permissions"] = authz.Capabilities(id, userRole)
 	responseData["permissions"] = permissions
+	if person, handled := esseraPagePerson(c); handled { // Modified by Essera, 2026-11: a person's spend and limits are the Console's
+		if person == nil {
+			return
+		}
+		responseData["essera"] = esseraAccount(c, person)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

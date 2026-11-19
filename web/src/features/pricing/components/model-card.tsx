@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next'
 import { CopyButton } from '@/components/copy-button'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { EsseraModelPrices } from '@/features/essera/model-square'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 import { useSystemConfigStore } from '@/stores/system-config-store'
@@ -110,7 +111,11 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     [model, dynamicPriceOptions, currency]
   )
   let priceSummary: ReactNode
-  if (dynamicSummary) {
+  const essera = props.model.essera
+  // Modified by Essera, 2026-11: the signed-in person's Console prices; none for a guest.
+  if (essera) {
+    priceSummary = <EsseraModelPrices info={essera} />
+  } else if (dynamicSummary) {
     const cacheReadEntries = dynamicSummary.secondaryEntries.filter(
       (entry) => entry.field === 'cacheReadPrice' && entry.unit === 'token'
     )
@@ -333,7 +338,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           aria-label={t('Pricing')}
           className='mt-auto flex min-w-0 flex-col gap-1.5'
         >
-          <ModelBillingModeBadge model={props.model} appearance='caption' />
+          {!essera && (
+            <ModelBillingModeBadge model={props.model} appearance='caption' />
+          )}
           {dynamicSummary?.providerCount && (
             <span className='text-muted-foreground text-xs break-words'>
               {t('{{count}} providers', {
@@ -402,14 +409,16 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           perf={props.perf}
           className='border-border/60 border-t pt-2'
         >
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={() => props.onClick(props.model.model_name || '')}
-          >
-            {t('Details')}
-            <ChevronRight aria-hidden className='size-3.5' />
-          </Button>
+          {(!essera || essera.signedIn) && (
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => props.onClick(props.model.model_name || '')}
+            >
+              {t('Details')}
+              <ChevronRight aria-hidden className='size-3.5' />
+            </Button>
+          )}
         </ModelPerfBadge>
       </CardFooter>
     </Card>

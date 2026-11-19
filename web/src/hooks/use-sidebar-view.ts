@@ -26,6 +26,7 @@ import type {
   ResolvedSidebarView,
   SidebarBadges,
 } from '@/components/layout/types'
+import { isEsseraAdmin, useEsseraAccount } from '@/features/essera/account'
 import { useModelPricingIssueBadge } from '@/features/system-settings/models/pricing-issues'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
@@ -57,11 +58,13 @@ export function useSidebarView(): ResolvedSidebarView {
   const badges: SidebarBadges = { modelPricing: modelPricingBadge }
   const rootSidebarData = useSidebarData(badges)
   const configFilteredRoot = useSidebarConfig(rootSidebarData.navGroups)
+  const esseraAccount = useEsseraAccount()
+  const esseraAdmin = isEsseraAdmin(userRole, esseraAccount)
 
   const rootNavGroups = useMemo<NavGroup[]>(() => {
     const role = userRole ?? ROLE.GUEST
     const isAdmin = role >= ROLE.ADMIN
-    return configFilteredRoot
+    const groups = configFilteredRoot
       .filter((group) => (group.id === 'admin' ? isAdmin : true))
       .map((group) => {
         const items = group.items.filter(
@@ -69,7 +72,15 @@ export function useSidebarView(): ResolvedSidebarView {
         )
         return items.length === group.items.length ? group : { ...group, items }
       })
-  }, [configFilteredRoot, userRole])
+    // Modified by Essera, 2026-11: an admin sees their customer's people, and
+    // nothing else of the admin section.
+    const adminGroup = rootSidebarData.navGroups.find(
+      (group) => group.id === 'admin'
+    )
+    if (isAdmin || !esseraAdmin || !adminGroup) return groups
+    const people = adminGroup.items.filter((item) => item.url === '/users')
+    return [...groups, { ...adminGroup, items: people }]
+  }, [configFilteredRoot, rootSidebarData.navGroups, esseraAdmin, userRole])
 
   const view = resolveSidebarView(pathname)
 
