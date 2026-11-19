@@ -48,7 +48,7 @@ type Event struct {
 	TenantID             *string        `json:"tenant_id,omitempty"`
 	CustomerID           string         `json:"customer_id"`
 	EndUserID            *string        `json:"end_user_id,omitempty"`
-	CredentialRef        string         `json:"credential_ref"`
+	CredentialRef        string         `json:"credential_ref,omitempty"` // none in the playground
 	RequestID            string         `json:"request_id"`
 	Provider             string         `json:"provider"`
 	Model                string         `json:"model"`

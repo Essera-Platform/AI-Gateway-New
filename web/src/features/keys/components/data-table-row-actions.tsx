@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: on a managed gateway a key can only be deleted; it cannot be edited, paused or read back.
 import type { Row } from '@tanstack/react-table'
 import {
   Trash2,
@@ -50,6 +51,7 @@ import {
 import { useChatPresets } from '@/features/chat/hooks/use-chat-presets'
 import { resolveChatUrl, type ChatPreset } from '@/features/chat/lib/chat-links'
 import { sendToFluent } from '@/features/chat/lib/send-to-fluent'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { encodeChannelConnectionInfo } from '@/lib/channel-connection-info'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { handleServerError } from '@/lib/handle-server-error'
@@ -93,6 +95,7 @@ export function DataTableRowActions<TData>({
   const { chatPresets, serverAddress } = useChatPresets()
   const [isTogglingStatus, setIsTogglingStatus] = useState(false)
   const isRealKeyLoading = Boolean(loadingKeys[apiKey.id])
+  const { managed } = useEsseraManaged()
 
   const hasChatPresets = chatPresets.length > 0
   const toggleLabel = isEnabled ? t('Disable') : t('Enable')
@@ -163,6 +166,32 @@ export function DataTableRowActions<TData>({
     } finally {
       setIsTogglingStatus(false)
     }
+  }
+
+  if (managed) {
+    return (
+      <div className='-ml-1.5 flex items-center gap-1'>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='ghost'
+                size='icon-sm'
+                onClick={() => {
+                  setCurrentRow(apiKey)
+                  setOpen('delete')
+                }}
+                aria-label={t('Delete')}
+                className='text-destructive hover:text-destructive'
+              />
+            }
+          >
+            <Trash2 />
+          </TooltipTrigger>
+          <TooltipContent>{t('Delete')}</TooltipContent>
+        </Tooltip>
+      </div>
+    )
   }
 
   let statusIcon = <Power className='size-4' />

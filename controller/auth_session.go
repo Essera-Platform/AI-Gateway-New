@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	esseraidentity "github.com/QuantumNous/new-api/essera/identity"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
@@ -28,6 +29,10 @@ func RefreshAuth(c *gin.Context) {
 			service.ClearRefreshCookie(c)
 		}
 		writeAuthSessionError(c, err)
+		return
+	}
+	// Modified by Essera, 2026-11: a person's session lasts as long as their Cognito sign-in.
+	if esseraRefreshRefused(c, bundle.Session.SID, user.Id) {
 		return
 	}
 	service.WriteRefreshCookie(c, bundle.RefreshToken)
@@ -64,6 +69,7 @@ func AuthLogout(c *gin.Context) {
 				writeAuthSessionError(c, err)
 				return
 			}
+			esseraidentity.SignOut(c.Request.Context(), identity.SessionID) // Modified by Essera, 2026-11: revokes the Cognito sign-in
 			cookieCleared := false
 			if cookieErr == nil && hasCookieSID && cookieSID == identity.SessionID {
 				if err := service.RevokeByRefreshToken(rawRefreshToken, identity.SessionID, "logout"); err != nil {
@@ -89,6 +95,9 @@ func AuthLogout(c *gin.Context) {
 	if err := service.RevokeByRefreshToken(rawRefreshToken, expectedSID, "logout"); err != nil {
 		writeAuthSessionError(c, err)
 		return
+	}
+	if hasCookieSID {
+		esseraidentity.SignOut(c.Request.Context(), cookieSID) // Modified by Essera, 2026-11: revokes the Cognito sign-in
 	}
 	service.ClearRefreshCookie(c)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": ""})

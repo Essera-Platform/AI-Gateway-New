@@ -122,7 +122,32 @@ type AccountsCatalog struct {
 	Customers   []Organization `json:"customers"`
 	EndUsers    []EndUser      `json:"end_users"`
 	Credentials []Credential   `json:"credentials"`
+	// People is nil in versions written before the Console published people, which means
+	// "unchanged"; an empty list means nobody.
+	People []Person `json:"people"`
 }
+
+const (
+	RoleAdmin = "admin" // the whole customer, but no Gateway administrator
+	RoleUser  = "user"  // an end user: only their own keys and usage
+)
+
+// Person is someone who signs in to the Gateway's web UI with the customer pool.
+type Person struct {
+	ID                string  `json:"id"`
+	Sub               *string `json:"sub"` // the Cognito sub; nil until the Cognito user exists
+	Email             string  `json:"email"`
+	CustomerID        string  `json:"customer_id"`
+	EndUserID         *string `json:"end_user_id"`
+	EndUserExternalID *string `json:"end_user_external_id"`
+	Role              string  `json:"role"`
+	Status            string  `json:"status"` // effective: suspended when the person or the customer is
+}
+
+const (
+	CredentialCognitoClient = "cognito_client"
+	CredentialAPIKey        = "api_key"
+)
 
 type Organization struct {
 	ID           string       `json:"id"`
@@ -139,11 +164,18 @@ type EndUser struct {
 	Limits     Entitlements `json:"limits"`
 }
 
+// Credential is a Cognito client of a customer, or an API key a person created on the
+// Gateway. A credential with no kind is a Cognito client.
 type Credential struct {
-	ClientID   string       `json:"client_id"`
+	Kind       string       `json:"kind,omitempty"`
+	ClientID   string       `json:"client_id,omitempty"`
+	KeyID      string       `json:"key_id,omitempty"`
+	KeySHA256  string       `json:"key_sha256,omitempty"` // hex SHA-256 of the full key
+	PersonID   string       `json:"person_id,omitempty"`
+	EndUserID  *string      `json:"end_user_id,omitempty"`
 	CustomerID string       `json:"customer_id"`
 	ExpiresAt  *time.Time   `json:"expires_at"`
-	Limits     Entitlements `json:"limits"`
+	Limits     Entitlements `json:"limits"` // an API key's are those of its person
 }
 
 // Entitlements are one level's restrictions; nil means "as the parent permits".

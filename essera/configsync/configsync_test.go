@@ -2,7 +2,9 @@ package configsync_test
 
 import (
 	"context"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -12,13 +14,17 @@ import (
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/snapshot/snapshottest"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func setup(t *testing.T) {
 	t.Helper()
-	recordstest.UseDatabase(t, &model.Channel{}, &model.Ability{}, &model.SystemTask{})
+	recordstest.UseDatabase(t, &model.Channel{}, &model.Ability{}, &model.SystemTask{}, &model.User{}, &model.UserSession{})
+	redis := common.RedisEnabled
+	common.RedisEnabled = false
+	t.Cleanup(func() { common.RedisEnabled = redis })
 	snapshot.Activate(nil)
 	t.Cleanup(func() { snapshot.Activate(nil) })
 }
@@ -113,6 +119,88 @@ func TestLoadLatestServesTheLastGoodVersionAfterARestart(t *testing.T) {
 
 	require.NotNil(t, snapshot.Current())
 	assert.Equal(t, int64(5), snapshot.Current().Version, "a failed version is never served")
+}
+
+func usersBySub(t *testing.T) map[string]model.User {
+	t.Helper()
+	var all []model.User
+	require.NoError(t, model.DB.Where("oidc_id <> ''").Find(&all).Error)
+	bySub := map[string]model.User{}
+	for _, user := range all {
+		bySub[user.OidcId] = user
+	}
+	return bySub
+}
+
+func TestPeopleAreProjectedIntoUsersAndLeaveWithTheirSessions(t *testing.T) {
+	setup(t)
+	operator := model.User{Username: "operator", Password: "hash", Role: common.RoleRootUser, Status: common.UserStatusEnabled, Email: "owner@direct.example", AffCode: "op", AuthVersion: 1}
+	require.NoError(t, model.DB.Create(&operator).Error)
+
+	apply(t, 3, snapshottest.Sample())
+
+	users := usersBySub(t)
+	require.Len(t, users, 3, "the direct customer's owner shares the operator's email, so has no user")
+	admin, endUser, suspended := users[snapshottest.AdminSub], users[snapshottest.UserSub], users[snapshottest.SuspendedSub]
+	assert.Equal(t, "owner@acme.example", admin.Username)
+	assert.Equal(t, common.RoleCommonUser, admin.Role, "an admin is no Gateway administrator")
+	assert.Equal(t, "essera", admin.Group)
+	assert.Equal(t, common.UserStatusEnabled, admin.Status)
+	assert.Positive(t, admin.Quota)
+	assert.Empty(t, admin.Password, "a person has no password to sign in with")
+	assert.True(t, admin.GetSetting().AcceptUnsetRatioModel)
+	assert.Equal(t, common.UserStatusDisabled, suspended.Status)
+	var links []records.PersonUser
+	require.NoError(t, model.DB.Order("person_id").Find(&links).Error)
+	require.Len(t, links, 3)
+	assert.Equal(t, snapshottest.AdminPersonID, links[0].PersonID)
+	assert.Equal(t, admin.Id, links[0].UserID)
+	assert.Equal(t, "admin", links[0].Role, "the person's role lives in the Essera table")
+	assert.Equal(t, "user", links[1].Role)
+
+	_, err := service.CreateLoginSession(endUser.Id, "oauth:oidc", "127.0.0.1", "test")
+	require.NoError(t, err)
+	apply(t, 4, snapshottest.Sample())
+	again := usersBySub(t)
+	assert.Equal(t, endUser.Id, again[snapshottest.UserSub].Id, "applying again changes nobody")
+	assert.Equal(t, endUser.AuthVersion, again[snapshottest.UserSub].AuthVersion)
+	active, err := model.CountActiveUserSessions(endUser.Id, time.Now().Unix())
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, active)
+
+	next := snapshottest.Sample()
+	next.Accounts.People[1].Status = "suspended"                     // the end user
+	next.Accounts.People = next.Accounts.People[:3]                  // the direct owner stays absent
+	next.Accounts.People = slices.Delete(next.Accounts.People, 0, 1) // the admin is removed
+	apply(t, 5, next)
+
+	after := usersBySub(t)
+	assert.Equal(t, common.UserStatusDisabled, after[snapshottest.UserSub].Status, "suspended")
+	assert.Greater(t, after[snapshottest.UserSub].AuthVersion, endUser.AuthVersion, "its tokens and sessions are void")
+	active, err = model.CountActiveUserSessions(endUser.Id, time.Now().Unix())
+	require.NoError(t, err)
+	assert.Zero(t, active, "suspension ends the session at once")
+	assert.Equal(t, common.UserStatusDisabled, after[snapshottest.AdminSub].Status, "removed")
+	assert.Greater(t, after[snapshottest.AdminSub].AuthVersion, admin.AuthVersion)
+	var unchanged model.User
+	require.NoError(t, model.DB.First(&unchanged, operator.Id).Error)
+	assert.Equal(t, common.UserStatusEnabled, unchanged.Status, "operators are never touched")
+	assert.Equal(t, common.RoleRootUser, unchanged.Role)
+	assert.EqualValues(t, 1, unchanged.AuthVersion)
+
+	apply(t, 6, snapshottest.Sample())
+	assert.Equal(t, common.UserStatusEnabled, usersBySub(t)[snapshottest.UserSub].Status, "reactivated")
+}
+
+func TestAVersionBeforeThePeopleLeavesUsersAlone(t *testing.T) {
+	setup(t)
+	apply(t, 3, snapshottest.Sample())
+
+	withoutPeople := snapshottest.Sample()
+	withoutPeople.Accounts.People = nil
+	apply(t, 4, withoutPeople)
+
+	assert.Equal(t, common.UserStatusEnabled, usersBySub(t)[snapshottest.AdminSub].Status)
 }
 
 func TestApplyRefusesAnUnreadableDocument(t *testing.T) {

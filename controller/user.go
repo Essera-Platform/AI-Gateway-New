@@ -148,6 +148,10 @@ func recordLoginAudit(user *model.User, c *gin.Context) {
 // pending legacy GitHub binding rewrite travels inside the challenge and is
 // written only when the verification completes.
 func setupLogin(user *model.User, migration *service.LegacyGitHubMigration, c *gin.Context) {
+	// Modified by Essera, 2026-11: on a managed gateway people sign in through Essera only.
+	if esseraLoginRefused(c, user) {
+		return
+	}
 	challenge, err := service.StartLoginVerification(user, loginMethodFromContext(c), migration)
 	if err != nil {
 		writeSecurityOperationError(c, err)
@@ -164,6 +168,9 @@ func setupLogin(user *model.User, migration *service.LegacyGitHubMigration, c *g
 func setupLoginAtAuthVersion(user *model.User, expectedAuthVersion int64, c *gin.Context) {
 	if user == nil || user.Id <= 0 || user.Status != common.UserStatusEnabled {
 		common.ApiErrorT(c, "User has been banned")
+		return
+	}
+	if esseraLoginRefused(c, user) { // Modified by Essera, 2026-11: also the Passkey path
 		return
 	}
 	currentUser, err := model.GetSelfUserById(user.Id)
@@ -616,6 +623,9 @@ func generateDefaultSidebarConfig(userRole int) string {
 }
 
 func GetUserModels(c *gin.Context) {
+	if c.Param("id") == "" && esseraPersonModels(c) { // Modified by Essera, 2026-11: a person sees only the models relay lets them call
+		return
+	}
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		id = c.GetInt("id")
@@ -790,6 +800,10 @@ func UpdateSelf(c *gin.Context) {
 	if value, exists := requestData["password"]; exists && value != nil {
 		password, isString := value.(string)
 		passwordRequested = !isString || password != ""
+	}
+	// Modified by Essera, 2026-11: a person's username and sign-in are the Console's and Cognito's.
+	if esseraSelfEditRefused(c, requestData, passwordRequested) {
+		return
 	}
 	succeeded, notificationFailed := false, false
 	if passwordRequested {

@@ -16,9 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: on a managed gateway people sign in with the Essera form; operators keep this one.
 import { Link, useSearch } from '@tanstack/react-router'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Button } from '@/components/ui/button'
+import { EsseraSignInForm } from '@/features/essera/sign-in-form'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { useStatus } from '@/hooks/use-status'
 
 import { AuthLayout } from '../auth-layout'
@@ -29,6 +34,8 @@ export function SignIn() {
   const { t } = useTranslation()
   const { redirect } = useSearch({ from: '/(auth)/sign-in' })
   const { status } = useStatus()
+  const { managed } = useEsseraManaged()
+  const [operatorSignIn, setOperatorSignIn] = useState(false)
 
   return (
     <AuthLayout>
@@ -37,7 +44,8 @@ export function SignIn() {
           <h2 className='text-center text-2xl font-semibold tracking-tight sm:text-left'>
             {t('Sign in')}
           </h2>
-          {!status?.self_use_mode_enabled &&
+          {!managed &&
+            !status?.self_use_mode_enabled &&
             status?.register_enabled !== false && (
               <p className='text-muted-foreground text-left text-sm sm:text-base'>
                 {t("Don't have an account?")}{' '}
@@ -52,7 +60,24 @@ export function SignIn() {
             )}
         </div>
 
-        <UserAuthForm redirectTo={redirect} />
+        {managed && !operatorSignIn ? (
+          <EsseraSignInForm
+            redirectTo={redirect}
+            onOperatorSignIn={() => setOperatorSignIn(true)}
+          />
+        ) : (
+          <UserAuthForm redirectTo={redirect} />
+        )}
+        {managed && operatorSignIn && (
+          <Button
+            type='button'
+            variant='link'
+            className='text-muted-foreground h-auto p-0 text-sm'
+            onClick={() => setOperatorSignIn(false)}
+          >
+            {t('Back to Essera sign-in')}
+          </Button>
+        )}
 
         <TermsFooter
           variant='sign-in'

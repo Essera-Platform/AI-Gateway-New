@@ -19,7 +19,7 @@ func TestGuard(t *testing.T) {
 		status       int
 	}{
 		{http.MethodPost, "/v1/chat/completions", http.StatusOK},
-		{http.MethodPost, "/pg/chat/completions", http.StatusNotFound},
+		{http.MethodPost, "/pg/chat/completions", http.StatusOK},
 		{http.MethodPost, "/mj/submit/imagine", http.StatusNotFound},
 		{http.MethodPost, "/fast/mj/submit/imagine", http.StatusNotFound},
 		{http.MethodPost, "/v1/video/generations", http.StatusNotFound},
@@ -27,15 +27,24 @@ func TestGuard(t *testing.T) {
 		{http.MethodGet, "/api/channel/", http.StatusOK},
 		{http.MethodPost, "/api/channel/", http.StatusConflict},
 		{http.MethodPut, "/api/channel/", http.StatusConflict},
-		{http.MethodPost, "/api/token/", http.StatusConflict},
+		{http.MethodPost, "/api/token/", http.StatusOK},
+		{http.MethodDelete, "/api/token/12/", http.StatusOK},
+		{http.MethodPost, "/api/token/batch", http.StatusOK},
+		{http.MethodPut, "/api/token/", http.StatusConflict},
+		{http.MethodPost, "/api/token/12/key", http.StatusConflict},
+		{http.MethodPost, "/api/token/batch/keys", http.StatusConflict},
 		{http.MethodPut, "/api/option/", http.StatusConflict},
 		{http.MethodPut, "/api/option/request_policy", http.StatusOK},
 		{http.MethodPost, "/api/user/", http.StatusConflict},
 		{http.MethodDelete, "/api/user/12", http.StatusConflict},
 		{http.MethodPost, "/api/user/register", http.StatusConflict},
 		{http.MethodPost, "/api/user/login", http.StatusOK},
+		{http.MethodGet, "/api/oauth/oidc", http.StatusNotFound},
+		{http.MethodPost, "/api/oauth/state", http.StatusNotFound},
+		{http.MethodPost, "/api/essera/sign-in", http.StatusOK},
 		{http.MethodPost, "/api/user/logout", http.StatusOK},
 		{http.MethodPut, "/api/user/self", http.StatusOK},
+		{http.MethodDelete, "/api/user/self", http.StatusConflict},
 	}
 	for _, tc := range cases {
 		recorder := httptest.NewRecorder()

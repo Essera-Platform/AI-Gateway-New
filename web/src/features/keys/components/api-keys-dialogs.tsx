@@ -16,13 +16,32 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: on a managed gateway a key is created with a name and an expiry, and shown once.
+import { KeyCreateDrawer } from '@/features/essera/key-create-drawer'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
+
 import { ApiKeysDeleteDialog } from './api-keys-delete-dialog'
 import { ApiKeysMutateDrawer } from './api-keys-mutate-drawer'
 import { useApiKeys } from './api-keys-provider'
 import { CCSwitchDialog } from './dialogs/cc-switch-dialog'
 
 export function ApiKeysDialogs() {
-  const { open, setOpen, currentRow, resolvedKey } = useApiKeys()
+  const { open, setOpen, currentRow, resolvedKey, triggerRefresh } =
+    useApiKeys()
+  const { managed } = useEsseraManaged()
+
+  if (managed) {
+    return (
+      <>
+        <KeyCreateDrawer
+          open={open === 'create'}
+          onOpenChange={(isOpen) => !isOpen && setOpen(null)}
+          onCreated={triggerRefresh}
+        />
+        <ApiKeysDeleteDialog />
+      </>
+    )
+  }
 
   return (
     <>

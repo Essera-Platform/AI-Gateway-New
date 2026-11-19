@@ -84,7 +84,56 @@ type ProviderError struct {
 
 func (ProviderError) TableName() string { return "essera_provider_errors" }
 
+// PersonUser links the users row the Gateway built for a Console person to that person. A
+// users row without one is not a person's: an operator, or the service user.
+type PersonUser struct {
+	UserID    int    `gorm:"primaryKey;autoIncrement:false"`
+	PersonID  string `gorm:"type:varchar(64);uniqueIndex"`
+	Role      string `gorm:"type:varchar(16)"` // the person's role, "admin" or "user"; never a Gateway administrator
+	UpdatedAt time.Time
+}
+
+func (PersonUser) TableName() string { return "essera_people" }
+
+// Key is an API key a person created on the Gateway: its id, never the key. The new-api token
+// row stands for it in the web UI.
+type Key struct {
+	KeyID      string     `gorm:"primaryKey;type:varchar(40)"`
+	TokenID    int        `gorm:"uniqueIndex"`
+	UserID     int        `gorm:"index"`
+	PersonID   string     `gorm:"type:varchar(64);index"`
+	CustomerID string     `gorm:"type:varchar(64)"`
+	ExpiresAt  time.Time  `gorm:"index"`
+	CreatedAt  time.Time  `gorm:"index"`
+	RevokedAt  *time.Time `gorm:"index"`
+}
+
+func (Key) TableName() string { return "essera_keys" }
+
+// CognitoSession binds a Gateway web session to the Cognito sign-in behind it. The refresh
+// token is encrypted with CRYPTO_SECRET and never leaves the server.
+type CognitoSession struct {
+	SessionID    string `gorm:"primaryKey;type:varchar(64)"`
+	UserID       int    `gorm:"index"`
+	Sub          string `gorm:"type:varchar(64)"`
+	RefreshToken string `gorm:"type:text"`
+	UpdatedAt    time.Time
+}
+
+func (CognitoSession) TableName() string { return "essera_cognito_sessions" }
+
+// SignInAttempt counts the sign-in attempts of one subject (an IP or an email digest) in one
+// window, across every Gateway node.
+type SignInAttempt struct {
+	Subject  string `gorm:"primaryKey;type:varchar(80)"`
+	Started  int64  `gorm:"primaryKey;autoIncrement:false"` // unix seconds, start of the window
+	Attempts int64
+}
+
+func (SignInAttempt) TableName() string { return "essera_sign_in_attempts" }
+
 // Migrate creates or updates the Essera tables in the primary database.
 func Migrate() error {
-	return model.DB.AutoMigrate(&ConfigVersion{}, &OutboxEvent{}, &Counter{}, &ProviderMinute{}, &RequestStat{}, &ProviderError{})
+	return model.DB.AutoMigrate(&ConfigVersion{}, &OutboxEvent{}, &Counter{}, &ProviderMinute{}, &RequestStat{}, &ProviderError{},
+		&PersonUser{}, &Key{}, &CognitoSession{}, &SignInAttempt{})
 }

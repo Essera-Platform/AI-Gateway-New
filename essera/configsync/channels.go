@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/essera/secrets"
+	"github.com/QuantumNous/new-api/essera/settings"
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/model"
 )
@@ -15,8 +16,9 @@ import (
 // tag is the provider key.
 const TagPrefix = "essera/"
 
-// Group is the routing group of every projected channel and of the Essera service user.
-const Group = "essera"
+// Group is the routing group of every projected channel, of the Essera service user and of
+// every person.
+const Group = settings.Group
 
 // Provider statuses reported in the bridge state.
 const (

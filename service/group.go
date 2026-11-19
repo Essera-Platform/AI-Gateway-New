@@ -5,6 +5,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	esserasettings "github.com/QuantumNous/new-api/essera/settings"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -12,6 +13,10 @@ import (
 )
 
 func GetUserUsableGroups(userGroup string) map[string]string {
+	// Modified by Essera, 2026-11: a managed gateway serves everyone in the essera group only.
+	if esserasettings.Managed() {
+		return map[string]string{esserasettings.Group: "Essera"}
+	}
 	groupsCopy := setting.GetUserUsableGroupsCopy()
 	if userGroup != "" {
 		specialSettings, b := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Get(userGroup)

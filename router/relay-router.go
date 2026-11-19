@@ -64,7 +64,9 @@ func SetRelayRouter(router *gin.Engine) {
 	playgroundRouter := router.Group("/pg")
 	playgroundRouter.Use(middleware.RouteTag("relay"))
 	playgroundRouter.Use(middleware.SystemPerformanceCheck())
-	playgroundRouter.Use(middleware.UserAuth(), middleware.Distribute())
+	// Modified by Essera, 2026-11: on a managed gateway the playground runs as the signed-in
+	// person, through the Essera policy, before a channel is chosen.
+	playgroundRouter.Use(middleware.UserAuth(), middleware.EsseraPlayground(), middleware.Distribute())
 	{
 		playgroundRouter.POST("/chat/completions", controller.Playground)
 	}

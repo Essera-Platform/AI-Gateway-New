@@ -21,11 +21,26 @@ import (
 
 // Caller is the authenticated customer of a request.
 type Caller struct {
+	// ClientID names the credential in usage and limits: a Cognito client id or an API key's
+	// key id; "" for a person in the playground, who uses none.
 	ClientID   string
-	Credential *snapshot.Credential
+	Credential *snapshot.Credential // nil for a person in the playground
 	Customer   *snapshot.Organization
 	Partner    *snapshot.Organization // nil for a direct customer
+	Person     *snapshot.Person       // the key's or the signed-in person; nil for a Cognito client
 	View       *snapshot.View
+}
+
+// EndUserID is the end user a person's request is made for: the person's own for role user,
+// so it cannot be chosen by the request. ok is false for anyone else.
+func (c *Caller) EndUserID() (id string, ok bool) {
+	if c.Person == nil || c.Person.Role != snapshot.RoleUser {
+		return "", false
+	}
+	if c.Person.EndUserExternalID == nil {
+		return "", true
+	}
+	return *c.Person.EndUserExternalID, true
 }
 
 // Failure is why a token was refused; Code is the error code the client sees.

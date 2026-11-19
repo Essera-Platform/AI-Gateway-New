@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type Table } from '@tanstack/react-table'
+// Modified by Essera, 2026-11: a managed gateway's keys cannot be read back, so they cannot be copied in bulk.
+import type { Table } from '@tanstack/react-table'
 import { Copy, Trash2, Loader2 } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -29,9 +30,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 
-import { type ApiKey } from '../types'
+import type { ApiKey } from '../types'
 import { ApiKeysMultiDeleteDialog } from './api-keys-multi-delete-dialog'
 import { useApiKeys } from './api-keys-provider'
 
@@ -44,6 +46,7 @@ export function DataTableBulkActions<TData>({
 }: DataTableBulkActionsProps<TData>) {
   const { t } = useTranslation()
   const { resolveRealKeysBatch } = useApiKeys()
+  const { managed } = useEsseraManaged()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isCopying, setIsCopying] = useState(false)
   const selectedRows = table.getFilteredSelectedRowModel().rows
@@ -83,29 +86,31 @@ export function DataTableBulkActions<TData>({
   return (
     <>
       <BulkActionsToolbar table={table} entityName='API key'>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant='outline'
-                size='icon'
-                className='size-8'
-                onClick={handleBatchCopy}
-                disabled={isCopying}
-                aria-label={t('Copy selected keys')}
-              />
-            }
-          >
-            {isCopying ? (
-              <Loader2 className='size-4 animate-spin' />
-            ) : (
-              <Copy className='size-4' />
-            )}
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('Copy selected keys')}</p>
-          </TooltipContent>
-        </Tooltip>
+        {!managed && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant='outline'
+                  size='icon'
+                  className='size-8'
+                  onClick={handleBatchCopy}
+                  disabled={isCopying}
+                  aria-label={t('Copy selected keys')}
+                />
+              }
+            >
+              {isCopying ? (
+                <Loader2 className='size-4 animate-spin' />
+              ) : (
+                <Copy className='size-4' />
+              )}
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('Copy selected keys')}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
 
         <Tooltip>
           <TooltipTrigger
