@@ -7807,6 +7807,24 @@
     "The Console refused this request.": "控制台拒絕了此請求。",
     "This account cannot sign in to the Essera gateway.": "此帳號無法登入 Essera 閘道。",
     "No requests yet": "尚無請求",
-    "Refine models by provider, type, and tags.": "依供應商、類型和標籤篩選模型。"
+    "Refine models by provider, type, and tags.": "依供應商、類型和標籤篩選模型。",
+    "API key revoked": "API 金鑰已撤銷",
+    "API key rotated": "API 金鑰已輪替",
+    "API key expiry changed": "API 金鑰有效期已變更",
+    "User added": "已新增使用者",
+    "User changed": "使用者已變更",
+    "User suspended": "使用者已停用",
+    "User reactivated": "使用者已重新啟用",
+    "User removed": "使用者已移除",
+    "Users uploaded": "已上傳使用者",
+    "Sign-in given": "已授予登入權限",
+    "Sign-in email changed": "登入電子郵件已變更",
+    "Sign-in removed": "已移除登入權限",
+    "Sign-in set up": "已設定登入",
+    "Invitation sent again": "已重新傳送邀請",
+    "Account created": "帳戶已建立",
+    "Account details changed": "帳戶資料已變更",
+    "Account limits changed": "帳戶限額已變更",
+    "Account status changed": "帳戶狀態已變更"
   }
 }

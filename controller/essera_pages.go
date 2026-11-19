@@ -293,9 +293,16 @@ func esseraAuditLogs(c *gin.Context, person *snapshot.Person) {
 				resource = append(resource, *part)
 			}
 		}
+		// The web UI names the Console's actions by params.source; new_status tells a suspended
+		// end user from a reactivated or removed one, which share end_user.update.
+		params := model.AuditFields{"source": "console"}
+		if row.NewStatus != nil {
+			params["new_status"] = *row.NewStatus
+		}
 		logs = append(logs, model.AuditLog{
 			Id: page.GetStartIdx() + i + 1, EventId: row.ID, Username: actor, CreatedAt: row.TS.Unix(),
 			Category: model.AuditCategoryOperation, Action: row.Action, Success: row.Result == "success", Content: strings.Join(resource, " "),
+			Other: model.AuditOther{Op: &model.AuditOperation{Action: row.Action, Params: params}},
 		})
 	}
 	page.SetTotal(rows.Total)

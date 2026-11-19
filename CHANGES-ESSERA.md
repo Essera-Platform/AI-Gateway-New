@@ -79,6 +79,7 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | `essera/awsx/awsx.go` | The task role's credentials, to sign the Gateway's identity |
 | `web/src/features/essera/*`, `web/src/features/pricing/*`, `web/src/features/usage-logs/*`, `web/src/features/dashboard/*`, `web/src/features/profile/*`, `web/src/hooks/use-sidebar-*.ts`, `web/src/routes/_authenticated/route.tsx`, `web/src/routes/_authenticated/users/index.tsx`, `web/src/components/layout/components/mobile-drawer.tsx`, `web/src/stores/auth-store.ts` | In managed mode: the Console's figures, the tenant's people for its admin, the Model Square's models and prices, and the menus and pages the Console owns closed |
 | `web/src/features/pricing/*` | In managed mode, no groups; a model nobody has called says "No requests yet" instead of empty metrics |
+| `web/src/features/usage-logs/audit/lib/audit-details.ts` | Names each of the Console's audit events by its action ("API key created", "User suspended"), with the raw action for one it does not know |
 | `web/src/routes/(auth)/sign-in.tsx`, `web/src/features/auth/sign-in/index.tsx` | The operators' sign-in only at `/sign-in?operator=1` on a managed gateway |
 | `web/src/components/layout/components/public-header.tsx` | The compact header is wide enough for the Essera name and every link |
 | `go.mod`, `go.sum`, `THIRD-PARTY-LICENSES.md` | AWS SDK modules for S3, SQS, Secrets Manager and shared configuration, and go-jose for the customer pool's signing keys (Apache-2.0) |

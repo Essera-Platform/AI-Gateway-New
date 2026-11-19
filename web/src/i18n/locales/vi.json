@@ -7807,6 +7807,24 @@
     "The Console refused this request.": "Console đã từ chối yêu cầu này.",
     "This account cannot sign in to the Essera gateway.": "Tài khoản này không thể đăng nhập vào cổng Essera.",
     "No requests yet": "Chưa có yêu cầu nào",
-    "Refine models by provider, type, and tags.": "Lọc mô hình theo nhà cung cấp, loại và thẻ."
+    "Refine models by provider, type, and tags.": "Lọc mô hình theo nhà cung cấp, loại và thẻ.",
+    "API key revoked": "Đã thu hồi khóa API",
+    "API key rotated": "Đã xoay vòng khóa API",
+    "API key expiry changed": "Đã đổi thời hạn khóa API",
+    "User added": "Đã thêm người dùng",
+    "User changed": "Đã thay đổi người dùng",
+    "User suspended": "Đã tạm ngưng người dùng",
+    "User reactivated": "Đã kích hoạt lại người dùng",
+    "User removed": "Đã xóa người dùng",
+    "Users uploaded": "Đã tải lên người dùng",
+    "Sign-in given": "Đã cấp quyền đăng nhập",
+    "Sign-in email changed": "Đã đổi email đăng nhập",
+    "Sign-in removed": "Đã gỡ quyền đăng nhập",
+    "Sign-in set up": "Đã thiết lập đăng nhập",
+    "Invitation sent again": "Đã gửi lại lời mời",
+    "Account created": "Đã tạo tài khoản",
+    "Account details changed": "Đã thay đổi thông tin tài khoản",
+    "Account limits changed": "Đã thay đổi hạn mức tài khoản",
+    "Account status changed": "Đã thay đổi trạng thái tài khoản"
   }
 }
