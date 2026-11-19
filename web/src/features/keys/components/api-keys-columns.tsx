@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway hides what the Console owns (quota, group, model and IP limits).
 import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useMemo } from 'react'
@@ -23,6 +24,7 @@ import { useTranslation } from 'react-i18next'
 
 import { StatusBadge } from '@/components/status-badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { useMediaQuery } from '@/hooks'
 import { toIntlLocale } from '@/i18n/languages'
 import { getUserGroups } from '@/lib/api'
@@ -46,6 +48,13 @@ import {
 import { DataTableRowActions } from './data-table-row-actions'
 
 const EMPTY_GROUP_RATIOS: Record<string, number | string> = {}
+
+const CONSOLE_OWNED_COLUMNS = new Set([
+  'quota',
+  'group',
+  'model_limits',
+  'allow_ips',
+])
 
 function useGroupRatios(): Record<string, number | string> {
   const { data } = useQuery({
@@ -76,7 +85,8 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
   const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const justNowLabel = t('Just now')
-  return useMemo<ColumnDef<ApiKey>[]>(
+  const { managed } = useEsseraManaged()
+  const columns = useMemo<ColumnDef<ApiKey>[]>(
     () => [
       {
         id: 'select',
@@ -234,5 +244,18 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
       },
     ],
     [t, quotaUnit, now, groupRatios, shouldReduceMotion, locale, justNowLabel]
+  )
+  return useMemo(
+    () =>
+      managed
+        ? columns.filter(
+            (column) =>
+              !CONSOLE_OWNED_COLUMNS.has(
+                column.id ??
+                  ('accessorKey' in column ? String(column.accessorKey) : '')
+              )
+          )
+        : columns,
+    [columns, managed]
   )
 }

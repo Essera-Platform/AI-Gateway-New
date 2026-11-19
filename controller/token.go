@@ -4,9 +4,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/essera/keys"
+	"github.com/QuantumNous/new-api/essera/settings"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
@@ -333,6 +336,11 @@ func AddToken(c *gin.Context) {
 		common.ApiErrorT(c, "Maximum number of tokens reached ({{max}})", map[string]any{"max": maxTokens})
 		return
 	}
+	// Modified by Essera, 2026-11: on a managed gateway a key is a person's Console credential.
+	if settings.Managed() {
+		addEsseraKey(c, token.Name, token.ExpiredTime, params)
+		return
+	}
 	if token.Group == "auto" {
 		if !setTokenAutoGroups(c, &token, request.AutoGroups.Groups) {
 			return
@@ -387,7 +395,11 @@ func DeleteToken(c *gin.Context) {
 	}
 	params := tokenAuditParams(c)
 	params["id"], params["name"] = token.Id, token.Name
-	err = token.Delete()
+	if settings.Managed() { // Modified by Essera, 2026-11: revokes the person's key at the Console too
+		_, err = keys.Revoke(userId, []int{token.Id}, time.Now())
+	} else {
+		err = token.Delete()
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -527,7 +539,13 @@ func DeleteTokenBatch(c *gin.Context) {
 		return
 	}
 	userId := c.GetInt("id")
-	count, err := model.BatchDeleteTokens(tokenBatch.Ids, userId)
+	var count int
+	var err error
+	if settings.Managed() { // Modified by Essera, 2026-11: revokes the person's keys at the Console too
+		count, err = keys.Revoke(userId, tokenBatch.Ids, time.Now())
+	} else {
+		count, err = model.BatchDeleteTokens(tokenBatch.Ids, userId)
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return

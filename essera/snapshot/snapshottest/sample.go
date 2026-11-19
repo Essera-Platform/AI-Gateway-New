@@ -1,9 +1,11 @@
 // Package snapshottest builds configuration snapshots for tests: a partner with one customer,
-// a direct customer, credentials, an end user, three providers and rates, shaped as the
-// Console publishes them.
+// a direct customer, credentials and an API key, end users, people, three providers and
+// rates, shaped as the Console publishes them.
 package snapshottest
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	"github.com/QuantumNous/new-api/essera/snapshot"
@@ -18,7 +20,30 @@ const (
 	DirectClientID   = "client-direct"
 	UserPoolID       = "us-east-1_TestPool"
 	Scope            = "https://api.example/invoke"
+
+	EndUserID = "44444444-4444-4444-4444-444444444444" // external id "user-1"
+
+	// People: the admin and a user of CustomerID, a suspended person, and the
+	// admin of the direct customer, another tenant.
+	AdminPersonID     = "66666666-6666-6666-6666-666666666666"
+	UserPersonID      = "77777777-7777-7777-7777-777777777777"
+	SuspendedPersonID = "88888888-8888-8888-8888-888888888888"
+	DirectPersonID    = "99999999-9999-9999-9999-999999999999"
+	AdminSub          = "sub-admin"
+	UserSub           = "sub-user"
+	SuspendedSub      = "sub-suspended"
+	DirectSub         = "sub-direct"
+
+	// APIKey is the end user's key, published as KeyID with its SHA-256.
+	APIKey = "sk-0123456789abcdefAbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCd"
+	KeyID  = "k_0123456789abcdef"
 )
+
+// SHA256 is the hex SHA-256 the Console publishes for a key.
+func SHA256(key string) string {
+	digest := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(digest[:])
+}
 
 func ptr[T any](v T) *T { return &v }
 
@@ -61,13 +86,26 @@ func Sample() *snapshot.Snapshot {
 				{ID: DirectCustomerID, Status: snapshot.StatusActive},
 			},
 			EndUsers: []snapshot.EndUser{
-				{ID: "44444444-4444-4444-4444-444444444444", CustomerID: CustomerID, ExternalID: "user-1", Status: snapshot.StatusActive,
+				{ID: EndUserID, CustomerID: CustomerID, ExternalID: "user-1", Status: snapshot.StatusActive,
 					Limits: snapshot.Entitlements{MonthlyRequestQuota: ptr(int64(2))}},
 				{ID: "55555555-5555-5555-5555-555555555555", CustomerID: CustomerID, ExternalID: "user-off", Status: "suspended"},
 			},
 			Credentials: []snapshot.Credential{
 				{ClientID: ClientID, CustomerID: CustomerID},
 				{ClientID: DirectClientID, CustomerID: DirectCustomerID},
+				{Kind: snapshot.CredentialAPIKey, KeyID: KeyID, KeySHA256: SHA256(APIKey), CustomerID: CustomerID,
+					PersonID: UserPersonID, EndUserID: ptr(EndUserID), ExpiresAt: ptr(time.Date(2027, 2, 17, 0, 0, 0, 0, time.UTC)),
+					Limits: snapshot.Entitlements{MonthlyRequestQuota: ptr(int64(2))}},
+			},
+			People: []snapshot.Person{
+				{ID: AdminPersonID, Sub: ptr(AdminSub), Email: "owner@acme.example", CustomerID: CustomerID,
+					Role: snapshot.RoleAdmin, Status: snapshot.StatusActive},
+				{ID: UserPersonID, Sub: ptr(UserSub), Email: "user-1@acme.example", CustomerID: CustomerID,
+					EndUserID: ptr(EndUserID), EndUserExternalID: ptr("user-1"), Role: snapshot.RoleUser, Status: snapshot.StatusActive},
+				{ID: SuspendedPersonID, Sub: ptr(SuspendedSub), Email: "gone@acme.example", CustomerID: CustomerID,
+					Role: snapshot.RoleUser, Status: "suspended"},
+				{ID: DirectPersonID, Sub: ptr(DirectSub), Email: "owner@direct.example", CustomerID: DirectCustomerID,
+					Role: snapshot.RoleAdmin, Status: snapshot.StatusActive},
 			},
 		},
 		Rates: &snapshot.RatesCatalog{Rates: []snapshot.Rate{

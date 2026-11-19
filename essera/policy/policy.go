@@ -50,10 +50,7 @@ func Evaluate(caller *auth.Caller, endUserID, country string, now time.Time) (*R
 	if denial := statuses(caller, endUserID, request); denial != nil {
 		return nil, denial
 	}
-	effective := snapshot.Narrow(caller.Customer.Entitlements, caller.Credential.Limits)
-	if request.EndUser != nil {
-		effective = snapshot.Narrow(effective, request.EndUser.Limits)
-	}
+	effective := effectiveEntitlements(caller, request.EndUser)
 	request.Effective = effective
 	if allowed, code := view.CountryAllowed(effective, country); !allowed {
 		return nil, &Denial{Status: http.StatusForbidden, Code: code, Reason: "country", Message: "Requests from this country are not served for this account."}
@@ -125,10 +122,10 @@ func subjects(caller *auth.Caller, endUser *snapshot.EndUser) []limits.Subject {
 	if caller.Partner != nil {
 		all = append(all, limits.Subject{Scope: "partner", ID: caller.Partner.ID, Limits: caller.Partner.Entitlements})
 	}
-	all = append(all,
-		limits.Subject{Scope: "customer", ID: caller.Customer.ID, Limits: caller.Customer.Entitlements},
-		limits.Subject{Scope: "credential", ID: caller.ClientID, Limits: caller.Credential.Limits},
-	)
+	all = append(all, limits.Subject{Scope: "customer", ID: caller.Customer.ID, Limits: caller.Customer.Entitlements})
+	if caller.Credential != nil {
+		all = append(all, limits.Subject{Scope: "credential", ID: caller.ClientID, Limits: caller.Credential.Limits})
+	}
 	if endUser != nil {
 		all = append(all, limits.Subject{Scope: "end_user", ID: caller.Customer.ID + "/" + endUser.ExternalID, Limits: endUser.Limits})
 	}
@@ -138,6 +135,34 @@ func subjects(caller *auth.Caller, endUser *snapshot.EndUser) []limits.Subject {
 // allowedModels lists the servable models the entitlements allow, each with the channels of
 // the providers that may serve it. A provider or model that is not active is never served,
 // whatever an older account version says.
+// effectiveEntitlements are the customer's entitlements narrowed by the credential's limits and
+// the end user's.
+func effectiveEntitlements(caller *auth.Caller, endUser *snapshot.EndUser) snapshot.Entitlements {
+	effective := caller.Customer.Entitlements
+	if caller.Credential != nil {
+		effective = snapshot.Narrow(effective, caller.Credential.Limits)
+	}
+	if endUser != nil {
+		effective = snapshot.Narrow(effective, endUser.Limits)
+	}
+	return effective
+}
+
+// Available are the models the caller may call, each with the tags of the channels that may
+// serve it, by the same rules Evaluate applies to a request: none while the customer, its
+// partner or the caller's end user is not active. A person's end user is their own.
+func Available(caller *auth.Caller) map[string][]string {
+	endUserID, personal := caller.EndUserID()
+	if !personal {
+		endUserID = ""
+	}
+	request := &Request{}
+	if statuses(caller, endUserID, request) != nil {
+		return map[string][]string{}
+	}
+	return allowedModels(caller.View, effectiveEntitlements(caller, request.EndUser))
+}
+
 func allowedModels(view *snapshot.View, effective snapshot.Entitlements) map[string][]string {
 	allowed := map[string][]string{}
 	for _, provider := range view.Providers() {

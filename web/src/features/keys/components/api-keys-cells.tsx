@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway's key is shown only when created, so the cell cannot reveal or copy it.
 import { Check, Copy, Loader2 } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -35,6 +36,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 
 import type { ApiKey } from '../types'
@@ -50,6 +52,7 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
     markKeyCopied,
   } = useApiKeys()
   const [popoverOpen, setPopoverOpen] = useState(false)
+  const { managed } = useEsseraManaged()
 
   const isLoading = !!loadingKeys[apiKey.id]
   const resolvedFullKey = resolvedKeys[apiKey.id]
@@ -73,6 +76,14 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
     const ok = await copyToClipboard(realKey)
     if (ok) markKeyCopied(apiKey.id)
   }, [resolvedFullKey, resolveRealKey, apiKey.id, markKeyCopied])
+
+  if (managed) {
+    return (
+      <span className='text-muted-foreground truncate font-mono text-xs'>
+        {maskedKey}
+      </span>
+    )
+  }
 
   let copyIcon = <Copy className='size-3.5' />
   let copyTooltip = t('Copy API key')

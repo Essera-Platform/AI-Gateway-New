@@ -1,14 +1,18 @@
 // Essera fork: customer authentication and policy for a Gateway managed by the Essera
-// Operations Console. TokenAuth calls these; everything else of the request is new-api's.
+// Operations Console. TokenAuth and the playground route call these; everything else of the
+// request is new-api's.
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/essera/auth"
 	"github.com/QuantumNous/new-api/essera/bootstrap"
+	"github.com/QuantumNous/new-api/essera/identity"
+	"github.com/QuantumNous/new-api/essera/keys"
 	"github.com/QuantumNous/new-api/essera/managed"
 	"github.com/QuantumNous/new-api/essera/policy"
 	"github.com/QuantumNous/new-api/essera/settings"
@@ -20,29 +24,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// esseraAuthenticate handles a presented key that is a customer's access token. On success it
-// returns the service token's key, so new-api serves the request as the Essera service user;
-// on refusal it aborts the request. handled is false for an ordinary new-api key.
+// esseraAuthenticate handles the key of a relay request: a customer's access token, or an API
+// key a person created and the Console published. On success it returns the service token's
+// key, so new-api serves the request as the Essera service user; on refusal it aborts the
+// request. handled is false for an ordinary new-api key outside the relay routes.
 func esseraAuthenticate(c *gin.Context, presented string) (serviceKey string, handled bool) {
 	if !settings.Managed() {
 		return "", false
 	}
-	if !auth.LooksLikeJWT(presented) {
-		if !managed.RelayPath(c.Request.URL.Path) {
-			return "", false
-		}
-		// Every request a provider serves is a Console customer's: a new-api key would be served
-		// without the Console's policy, limits or usage.
-		stats.Denial(time.Now(), "authentication", http.StatusUnauthorized)
-		abortWithOpenAiMessage(c, http.StatusUnauthorized, "Use the credential issued in the Essera Operations Console.", types.ErrorCode("essera_unauthenticated"))
-		return "", true
+	jwt := auth.LooksLikeJWT(presented)
+	if !jwt && !managed.RelayPath(c.Request.URL.Path) {
+		return "", false
 	}
 	now := time.Now()
 	if !managed.CustomerRequestAllowed(c.Request.Method, c.Request.URL.Path) {
 		abortWithOpenAiMessage(c, http.StatusNotFound, "This endpoint is not available to customer credentials.", types.ErrorCode("essera_not_available"))
 		return "", true
 	}
-	caller, failure := auth.Authenticate(c.Request.Context(), presented, snapshot.Current(), now)
+	var caller *auth.Caller
+	var failure *auth.Failure
+	if jwt {
+		caller, failure = auth.Authenticate(c.Request.Context(), presented, snapshot.Current(), now)
+	} else {
+		// Every request a provider serves is a Console customer's: a new-api key, an operator's
+		// among them, would be served without the Console's policy, limits or usage.
+		caller, failure = keys.Authenticate(presented, snapshot.Current(), now)
+	}
 	if failure != nil {
 		status := http.StatusUnauthorized
 		if failure.Code == "essera_unavailable" {
@@ -52,21 +59,70 @@ func esseraAuthenticate(c *gin.Context, presented string) (serviceKey string, ha
 		abortWithOpenAiMessage(c, status, failure.Message, types.ErrorCode(failure.Code))
 		return "", true
 	}
-	request, denial := policy.Evaluate(caller, c.GetHeader("X-Essera-End-User"), c.GetHeader("CF-IPCountry"), now)
+	if !esseraAdmit(c, caller, now) {
+		return "", true
+	}
+	return bootstrap.ServiceTokenKey(), true
+}
+
+// esseraAdmit applies the policy to an authenticated caller and readies an admitted request
+// for routing and usage. A person's end user is their own, never one the request names.
+func esseraAdmit(c *gin.Context, caller *auth.Caller, now time.Time) bool {
+	endUserID, personal := caller.EndUserID()
+	if !personal {
+		endUserID = c.GetHeader("X-Essera-End-User")
+	}
+	request, denial := policy.Evaluate(caller, endUserID, c.GetHeader("CF-IPCountry"), now)
 	if denial != nil {
 		stats.Denial(now, denial.Reason, denial.Status)
 		for name, value := range denial.Headers {
 			c.Header(name, value)
 		}
 		abortWithOpenAiMessage(c, denial.Status, denial.Message, types.ErrorCode(denial.Code))
-		return "", true
+		return false
 	}
 	for name, value := range request.Headers {
 		c.Header(name, value)
 	}
 	c.Set(usage.ContextKey, request)
 	service.GetChannelConstraints(c).AddFilter(dto.ChannelFilter{Kind: dto.FilterEsseraProviders, EsseraTagsByModel: request.AllowedModels})
-	return bootstrap.ServiceTokenKey(), true
+	return true
+}
+
+// EsseraPlayground runs a playground request of a managed gateway as the signed-in person:
+// their customer, the same policy, limits and usage as their API calls. Anyone who is not an
+// active person, operators included, is refused: their requests would bypass the Console.
+func EsseraPlayground() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !settings.Managed() {
+			c.Next()
+			return
+		}
+		now := time.Now()
+		view := snapshot.Current()
+		person, err := identity.ActivePerson(c.GetInt("id"), view)
+		if err != nil {
+			var refusal *identity.Refusal
+			status, message := http.StatusServiceUnavailable, "The gateway cannot check this account right now."
+			if errors.As(err, &refusal) {
+				status, message = http.StatusForbidden, "The playground is open to the people of a Console customer."
+			}
+			stats.Denial(now, "authentication", status)
+			abortWithOpenAiMessage(c, status, message, types.ErrorCode("essera_unauthenticated"))
+			return
+		}
+		caller, failure := identity.Caller(view, person, nil)
+		if failure != nil {
+			stats.Denial(now, "authentication", http.StatusForbidden)
+			abortWithOpenAiMessage(c, http.StatusForbidden, failure.Message, types.ErrorCode(failure.Code))
+			return
+		}
+		if !esseraAdmit(c, caller, now) {
+			return
+		}
+		esseraLimitModels(c)
+		c.Next()
+	}
 }
 
 // esseraLimitModels narrows the service token's models to the customer's, once new-api has

@@ -1,6 +1,7 @@
 // Package configsync applies the configuration versions the Console publishes: it reads the
 // configuration queue, fetches and verifies each snapshot, keeps the last good one in the
-// Gateway's database and projects the provider catalog into new-api channels.
+// Gateway's database, projects the provider catalog into new-api channels and the people into
+// new-api users.
 package configsync
 
 import (
@@ -124,6 +125,9 @@ func Apply(version int64, digest string, data []byte) error {
 		if err != nil {
 			return err
 		}
+	}
+	if err := projectPeople(merged.Accounts); err != nil {
+		return err
 	}
 	document, err := common.Marshal(merged)
 	if err != nil {

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway's key cards leave out quota and model and IP limits.
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import { flexRender, type Table as TanstackTable } from '@tanstack/react-table'
@@ -40,6 +41,7 @@ import {
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { createServerError } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
@@ -108,6 +110,7 @@ function ApiKeysMobileList({
   now: number
 }) {
   const { t } = useTranslation()
+  const { managed } = useEsseraManaged()
   const rows = table.getRowModel().rows
 
   if (isLoading) return <ApiKeysMobileSkeleton />
@@ -175,21 +178,25 @@ function ApiKeysMobileList({
               <DataTableRowActions row={row} />
             </div>
 
-            <div className='min-w-0 space-y-3 py-1'>
-              <div className='min-w-0'>
-                {groupCell &&
-                  flexRender(
-                    groupCell.column.columnDef.cell,
-                    groupCell.getContext()
-                  )}
+            {!managed && (
+              <div className='min-w-0 space-y-3 py-1'>
+                <div className='min-w-0'>
+                  {groupCell &&
+                    flexRender(
+                      groupCell.column.columnDef.cell,
+                      groupCell.getContext()
+                    )}
+                </div>
+                <ApiKeyQuotaCell apiKey={apiKey} now={now} variant='card' />
               </div>
-              <ApiKeyQuotaCell apiKey={apiKey} now={now} variant='card' />
-            </div>
+            )}
 
-            <div className='flex flex-wrap items-center gap-x-5 gap-y-1'>
-              <ModelLimitsCell apiKey={apiKey} detailsTrigger='click' />
-              <IpRestrictionsCell apiKey={apiKey} detailsTrigger='click' />
-            </div>
+            {!managed && (
+              <div className='flex flex-wrap items-center gap-x-5 gap-y-1'>
+                <ModelLimitsCell apiKey={apiKey} detailsTrigger='click' />
+                <IpRestrictionsCell apiKey={apiKey} detailsTrigger='click' />
+              </div>
+            )}
 
             <div className='grid grid-cols-3 items-start gap-3 border-t pt-2'>
               <div className='col-span-2 min-w-0'>

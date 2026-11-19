@@ -51,7 +51,8 @@ func GetStatus(c *gin.Context) {
 	data := gin.H{
 		"version":                     common.Version,
 		"start_time":                  common.StartTime,
-		"essera_managed":              esserasettings.Managed(), // Modified by Essera, 2026-11: the admin UI says the Console administers this gateway
+		"essera_managed":              esserasettings.Managed(),    // Modified by Essera, 2026-11: the admin UI says the Console administers this gateway
+		"essera_sign_in":              esserasettings.SignInMode(), // Modified by Essera, 2026-11: how people sign in on a managed gateway
 		"email_verification":          common.EmailVerificationEnabled,
 		"github_oauth":                common.GitHubOAuthEnabled,
 		"github_client_id":            common.GitHubClientId,

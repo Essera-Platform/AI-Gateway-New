@@ -1,3 +1,4 @@
+// Modified by Essera, 2026-11: the Essera sign-in routes are anonymous entry points.
 package router
 
 import (
@@ -50,6 +51,8 @@ var accessTokenExemptRoutes = []string{
 	"GET /api/oauth/wechat",
 	"GET /api/oauth/telegram/login",
 	"GET /api/oauth/telegram/bind/:flow_token",
+	"POST /api/essera/sign-in",
+	"POST /api/essera/sign-in/continue",
 
 	// Browser session cookie endpoints.
 	"POST /api/user/auth/refresh",

@@ -59,6 +59,9 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/oauth/telegram/bind/:flow_token", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.TelegramLegacyAuth)
 		// Standard OAuth providers (GitHub, Discord, OIDC, LinuxDO, Telegram) - unified route
 		apiRouter.GET("/oauth/:provider", middleware.CriticalRateLimit(), middleware.DisableCache(), middleware.TryUserAuth(), controller.HandleOAuth)
+		// Modified by Essera, 2026-11: the Console's people sign in through the customer pool.
+		apiRouter.POST("/essera/sign-in", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.EsseraSignIn)
+		apiRouter.POST("/essera/sign-in/continue", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.EsseraSignInContinue)
 		apiRouter.GET("/ratio_config", middleware.CriticalRateLimit(), controller.GetRatioConfig)
 
 		apiRouter.POST("/stripe/webhook", anonymousRequestBodyLimit, controller.StripeWebhook)

@@ -49,9 +49,26 @@ func matches(paths []string, path string) bool {
 	return false
 }
 
-// closedPaths serve requests the Console cannot account for: the playground, asynchronous
-// tasks, video and Midjourney.
-var closedPaths = regexp.MustCompile(`^/(pg|mj|suno)(/|$)|^/[^/]+/mj/|^/v1/(video|videos|tasks)(/|$)`)
+// closedPaths serve requests the Console cannot account for: asynchronous tasks, video and
+// Midjourney; and new-api's OAuth sign-in, which could create users the Console does not know.
+// People sign in at /api/essera/sign-in. The playground is open; it runs as the signed-in
+// person (middleware.EsseraPlayground).
+var closedPaths = regexp.MustCompile(`^/(mj|suno)(/|$)|^/[^/]+/mj/|^/v1/(video|videos|tasks)(/|$)|^/api/oauth/`)
+
+// keyWrite tells a person's own key change: create, delete, delete several. The token
+// handlers accept these from people only (essera/keys); editing a key and reading a key back
+// stay refused, since a key is shown only once, when it is created.
+func keyWrite(method, path string) bool {
+	switch method {
+	case http.MethodPost:
+		return path == "/api/token" || path == "/api/token/" || path == "/api/token/batch" || path == "/api/token/batch/"
+	case http.MethodDelete:
+		return tokenPath.MatchString(path)
+	}
+	return false
+}
+
+var tokenPath = regexp.MustCompile(`^/api/token/\d+/?$`)
 
 // adminWrites change what the Console owns: providers (channels), customers (users),
 // credentials (tokens), prices, models and commerce; and plugins and sign-in providers, which
@@ -74,7 +91,9 @@ func Guard() gin.HandlerFunc {
 			return
 		}
 		write := c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead && c.Request.Method != http.MethodOptions
-		if write && adminWrites.MatchString(path) && !keptWrites.MatchString(path) {
+		// A person's users row is the Console's projection of them: closing the account is the Console's.
+		accountClosing := c.Request.Method == http.MethodDelete && strings.TrimSuffix(path, "/") == "/api/user/self"
+		if accountClosing || write && adminWrites.MatchString(path) && !keptWrites.MatchString(path) && !keyWrite(c.Request.Method, path) {
 			refuse(c, http.StatusConflict, "managed_by_console", "This is managed in the Essera Operations Console.")
 			return
 		}

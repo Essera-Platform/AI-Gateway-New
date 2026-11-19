@@ -62,3 +62,39 @@ func AWSEndpoint() string {
 func Enabled() bool {
 	return Managed() && Environment() != ""
 }
+
+// Group is the routing group of every projected channel, of the service user and of every
+// person: a managed gateway offers no other.
+const Group = "essera"
+
+// SignInClient is the Cognito app client people sign in to the Gateway's web UI with, through
+// the user-pool API: the Gateway's own sign-in page, never Cognito's hosted one.
+type SignInClient struct {
+	Issuer       string // https://cognito-idp.<region>.amazonaws.com/<pool id>
+	ClientID     string
+	ClientSecret string
+}
+
+// OIDCClient reads the sign-in client from the environment; ok is false unless all of it is set.
+func OIDCClient() (client SignInClient, ok bool) {
+	client = SignInClient{
+		Issuer:       strings.TrimRight(strings.TrimSpace(common.GetEnvOrDefaultString("ESSERA_OIDC_ISSUER", "")), "/"),
+		ClientID:     strings.TrimSpace(common.GetEnvOrDefaultString("ESSERA_OIDC_CLIENT_ID", "")),
+		ClientSecret: strings.TrimSpace(common.GetEnvOrDefaultString("ESSERA_OIDC_CLIENT_SECRET", "")),
+	}
+	return client, client.Issuer != "" && client.ClientID != "" && client.ClientSecret != ""
+}
+
+const (
+	SignInPassword = "password"
+	SignInEmailOTP = "email_otp"
+)
+
+// SignInMode is how people sign in: email and a one-time code (the default; the pool must send
+// email through SES), or email and password when ESSERA_SIGN_IN=password.
+func SignInMode() string {
+	if strings.EqualFold(strings.TrimSpace(common.GetEnvOrDefaultString("ESSERA_SIGN_IN", "")), SignInPassword) {
+		return SignInPassword
+	}
+	return SignInEmailOTP
+}
