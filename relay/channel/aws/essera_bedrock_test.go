@@ -188,9 +188,14 @@ func TestConvertOpenAIToConverse(t *testing.T) {
 			want:    `{"messages":[{"role":"user","content":[{"text":"Q"}]}],"additionalModelRequestFields":{"reasoningConfig":{"type":"enabled","maxReasoningEffort":"high"}}}`,
 		},
 		{
-			name:    "Nova 2 at high effort keeps max_tokens, the caller's cost cap",
-			request: `{"model":"eu.amazon.nova-2-lite-v1:0","reasoning_effort":"xhigh","max_tokens":50,"temperature":0.5,"messages":[{"role":"user","content":"Q"}]}`,
-			want:    `{"messages":[{"role":"user","content":[{"text":"Q"}]}],"inferenceConfig":{"maxTokens":50},"additionalModelRequestFields":{"reasoningConfig":{"type":"enabled","maxReasoningEffort":"high"}}}`,
+			name:    "Nova 2 at high effort keeps stop sequences",
+			request: `{"model":"eu.amazon.nova-2-lite-v1:0","reasoning_effort":"high","temperature":0.5,"stop":["END"],"messages":[{"role":"user","content":"Q"}]}`,
+			want:    `{"messages":[{"role":"user","content":[{"text":"Q"}]}],"inferenceConfig":{"stopSequences":["END"]},"additionalModelRequestFields":{"reasoningConfig":{"type":"enabled","maxReasoningEffort":"high"}}}`,
+		},
+		{
+			name:    "Nova 2 at medium effort keeps max_tokens and sampling",
+			request: `{"model":"eu.amazon.nova-2-lite-v1:0","reasoning_effort":"medium","max_tokens":50,"temperature":0.5,"messages":[{"role":"user","content":"Q"}]}`,
+			want:    `{"messages":[{"role":"user","content":[{"text":"Q"}]}],"inferenceConfig":{"maxTokens":50,"temperature":0.5},"additionalModelRequestFields":{"reasoningConfig":{"type":"enabled","maxReasoningEffort":"medium"}}}`,
 		},
 		{
 			name:    "Mistral: a named tool choice; no reasoning field for a family without one",
@@ -227,6 +232,88 @@ func TestConvertOpenAIToConverse(t *testing.T) {
 			assert.JSONEq(t, test.want, string(body))
 		})
 	}
+}
+
+// Nova 2 at high effort refuses maxTokens. The Gateway refuses the request
+// itself, in every client protocol, rather than drop the caller's cost cap.
+func TestNova2HighEffortRefusesMaxTokens(t *testing.T) {
+	const message = "Nova 2 at high reasoning effort does not accept max_tokens: remove max_tokens or use medium reasoning effort."
+	tests := []struct {
+		name    string
+		format  relaytypes.RelayFormat
+		mode    int
+		convert func(*Adaptor, *gin.Context, *relaycommon.RelayInfo) (any, error)
+	}{
+		{
+			name: "chat completions, max_tokens", format: relaytypes.RelayFormatOpenAI, mode: relayconstant.RelayModeChatCompletions,
+			convert: func(a *Adaptor, c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				var request dto.GeneralOpenAIRequest
+				require.NoError(t, common.Unmarshal([]byte(`{"model":"eu.amazon.nova-2-lite-v1:0","reasoning_effort":"high","max_tokens":50,"messages":[{"role":"user","content":"Q"}]}`), &request))
+				return a.ConvertOpenAIRequest(c, info, &request)
+			},
+		},
+		{
+			name: "chat completions, max_completion_tokens at xhigh", format: relaytypes.RelayFormatOpenAI, mode: relayconstant.RelayModeChatCompletions,
+			convert: func(a *Adaptor, c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				var request dto.GeneralOpenAIRequest
+				require.NoError(t, common.Unmarshal([]byte(`{"model":"eu.amazon.nova-2-lite-v1:0","reasoning":{"effort":"xhigh"},"max_completion_tokens":50,"messages":[{"role":"user","content":"Q"}]}`), &request))
+				return a.ConvertOpenAIRequest(c, info, &request)
+			},
+		},
+		{
+			name: "Anthropic Messages, whose max_tokens is mandatory", format: relaytypes.RelayFormatClaude, mode: relayconstant.RelayModeUnknown,
+			convert: func(a *Adaptor, c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				var request dto.ClaudeRequest
+				require.NoError(t, common.Unmarshal([]byte(`{"model":"eu.amazon.nova-2-lite-v1:0","max_tokens":50,"output_config":{"effort":"high"},"messages":[{"role":"user","content":"Q"}]}`), &request))
+				return a.ConvertClaudeRequest(c, info, &request)
+			},
+		},
+		{
+			name: "Responses, max_output_tokens", format: relaytypes.RelayFormatOpenAIResponses, mode: relayconstant.RelayModeResponses,
+			convert: func(a *Adaptor, c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+				var request dto.OpenAIResponsesRequest
+				require.NoError(t, common.Unmarshal([]byte(`{"model":"eu.amazon.nova-2-lite-v1:0","input":"Q","reasoning":{"effort":"high"},"max_output_tokens":50}`), &request))
+				return a.ConvertOpenAIResponsesRequest(c, info, request)
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server, captured := startBedrockStub(t, jsonFixture(converseTextReply))
+			c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+			info := newBedrockTestInfo(server, test.mode, test.format, "eu.amazon.nova-2-lite-v1:0", false)
+
+			_, err := test.convert(&Adaptor{}, c, info)
+
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+			assert.True(t, relaytypes.IsSkipRetryError(apiErr))
+			openAIError := apiErr.ToOpenAIError()
+			assert.Equal(t, "invalid_request_error", openAIError.Type)
+			assert.Equal(t, message, openAIError.Message)
+			claudeError := apiErr.ToClaudeError()
+			assert.Equal(t, "invalid_request_error", claudeError.Type)
+			assert.Equal(t, message, claudeError.Message)
+			assert.Empty(t, captured(), "Bedrock is not called")
+		})
+	}
+
+	t.Run("Responses at medium effort keeps max_output_tokens", func(t *testing.T) {
+		server, _ := startBedrockStub(t, jsonFixture(converseTextReply))
+		c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+		info := newBedrockTestInfo(server, relayconstant.RelayModeResponses, relaytypes.RelayFormatOpenAIResponses, "eu.amazon.nova-2-lite-v1:0", false)
+		var request dto.OpenAIResponsesRequest
+		require.NoError(t, common.Unmarshal([]byte(`{"model":"eu.amazon.nova-2-lite-v1:0","input":"Q","reasoning":{"effort":"medium"},"max_output_tokens":50}`), &request))
+
+		converted, err := (&Adaptor{}).ConvertOpenAIResponsesRequest(c, info, request)
+
+		require.NoError(t, err)
+		converse := converted.(*converseRequest)
+		require.NotNil(t, converse.InferenceConfig)
+		assert.Equal(t, uint(50), *converse.InferenceConfig.MaxTokens)
+		assert.Equal(t, map[string]any{"reasoningConfig": map[string]any{"type": "enabled", "maxReasoningEffort": "medium"}}, converse.AdditionalModelRequestFields)
+	})
 }
 
 const (

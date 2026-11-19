@@ -153,6 +153,15 @@ func newBadRequest(format string, args ...any) error {
 	return types.NewErrorWithStatusCode(fmt.Errorf(format, args...), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 }
 
+// newNovaHighEffortMaxTokensError is a Claude-style error so that its type is
+// invalid_request_error in every client protocol, Anthropic Messages included.
+func newNovaHighEffortMaxTokensError() error {
+	return types.WithClaudeError(types.ClaudeError{
+		Type:    "invalid_request_error",
+		Message: "Nova 2 at high reasoning effort does not accept max_tokens: remove max_tokens or use medium reasoning effort.",
+	}, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+}
+
 var converseImageFormats = map[string]string{"image/png": "png", "image/jpeg": "jpeg", "image/jpg": "jpeg", "image/gif": "gif", "image/webp": "webp"}
 
 var converseDocumentFormats = map[string]string{
@@ -179,6 +188,22 @@ var converseDocumentNameUnsafe = regexp.MustCompile(`[^A-Za-z0-9 \-()\[\]]+`)
 func convertOpenAIToConverse(c *gin.Context, modelID string, request *dto.GeneralOpenAIRequest) (*converseRequest, error) {
 	if request.N != nil && *request.N > 1 {
 		return nil, newBadRequest("n must be 1: Bedrock Converse returns one choice")
+	}
+	maxTokens := request.MaxCompletionTokens
+	if maxTokens == nil || *maxTokens == 0 {
+		maxTokens = request.MaxTokens
+	}
+	if maxTokens != nil && *maxTokens == 0 {
+		maxTokens = nil
+	}
+	reasoningFields := converseReasoningFields(modelID, reasoningEffort(request))
+	reasoningConfig, isNova := reasoningFields["reasoningConfig"].(map[string]any)
+	novaHighEffort := isNova && reasoningConfig["maxReasoningEffort"] == "high"
+	// Nova 2 at high effort refuses maxTokens. It is the caller's cost cap, so
+	// it is neither dropped nor traded for a lower effort: the request is
+	// refused here rather than by Bedrock.
+	if novaHighEffort && maxTokens != nil {
+		return nil, newNovaHighEffortMaxTokensError()
 	}
 	converse := &converseRequest{Messages: []converseMessage{}}
 	documents := 0
@@ -232,16 +257,14 @@ func convertOpenAIToConverse(c *gin.Context, modelID string, request *dto.Genera
 		}
 	}
 
-	maxTokens := request.MaxCompletionTokens
-	if maxTokens == nil || *maxTokens == 0 {
-		maxTokens = request.MaxTokens
-	}
-	if maxTokens != nil && *maxTokens == 0 {
-		maxTokens = nil
+	temperature, topP := request.Temperature, request.TopP
+	// Nova 2 at high effort refuses temperature and topP as well.
+	if novaHighEffort {
+		temperature, topP = nil, nil
 	}
 	stop := parseStopSequences(request.Stop)
-	if maxTokens != nil || request.Temperature != nil || request.TopP != nil || len(stop) > 0 {
-		converse.InferenceConfig = &converseInferenceConfig{MaxTokens: maxTokens, Temperature: request.Temperature, TopP: request.TopP, StopSequences: stop}
+	if maxTokens != nil || temperature != nil || topP != nil || len(stop) > 0 {
+		converse.InferenceConfig = &converseInferenceConfig{MaxTokens: maxTokens, Temperature: temperature, TopP: topP, StopSequences: stop}
 	}
 
 	if len(request.Tools) > 0 {
@@ -265,18 +288,8 @@ func convertOpenAIToConverse(c *gin.Context, modelID string, request *dto.Genera
 		converse.ToolConfig = toolConfig
 	}
 
-	if fields := converseReasoningFields(modelID, reasoningEffort(request)); fields != nil {
-		converse.AdditionalModelRequestFields = fields
-		// Nova 2 refuses temperature and topP at high effort. maxTokens is
-		// refused too, but it is kept: it caps what the caller pays, so the
-		// caller gets Bedrock's 400 instead of an uncapped answer.
-		reasoningConfig, isNova := fields["reasoningConfig"].(map[string]any)
-		if config := converse.InferenceConfig; config != nil && isNova && reasoningConfig["maxReasoningEffort"] == "high" {
-			config.Temperature, config.TopP = nil, nil
-			if config.MaxTokens == nil && len(config.StopSequences) == 0 {
-				converse.InferenceConfig = nil
-			}
-		}
+	if reasoningFields != nil {
+		converse.AdditionalModelRequestFields = reasoningFields
 	}
 	return converse, nil
 }
