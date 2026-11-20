@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { EsseraModelMetricsLine } from '@/features/essera/model-metrics'
 import { EsseraModelPrices } from '@/features/essera/model-square'
 import { esseraModelTypeLabel } from '@/features/essera/model-square-format'
 import { getPerfMetrics } from '@/features/performance-metrics/api'
@@ -278,16 +279,24 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
     queryFn: async () =>
       requireServerSuccess(await getPerfMetrics(props.model.model_name, 24)),
     staleTime: 60 * 1000,
+    enabled: !props.model.essera, // Modified by Essera, 2026-11
   })
+
+  // Modified by Essera, 2026-11: a managed gateway shows the Console's measurements, or none.
+  if (props.model.essera) {
+    if (!props.model.essera.metrics) return null
+    return (
+      <EsseraModelMetricsLine
+        metrics={props.model.essera.metrics}
+        className='bg-muted/20 rounded-lg border px-4 py-3'
+      />
+    )
+  }
 
   const summary = metricsQuery.data?.data.summary
   const successRate = summary?.success_rate ?? Number.NaN
   const avgTps = summary?.avg_tps ?? 0
   const avgLatency = summary?.avg_latency_ms ?? 0
-  // Modified by Essera, 2026-11: a managed gateway shows no empty metrics for a model nobody called.
-  const hasTraffic =
-    Number.isFinite(successRate) || avgTps > 0 || avgLatency > 0
-  if (props.model.essera && !hasTraffic) return null
 
   return (
     <div className='bg-muted/20 grid overflow-hidden rounded-lg border sm:grid-cols-3 sm:divide-x'>
@@ -1526,13 +1535,24 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
     simpleTaskPricing ||
     taskTiers.length === 0
 
+  // Modified by Essera, 2026-11: the Gateway's own performance counts are not shown on a
+  // managed gateway; the Console's measurements are on the overview.
+  const tabs = props.model.essera
+    ? TAB_VALUES.filter((value) => value !== 'performance')
+    : TAB_VALUES
+
   return (
     <div className='@container/details space-y-4'>
       <ModelHeader model={props.model} />
 
       <Tabs defaultValue='overview' className='gap-4'>
-        <TabsList className='bg-muted/60 grid w-full grid-cols-3 gap-1 rounded-lg p-1 group-data-horizontal/tabs:h-auto'>
-          {TAB_VALUES.map((value) => {
+        <TabsList
+          className={cn(
+            'bg-muted/60 grid w-full grid-cols-3 gap-1 rounded-lg p-1 group-data-horizontal/tabs:h-auto',
+            tabs.length === 2 && 'grid-cols-2'
+          )}
+        >
+          {tabs.map((value) => {
             const Icon = TAB_META[value].icon
             return (
               <TabsTrigger
@@ -1596,9 +1616,11 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
           <ModelBackendDetailsSection model={props.model} />
         </TabsContent>
 
-        <TabsContent value='performance' className='outline-none'>
-          <ModelDetailsPerformance model={props.model} />
-        </TabsContent>
+        {!props.model.essera && (
+          <TabsContent value='performance' className='outline-none'>
+            <ModelDetailsPerformance model={props.model} />
+          </TabsContent>
+        )}
 
         <TabsContent value='api' className='outline-none'>
           <ModelDetailsApi

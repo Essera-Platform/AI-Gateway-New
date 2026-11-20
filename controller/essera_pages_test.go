@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/apidocs"
@@ -350,6 +351,13 @@ func TestTheModelSquareShowsAPersonOnlyTheirModelsWithTheConsolesPrices(t *testi
 	console.on("GET /internal/v1/prices", http.StatusOK, `{"data":[
 		{"provider":"openai","model":"gpt-4o","unit":"input_tokens","amount":"2.40","per_quantity":1000000,"currency":"USD"},
 		{"provider":"openai","model":"gpt-4o","unit":"output_tokens","amount":"12.00","per_quantity":1000000,"currency":"USD"}]}`)
+	console.on("GET /internal/v1/model-metrics", http.StatusOK, `{"data":[
+		{"provider":"openai","model":"gpt-4o","availability_24h":99.5,"p50_ttft_ms":420,"p95_ttft_ms":900,
+		 "p50_latency_ms":1100,"output_per_second":85.2,"traffic_requests_24h":40,"probe_requests_24h":48,
+		 "checked_at":"2026-11-20T10:00:00Z"},
+		{"provider":"bedrock","model":"gpt-4o","availability_24h":90,"p50_ttft_ms":700,"p95_ttft_ms":null,
+		 "p50_latency_ms":null,"output_per_second":null,"traffic_requests_24h":0,"probe_requests_24h":2,
+		 "checked_at":"2026-11-20T10:00:00Z"}],"computed_at":"2026-11-20T10:01:00Z"}`)
 	pricing := func(userID int) (map[string]any, []string, []any) {
 		engine := gin.New()
 		engine.GET("/api/pricing", func(c *gin.Context) {
@@ -377,6 +385,7 @@ func TestTheModelSquareShowsAPersonOnlyTheirModelsWithTheConsolesPrices(t *testi
 		"a guest: the whole active catalog, without the model disabled in it (gpt-old)")
 	for _, entry := range models {
 		assert.NotContains(t, entry, "essera_prices", "a guest sees no prices")
+		assert.NotContains(t, entry, "essera_metrics", "a guest sees no metrics")
 	}
 	first := models[0].(map[string]any)
 	assert.Equal(t, "GPT-4o", first["display_name"])
@@ -388,20 +397,26 @@ func TestTheModelSquareShowsAPersonOnlyTheirModelsWithTheConsolesPrices(t *testi
 		"an admin: the customer's entitlements only; Bedrock's gpt-4o and Acme are not entitled, gpt-old is disabled")
 
 	signedIn, names, models := pricing(users[snapshottest.UserSub])
-	assert.Equal(t, map[string]any{"signed_in": true, "prices_available": true}, signedIn)
+	assert.Equal(t, map[string]any{"signed_in": true, "prices_available": true, "metrics_available": true}, signedIn)
 	assert.Equal(t, []string{"OpenAI/gpt-4o"}, names, "a user: their own limits within the customer's")
 	assert.Equal(t, snapshottest.UserPersonID, console.lastCall(t).person)
 	prices := models[0].(map[string]any)["essera_prices"].([]any)
 	require.Len(t, prices, 2)
 	assert.Equal(t, "2.40", prices[0].(map[string]any)["amount"], "the Console's price as it gives it")
+	metrics := models[0].(map[string]any)["essera_metrics"].(map[string]any)
+	assert.Equal(t, 99.5, metrics["availability_24h"], "OpenAI's gpt-4o, not Bedrock's model of the same name")
+	assert.EqualValues(t, 420, metrics["p50_ttft_ms"])
+	assert.Equal(t, 85.2, metrics["output_per_second"])
+	assert.Equal(t, "2026-11-20T10:00:00Z", metrics["checked_at"])
 
 	_, names, _ = pricing(users[snapshottest.SuspendedSub])
 	assert.Empty(t, names, "a suspended person sees nothing")
 
 	console.server.Close()
-	down, names, _ := pricing(users[snapshottest.UserSub])
-	assert.Equal(t, map[string]any{"signed_in": true, "prices_available": false}, down)
+	down, names, models := pricing(users[snapshottest.UserSub])
+	assert.Equal(t, map[string]any{"signed_in": true, "prices_available": false, "metrics_available": false}, down)
 	assert.Equal(t, []string{"OpenAI/gpt-4o"}, names, "the list stays when the Console is down")
+	assert.NotContains(t, models[0], "essera_metrics", "no old or zero figures while the Console is down")
 }
 
 func TestTheDashboardAndAuditOfAPersonAreTheConsoles(t *testing.T) {
@@ -477,4 +492,33 @@ func TestTheAPIDocsNameTheGatewaysAddressAndTheReadersModels(t *testing.T) {
 
 	_, raw = openAPI(0)
 	assert.Contains(t, raw, `model=\"`+apidocs.ExampleChatModel+`\"`, "an operator keeps the document's examples")
+}
+
+func TestTheLandingReadsThePlatformMetricsOnceAMinuteAndNothingWhileTheConsoleIsDown(t *testing.T) {
+	console, _ := consolePages(t)
+	console.on("GET /internal/v1/model-metrics/platform", http.StatusOK,
+		`{"span":"7d","availability":99.62,"p50_ttft_ms":455,"requests":18450,"checked_at":"2026-11-20T10:04:51Z","computed_at":"2026-11-20T10:05:00Z"}`)
+	t.Cleanup(func() { platformMetrics.readAt = time.Time{} })
+	platformMetrics.readAt = time.Time{}
+	landing := func() map[string]any {
+		engine := gin.New()
+		engine.GET("/api/essera/platform-metrics", EsseraPlatformMetrics)
+		recorder := httptest.NewRecorder()
+		engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/essera/platform-metrics", nil))
+		require.Equal(t, http.StatusOK, recorder.Code)
+		var body map[string]any
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &body))
+		return body
+	}
+
+	data := landing()["data"].(map[string]any)
+	assert.Equal(t, 99.62, data["availability"])
+	assert.EqualValues(t, 455, data["p50_ttft_ms"])
+	assert.Empty(t, console.lastCall(t).person, "the summary names no person")
+	landing()
+	assert.Equal(t, 1, console.callCount(), "read once a minute, whoever visits")
+
+	console.server.Close()
+	platformMetrics.readAt = time.Now().Add(-2 * time.Minute)
+	assert.Nil(t, landing()["data"], "nothing rather than the old figures")
 }

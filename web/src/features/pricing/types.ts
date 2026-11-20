@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type {
   EsseraModelInfo,
+  EsseraModelMetrics,
   EsseraPrice,
 } from '@/features/essera/model-square-format'
 
@@ -113,6 +114,7 @@ export type PricingModel = {
   display_name?: string
   model_type?: string
   essera_prices?: EsseraPrice[]
+  essera_metrics?: EsseraModelMetrics
   essera?: EsseraModelInfo
 }
 
@@ -143,7 +145,12 @@ export type PricingData = {
   usable_group: Record<string, { desc: string; ratio: number }>
   supported_endpoint: Record<string, string>
   auto_groups: string[]
-  essera?: { signed_in: boolean; prices_available?: boolean } // Modified by Essera, 2026-11
+  // Modified by Essera, 2026-11
+  essera?: {
+    signed_in: boolean
+    prices_available?: boolean
+    metrics_available?: boolean
+  }
 }
 
 export type TokenUnit = 'M' | 'K'

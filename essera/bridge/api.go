@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/essera/probes"
 	"github.com/QuantumNous/new-api/essera/servicetrust"
 	"github.com/QuantumNous/new-api/essera/settings"
 	"github.com/QuantumNous/new-api/essera/usage"
@@ -26,6 +27,18 @@ func RegisterRoutes(router *gin.Engine) {
 	group.POST("/providers/:key/test", testProvider)
 	group.GET("/providers/:key/telemetry", providerTelemetry)
 	group.GET("/traffic", traffic)
+	group.POST("/probes", runProbe)
+}
+
+// runProbe answers GatewayClient.probe(): one minimal call to the model straight through its
+// provider's channel; 200 with how it went, whatever the model answered.
+func runProbe(c *gin.Context) {
+	var request probes.Request
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil || !request.Valid() {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Name the provider, model and a text or embedding modality."})
+		return
+	}
+	c.JSON(http.StatusOK, probes.Run(c.Request.Context(), request))
 }
 
 func trustBackend(c *gin.Context) {

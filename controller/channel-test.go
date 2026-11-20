@@ -16,6 +16,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/essera/probes"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
@@ -41,6 +42,9 @@ type testResult struct {
 	context     *gin.Context
 	localErr    error
 	newAPIError *types.NewAPIError
+	// Modified by Essera, 2026-11: what a model probe reports back to the Console.
+	usage *dto.Usage
+	info  *relaycommon.RelayInfo
 }
 
 func normalizeChannelTestEndpoint(channel *model.Channel, endpointType string) string {
@@ -271,6 +275,7 @@ func testChannel(ctx context.Context, channel *model.Channel, testUserID int, te
 	}
 
 	request := buildTestRequest(testModel, endpointType, channel, isStream)
+	request = probes.Shape(ctx, request) // Modified by Essera, 2026-11: the Console's one-token model probe
 
 	info, err := relaycommon.GenRelayInfo(c, relayFormat, request, nil)
 
@@ -564,6 +569,8 @@ func testChannel(ctx context.Context, channel *model.Channel, testUserID int, te
 		context:     c,
 		localErr:    nil,
 		newAPIError: nil,
+		usage:       usage,
+		info:        info,
 	}
 }
 

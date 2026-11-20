@@ -59,7 +59,9 @@ export const ModelCardGrid = memo(function ModelCardGrid(
     queryKey: ['perf-metrics-summary', 24, recentModels],
     queryFn: async () =>
       requireServerSuccess(await getPerfMetricsSummary(24, recentModels)),
-    enabled: recentModels.length > 0,
+    // Modified by Essera, 2026-11: a managed gateway's cards show the Console's measurements.
+    enabled:
+      recentModels.length > 0 && !pagedModels.some((model) => model.essera),
     staleTime: 60 * 1000,
     retry: false,
   })

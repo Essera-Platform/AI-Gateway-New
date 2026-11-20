@@ -1,4 +1,4 @@
-// Modified by Essera, 2026-11: the Essera sign-in routes are anonymous entry points.
+// Modified by Essera, 2026-11: the Essera sign-in routes and the platform metrics are anonymous entry points.
 package router
 
 import (
@@ -33,6 +33,7 @@ var accessTokenExemptRoutes = []string{
 	"GET /api/about",
 	"GET /api/home_page_content",
 	"GET /api/ratio_config",
+	"GET /api/essera/platform-metrics",
 	"GET /api/user/groups",
 
 	// Anonymous account entry points.

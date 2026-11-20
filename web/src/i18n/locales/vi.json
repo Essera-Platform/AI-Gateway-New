@@ -7807,7 +7807,6 @@
     "Admins and your own account cannot be changed here.": "Không thể thay đổi quản trị viên và tài khoản của chính bạn tại đây.",
     "The Console refused this request.": "Console đã từ chối yêu cầu này.",
     "This account cannot sign in to the Essera gateway.": "Tài khoản này không thể đăng nhập vào cổng Essera.",
-    "No requests yet": "Chưa có yêu cầu nào",
     "Refine models by provider, type, and tags.": "Lọc mô hình theo nhà cung cấp, loại và thẻ.",
     "API key revoked": "Đã thu hồi khóa API",
     "API key rotated": "Đã xoay vòng khóa API",
@@ -7851,6 +7850,13 @@
     "Providers": "Nhà cung cấp",
     "API Docs": "Tài liệu API",
     "Loading API documentation...": "Đang tải tài liệu API...",
-    "The API documentation could not be loaded.": "Không thể tải tài liệu API."
+    "The API documentation could not be loaded.": "Không thể tải tài liệu API.",
+    "TTFT": "TTFT",
+    "Median time to first token": "Thời gian trung vị đến token đầu tiên",
+    "Output tokens per second": "Số token đầu ra mỗi giây",
+    "Requests that succeeded, leaving out those the caller caused": "Tỷ lệ yêu cầu thành công, không tính lỗi do bên gọi gây ra",
+    "Checked just now": "Vừa kiểm tra",
+    "Checked {{minutes}} min ago": "Kiểm tra {{minutes}} phút trước",
+    "Checked {{hours}} h ago": "Kiểm tra {{hours}} giờ trước"
   }
 }

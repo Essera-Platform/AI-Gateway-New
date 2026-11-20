@@ -7807,7 +7807,6 @@
     "Admins and your own account cannot be changed here.": "Les administrateurs et votre propre compte ne peuvent pas être modifiés ici.",
     "The Console refused this request.": "La Console a refusé cette demande.",
     "This account cannot sign in to the Essera gateway.": "Ce compte ne peut pas se connecter à la passerelle Essera.",
-    "No requests yet": "Aucune requête pour l'instant",
     "Refine models by provider, type, and tags.": "Affinez les modèles par fournisseur, type et tags.",
     "API key revoked": "Clé API révoquée",
     "API key rotated": "Clé API renouvelée",
@@ -7851,6 +7850,13 @@
     "Providers": "Fournisseurs",
     "API Docs": "Documentation API",
     "Loading API documentation...": "Chargement de la documentation API...",
-    "The API documentation could not be loaded.": "La documentation API n'a pas pu être chargée."
+    "The API documentation could not be loaded.": "La documentation API n'a pas pu être chargée.",
+    "TTFT": "TTFT",
+    "Median time to first token": "Délai médian avant le premier jeton",
+    "Output tokens per second": "Jetons de sortie par seconde",
+    "Requests that succeeded, leaving out those the caller caused": "Part des requêtes réussies, hors erreurs causées par l'appelant",
+    "Checked just now": "Vérifié à l'instant",
+    "Checked {{minutes}} min ago": "Vérifié il y a {{minutes}} min",
+    "Checked {{hours}} h ago": "Vérifié il y a {{hours}} h"
   }
 }
