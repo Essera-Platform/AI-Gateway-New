@@ -122,17 +122,33 @@ function LegalLinks(props: { leadingSeparator?: boolean }) {
   )
 }
 
+// Modified by Essera, 2026-11: on a managed gateway the new-api attribution lives on /legal.
+function OpenSourceNoticesLink(props: { leadingSeparator?: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <>
+      {props.leadingSeparator !== false && (
+        <span aria-hidden='true' className='text-muted-foreground/30'>
+          ·
+        </span>
+      )}
+      <Link
+        to='/legal'
+        className='hover:text-foreground transition-colors duration-200'
+      >
+        {t('Open-source notices')}
+      </Link>
+    </>
+  )
+}
+
 // inline=true returns just the inner span for composition in a parent flex
 // row. inline=false wraps in a centered/right-aligned div (default).
 function ProjectAttribution(props: { currentYear: number; inline?: boolean }) {
   const { t } = useTranslation()
-  const { status } = useStatus()
-  // Modified by Essera, 2026-11: the attribution is legible in both themes; a managed gateway introduces it as the open-source notice.
+  // Modified by Essera, 2026-11: the attribution is legible in both themes.
   const content = (
     <span className='text-muted-foreground'>
-      {status?.essera_managed === true && (
-        <>{t('Includes open-source software (AGPL-3.0):')} </>
-      )}
       &copy; {props.currentYear}{' '}
       <a
         href='https://github.com/QuantumNous/new-api'
@@ -233,11 +249,16 @@ export function Footer(props: FooterProps) {
 
   const displayColumns = props.columns ?? fallbackColumns
 
-  // Modified by Essera, 2026-11: a managed gateway's footer is one bar: the logo and copyright
-  // on the left, the open-source notice as a small line on the right (below on narrow screens).
+  // Modified by Essera, 2026-11: a managed gateway's footer is one bar with the logo, the
+  // copyright and a link to the open-source notices page, which carries the new-api attribution.
   if (status?.essera_managed === true && !footerHtml) {
     return (
-      <footer className={cn('border-border/60 relative z-10 border-t', props.className)}>
+      <footer
+        className={cn(
+          'border-border/60 relative z-10 border-t',
+          props.className
+        )}
+      >
         <div className='mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10 lg:px-8'>
           <div className='flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2'>
             <Link to='/' aria-label={t('Home')}>
@@ -247,12 +268,10 @@ export function Footer(props: FooterProps) {
               <span>
                 &copy; {currentYear} {displayName}
               </span>
+              <OpenSourceNoticesLink />
               <LegalLinks leadingSeparator />
             </div>
           </div>
-          <p className='text-muted-foreground max-w-2xl min-w-0 text-[11px] leading-relaxed [overflow-wrap:anywhere] lg:text-right'>
-            <ProjectAttribution currentYear={currentYear} inline />
-          </p>
         </div>
       </footer>
     )
@@ -274,7 +293,16 @@ export function Footer(props: FooterProps) {
             />
             <div className='border-border/60 text-muted-foreground/45 flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t pt-4 text-xs sm:w-auto sm:justify-end sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5'>
               <LegalLinks />
-              <ProjectAttribution currentYear={currentYear} inline />
+              {status?.essera_managed === true ? (
+                <OpenSourceNoticesLink
+                  leadingSeparator={Boolean(
+                    status?.user_agreement_enabled ||
+                    status?.privacy_policy_enabled
+                  )}
+                />
+              ) : (
+                <ProjectAttribution currentYear={currentYear} inline />
+              )}
             </div>
           </div>
         </div>

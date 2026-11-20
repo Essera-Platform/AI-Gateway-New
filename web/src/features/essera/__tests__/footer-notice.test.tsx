@@ -31,27 +31,23 @@ async function renderFooter(status: Record<string, unknown>) {
 }
 
 describe('footer on a managed gateway', () => {
-  it('keeps the AGPL attribution as one open-source notice and drops the upstream tagline', async () => {
+  it('links to the open-source notices instead of showing the attribution and the upstream tagline', async () => {
     await renderFooter({ essera_managed: true })
 
     expect(
-      await screen.findByText(/Includes open-source software \(AGPL-3\.0\)/)
-    ).toBeInTheDocument()
+      await screen.findByRole('link', { name: 'Open-source notices' })
+    ).toHaveAttribute('href', '/legal')
     expect(
-      screen.getByText(
-        /Frontend design and development by New API contributors\./
+      screen.queryByText(
+        /Frontend design and development by New API contributors/
       )
-    ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'New API' })).toHaveAttribute(
-      'href',
-      'https://github.com/QuantumNous/new-api'
-    )
+    ).not.toBeInTheDocument()
     expect(
       screen.queryByText('Powerful API Management Platform')
     ).not.toBeInTheDocument()
   })
 
-  it('puts the logo and the copyright on the left of one bar and the notice in its own small line', async () => {
+  it('puts the logo, the copyright and the notices link in one bar', async () => {
     await renderFooter({ essera_managed: true })
 
     expect(await screen.findByRole('link', { name: 'Home' })).toHaveAttribute(
@@ -59,9 +55,26 @@ describe('footer on a managed gateway', () => {
       '/'
     )
     const year = new Date().getFullYear()
-    expect(screen.getAllByText(new RegExp(`© ${year} `))[0].tagName).toBe('SPAN')
+    const copyright = screen.getAllByText(new RegExp(`© ${year} `))[0]
+    expect(copyright.tagName).toBe('SPAN')
+    expect(copyright.parentElement).toContainElement(
+      screen.getByRole('link', { name: 'Open-source notices' })
+    )
+  })
+})
+
+describe('footer on a self-hosted gateway', () => {
+  it('keeps the new-api attribution and its link', async () => {
+    await renderFooter({})
+
     expect(
-      screen.getByText(/Includes open-source software/).closest('p')
-    ).toHaveClass('text-[11px]')
+      await screen.findByText(
+        /Frontend design and development by New API contributors\./
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'New API' })).toHaveAttribute(
+      'href',
+      'https://github.com/QuantumNous/new-api'
+    )
   })
 })

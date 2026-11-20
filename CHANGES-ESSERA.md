@@ -79,7 +79,7 @@ One deny-list in `essera/managed` closes what the Gateway does not use when the 
 | `model/channel.go` | `GetNextEnabledKey` resolves a key that is a Secrets Manager reference |
 | `model/essera_hooks.go` (new) | The hook that resolution goes through |
 | `dto/channel_constraints.go`, `model/channel_constraint.go` | A channel filter that limits a model to the providers a customer may use |
-| `web/src/components/layout/components/footer.tsx`, `web/src/i18n/locales/*.json` | The footer shows the AGPLv3 §7(b) notice from `NOTICE` verbatim; the locales also carry the managed badge's texts |
+| `web/src/components/layout/components/footer.tsx`, `web/src/i18n/locales/*.json` | The footer shows the AGPLv3 §7(b) notice from `NOTICE` verbatim (on a managed gateway: a link to the Open-source notices page that carries it); the locales also carry the managed badge's texts |
 | `controller/essera.go` | The Essera sign-in handlers, a person's key creation, and refusing a person's username or password change |
 | `controller/auth_session.go` | A session refresh renews the Cognito sign-in behind it; signing out revokes it |
 | `controller/user.go` | Only operators sign in with new-api's password or Passkey; a person cannot change their username or set a password; a person's model list is what relay lets them call |
@@ -129,7 +129,7 @@ One deny-list in `essera/managed` closes what the Gateway does not use when the 
 | `ESSERA_FALLBACK_POLICIES` | Optional, `{"fallback/openai-to-azure": ["azure-openai"]}` |
 | `ESSERA_OIDC_ISSUER`, `ESSERA_OIDC_CLIENT_ID`, `ESSERA_OIDC_CLIENT_SECRET` | The customer pool (`https://cognito-idp.<region>.amazonaws.com/<pool id>`) and the app client people sign in with |
 | `CONSOLE_INTERNAL_URL` | The Console's internal API inside the cluster, e.g. `http://essera-backend:8000` |
-| `ESSERA_SYSTEM_NAME`, `ESSERA_LOGO` | The name the web UI shows (default `Essera AI Gateway`) and, optionally, the address of its logo; set at start in managed mode, where the options are locked. The new-api attribution in the footer stays |
+| `ESSERA_SYSTEM_NAME`, `ESSERA_LOGO` | The name the web UI shows (default `Essera AI Gateway`) and, optionally, the address of its logo; set at start in managed mode, where the options are locked. The new-api attribution stays, on the Open-source notices page (`/legal`) the footer links to |
 | `ESSERA_SIGN_IN` | `email_otp` (default; the pool must send email through SES) or `password` |
 | `ESSERA_PUBLIC_URL` | Optional: the address people call the Gateway at, shown in the web UI and its example requests. Without it, the first `SESSION_COOKIE_TRUSTED_URL`; without either, new-api's `ServerAddress` |
 | `ESSERA_AWS_ENDPOINT`, `ESSERA_JWKS_URL`, `ESSERA_PROVIDER_BASE_URLS` | Development only: local stand-ins for AWS, Cognito and providers |
@@ -246,3 +246,14 @@ New Essera files: `web/src/features/essera/brand/chart-theme.ts`, `web/src/featu
 | `controller/token.go` | On a managed gateway, `PUT /api/token` is refused (409) in the handler too, so a key the Console revoked or that expired is never enabled again |
 | `main.go` | Serves through `essera/clientip` |
 | `web/src/features/keys/components/api-keys-columns.tsx`, `web/src/features/keys/components/api-keys-table.tsx`, `web/src/routes/_authenticated/keys/index.tsx`, `web/src/i18n/locales/en.json` | A managed key's state and its filter |
+
+## 2026-11 — Open-source notices page
+
+Essera rewrote the design and frontend, so a managed gateway's footer no longer carries the new-api attribution itself. It reads "© <year> <system name> · Open-source notices", and the link opens the public page `/legal` (`web/src/features/essera/legal/open-source-notices.tsx`, route `web/src/routes/legal.tsx`), which shows:
+
+- that the service includes software licensed under the AGPL-3.0, with a link to its full text;
+- the AGPLv3 §7(b) attribution from `NOTICE` verbatim, "Frontend design and development by New API contributors.", with the visible link to https://github.com/QuantumNous/new-api;
+- the §7(c) change marking: this version has been modified by Essera, its design, frontend and integrations substantially rewritten;
+- a summary of the third-party notices in `NOTICE` and `THIRD-PARTY-LICENSES.md`: the dependency licenses, the OFL-1.1 fonts and the Apache-2.0 NOTICE entries.
+
+`/legal` is not a managed closed path, so guests reach it. A self-hosted gateway's footer keeps the attribution as before. `NOTICE` is unchanged.

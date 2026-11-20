@@ -24,6 +24,8 @@ This repository is Essera's fork of new-api, which is licensed under the GNU AGP
   - the sentence `Frontend design and development by New API contributors.`;
   - a visible link to https://github.com/QuantumNous/new-api.
 
+  On a managed gateway they live on the public "Open-source notices" page (`/legal`, `web/src/features/essera/legal/`), together with the AGPL-3.0 statement, the link to its full text, Essera's change marking (§7(c)) and the third-party notices summary; every footer links to that page, and it must stay reachable by guests (never add it to the managed closed paths). A self-hosted gateway keeps them in the footer.
+
   Essera branding may be added next to them, never instead of them. The protected new-api and QuantumNous identifiers in `AGENTS.md` → Project Governance stay untouched.
 - **Mark modifications (AGPLv3 §5(a), §7(c)).** Do not misrepresent the origin of the software, and keep Essera's changes identifiable:
   - **Files changed from upstream:** add a short notice at the top of each one, for example `// Modified by Essera, <yyyy-mm>: <what changed>`.
