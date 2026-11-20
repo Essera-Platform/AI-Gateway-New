@@ -281,7 +281,6 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       <EsseraModelCard
         model={props.model}
         info={essera}
-        perf={props.perf}
         onClick={props.onClick}
       />
     )

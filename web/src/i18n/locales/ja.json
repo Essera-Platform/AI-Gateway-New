@@ -7807,7 +7807,6 @@
     "Admins and your own account cannot be changed here.": "管理者とご自身のアカウントはここでは変更できません。",
     "The Console refused this request.": "コンソールがこのリクエストを拒否しました。",
     "This account cannot sign in to the Essera gateway.": "このアカウントは Essera ゲートウェイにサインインできません。",
-    "No requests yet": "まだリクエストはありません",
     "Refine models by provider, type, and tags.": "プロバイダー、タイプ、タグでモデルを絞り込みます。",
     "API key revoked": "API キーを失効しました",
     "API key rotated": "API キーをローテーションしました",
@@ -7851,6 +7850,13 @@
     "Providers": "プロバイダー",
     "API Docs": "APIドキュメント",
     "Loading API documentation...": "APIドキュメントを読み込んでいます...",
-    "The API documentation could not be loaded.": "APIドキュメントを読み込めませんでした。"
+    "The API documentation could not be loaded.": "APIドキュメントを読み込めませんでした。",
+    "TTFT": "TTFT",
+    "Median time to first token": "最初のトークンまでの時間（中央値）",
+    "Output tokens per second": "1 秒あたりの出力トークン数",
+    "Requests that succeeded, leaving out those the caller caused": "成功したリクエストの割合（呼び出し側が原因のエラーを除く）",
+    "Checked just now": "たった今確認",
+    "Checked {{minutes}} min ago": "{{minutes}} 分前に確認",
+    "Checked {{hours}} h ago": "{{hours}} 時間前に確認"
   }
 }

@@ -1,14 +1,17 @@
 package bridge
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/essera/configsync"
+	"github.com/QuantumNous/new-api/essera/probes"
 	"github.com/QuantumNous/new-api/essera/records/recordstest"
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/snapshot/snapshottest"
@@ -135,4 +138,40 @@ func TestTheStateCarriesTheTasksLimitsOnECS(t *testing.T) {
 	require.NotNil(t, state.MemoryLimitMiB)
 	assert.Equal(t, 1024.0, *state.MemoryLimitMiB)
 	assert.Equal(t, 0.5, *state.CPULimitVCPU)
+}
+
+func TestAProbeIsRunOnlyForTheConsole(t *testing.T) {
+	t.Setenv("ESSERA_MANAGED", "true")
+	engine := gin.New()
+	RegisterRoutes(engine)
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, Prefix+"/probes", strings.NewReader(`{}`)))
+	assert.Equal(t, http.StatusUnauthorized, recorder.Code, "without the Console's signed identity")
+
+	recordstest.UseDatabase(t, &model.Channel{})
+	tag := "essera/bedrock"
+	require.NoError(t, model.DB.Create(&model.Channel{Name: "bedrock", Key: "k", Tag: &tag}).Error)
+	var probed string
+	probes.RunChannel = func(_ context.Context, channel *model.Channel, request probes.Request) probes.Result {
+		probed = channel.Name + " " + request.Model + " " + request.Modality
+		return probes.Result{Succeeded: true, HTTPStatus: http.StatusOK, InputTokens: 1}
+	}
+	t.Cleanup(func() { probes.RunChannel = nil })
+	ask := func(body string) (int, map[string]any) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodPost, "/probes", strings.NewReader(body))
+		runProbe(c)
+		var answer map[string]any
+		_ = json.Unmarshal(recorder.Body.Bytes(), &answer)
+		return recorder.Code, answer
+	}
+
+	code, answer := ask(`{"provider":"bedrock","model":"titan","modality":"embedding"}`)
+	assert.Equal(t, http.StatusOK, code)
+	assert.Equal(t, true, answer["succeeded"])
+	assert.Equal(t, "bedrock titan embedding", probed)
+
+	code, _ = ask(`{"provider":"bedrock","model":"nova-reel","modality":"video"}`)
+	assert.Equal(t, http.StatusBadRequest, code)
 }

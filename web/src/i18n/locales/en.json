@@ -7883,7 +7883,6 @@
     "Admins and your own account cannot be changed here.": "Admins and your own account cannot be changed here.",
     "The Console refused this request.": "The Console refused this request.",
     "This account cannot sign in to the Essera gateway.": "This account cannot sign in to the Essera gateway.",
-    "No requests yet": "No requests yet",
     "Refine models by provider, type, and tags.": "Refine models by provider, type, and tags.",
     "API key revoked": "API key revoked",
     "API key rotated": "API key rotated",
@@ -7927,6 +7926,13 @@
     "Providers": "Providers",
     "API Docs": "API Docs",
     "Loading API documentation...": "Loading API documentation...",
-    "The API documentation could not be loaded.": "The API documentation could not be loaded."
+    "The API documentation could not be loaded.": "The API documentation could not be loaded.",
+    "TTFT": "TTFT",
+    "Median time to first token": "Median time to first token",
+    "Output tokens per second": "Output tokens per second",
+    "Requests that succeeded, leaving out those the caller caused": "Requests that succeeded, leaving out those the caller caused",
+    "Checked just now": "Checked just now",
+    "Checked {{minutes}} min ago": "Checked {{minutes}} min ago",
+    "Checked {{hours}} h ago": "Checked {{hours}} h ago"
   }
 }

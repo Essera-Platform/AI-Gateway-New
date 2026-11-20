@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -525,15 +526,17 @@ func EsseraStatus(c *gin.Context) {
 
 type esseraPricing struct {
 	model.Pricing
-	DisplayName  string             `json:"display_name"`
-	ModelType    string             `json:"model_type"`
-	EsseraPrices []consoleapi.Price `json:"essera_prices,omitempty"`
+	DisplayName   string                  `json:"display_name"`
+	ModelType     string                  `json:"model_type"`
+	EsseraPrices  []consoleapi.Price      `json:"essera_prices,omitempty"`
+	EsseraMetrics *consoleapi.ModelMetric `json:"essera_metrics,omitempty"`
 }
 
 // esseraPricingList serves the Model Square of a managed gateway. A signed-in person sees only
 // the models relay lets them call (policy.Available), with their prices as the Console rates
-// them; a person who is not active sees none. A guest, or an operator, sees the active models
-// of the active providers without prices. While the Console is down there are no prices.
+// them, and each model's availability and speed as the Console measured them; a person who is
+// not active sees none. A guest, or an operator, sees the active models of the active providers
+// without prices or metrics. While the Console is down there are neither.
 func esseraPricingList(c *gin.Context) {
 	view := snapshot.Current()
 	var person *snapshot.Person
@@ -555,7 +558,10 @@ func esseraPricingList(c *gin.Context) {
 	}
 	pricesAvailable := false
 	byModel := map[string][]consoleapi.Price{}
+	metricsOf := map[string]*consoleapi.ModelMetric{}
 	if person != nil {
+		var read sync.WaitGroup
+		read.Go(func() { metricsOf = esseraModelMetrics(c.Request.Context(), person.ID) })
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		prices, err := consoleapi.GetPrices(ctx, person.ID)
 		cancel()
@@ -566,6 +572,7 @@ func esseraPricingList(c *gin.Context) {
 				byModel[key] = append(byModel[key], price)
 			}
 		}
+		read.Wait()
 	}
 	vendors := []gin.H{}
 	models := []esseraPricing{}
@@ -583,10 +590,11 @@ func esseraPricingList(c *gin.Context) {
 					continue
 				}
 				models = append(models, esseraPricing{
-					Pricing:      model.Pricing{ModelName: providerModel.Key, VendorID: vendorID + 1, OwnerBy: provider.Name, EnableGroup: []string{}},
-					DisplayName:  providerModel.DisplayName,
-					ModelType:    providerModel.Modality,
-					EsseraPrices: byModel[provider.Key+"/"+providerModel.Key],
+					Pricing:       model.Pricing{ModelName: providerModel.Key, VendorID: vendorID + 1, OwnerBy: provider.Name, EnableGroup: []string{}},
+					DisplayName:   providerModel.DisplayName,
+					ModelType:     providerModel.Modality,
+					EsseraPrices:  byModel[provider.Key+"/"+providerModel.Key],
+					EsseraMetrics: metricsOf[provider.Key+"/"+providerModel.Key],
 				})
 			}
 			if len(models) > listed {
@@ -602,6 +610,6 @@ func esseraPricingList(c *gin.Context) {
 		"usable_group":       map[string]string{},
 		"supported_endpoint": model.GetSupportedEndpointMap(),
 		"auto_groups":        []string{},
-		"essera":             gin.H{"signed_in": person != nil, "prices_available": pricesAvailable},
+		"essera":             gin.H{"signed_in": person != nil, "prices_available": pricesAvailable, "metrics_available": len(metricsOf) > 0},
 	})
 }

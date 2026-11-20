@@ -21,17 +21,20 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/essera/auth"
 	"github.com/QuantumNous/new-api/essera/configsync"
 	"github.com/QuantumNous/new-api/essera/identity"
 	"github.com/QuantumNous/new-api/essera/keys"
 	"github.com/QuantumNous/new-api/essera/policy"
+	"github.com/QuantumNous/new-api/essera/probes"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/records/recordstest"
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/snapshot/snapshottest"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
@@ -717,4 +720,14 @@ func TestAManagedKeyCannotBeEnabledAgain(t *testing.T) {
 		require.NoError(t, db.First(&after, token.Id).Error)
 		assert.Equal(t, keys.TokenStatusRevoked, after.Status, name)
 	}
+}
+
+func TestAModelProbeSendsTheProviderAOneWordPromptForOneToken(t *testing.T) {
+	ctx := probes.Context(t.Context(), probes.Request{Provider: "openai", Model: "gpt-4.1", Modality: "text"})
+	request := probes.Shape(ctx, buildTestRequest("gpt-4.1", string(constant.EndpointTypeOpenAI), &model.Channel{}, true)).(*dto.GeneralOpenAIRequest)
+
+	encoded := convertChatCompatibilityRequest(t, request, constant.ChannelTypeOpenAI, nil)
+
+	assert.JSONEq(t, `{"model":"gpt-4.1","messages":[{"role":"user","content":"Hi"}],"stream":true,
+		"stream_options":{"include_usage":true},"max_tokens":1}`, string(encoded))
 }

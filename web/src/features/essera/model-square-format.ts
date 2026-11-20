@@ -15,6 +15,23 @@ export type EsseraPrice = {
   model?: string
 }
 
+/**
+ * A model's availability and speed over the last 24 hours, as the Console measured them from
+ * every customer's requests and its own probes. A figure with no data is null.
+ */
+export type EsseraModelMetrics = {
+  provider: string
+  model: string
+  availability_24h: number | null
+  p50_ttft_ms: number | null
+  p95_ttft_ms: number | null
+  p50_latency_ms: number | null
+  output_per_second: number | null
+  traffic_requests_24h: number
+  probe_requests_24h: number
+  checked_at: string | null
+}
+
 /** What a managed gateway's Model Square says about one model. */
 export type EsseraModelInfo = {
   signedIn: boolean
@@ -22,6 +39,7 @@ export type EsseraModelInfo = {
   displayName: string
   modelType: string
   prices: EsseraPrice[]
+  metrics?: EsseraModelMetrics | undefined
 }
 
 const UNIT_LABEL_KEYS: Record<
@@ -69,4 +87,21 @@ export function esseraPriceParts(
     value: formatSpend(price.amount, price.currency),
     per: perLabel(t, price.unit, price.per_quantity ?? 1),
   }
+}
+
+const MINUTE_MS = 60_000
+
+/** "Checked just now", "Checked 5 min ago", "Checked 3 h ago". */
+export function checkedAgo(
+  t: TFunction,
+  checkedAt: string | null,
+  now: number = Date.now()
+): string | null {
+  if (!checkedAt) return null
+  const at = Date.parse(checkedAt)
+  if (Number.isNaN(at)) return null
+  const minutes = Math.max(0, Math.floor((now - at) / MINUTE_MS))
+  if (minutes < 1) return t('Checked just now')
+  if (minutes < 60) return t('Checked {{minutes}} min ago', { minutes })
+  return t('Checked {{hours}} h ago', { hours: Math.floor(minutes / 60) })
 }

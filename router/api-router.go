@@ -73,6 +73,8 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/essera/status", middleware.UserAuth(), middleware.DisableCache(), controller.EsseraStatus)
 		// Modified by Essera, 2026-11: the customer API's OpenAPI document, for the signed-in API Docs page.
 		apiRouter.GET("/essera/openapi.json", middleware.UserAuth(), controller.EsseraOpenAPI)
+		// Modified by Essera, 2026-11: the platform's availability and speed, as the Console measures them.
+		apiRouter.GET("/essera/platform-metrics", controller.EsseraPlatformMetrics)
 
 		apiRouter.POST("/stripe/webhook", anonymousRequestBodyLimit, controller.StripeWebhook)
 		apiRouter.POST("/creem/webhook", anonymousRequestBodyLimit, controller.CreemWebhook)

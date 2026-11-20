@@ -56,8 +56,16 @@ func Audience() string {
 }
 
 func call(ctx context.Context, method, personID, path string, query url.Values, input, output any) error {
+	if personID == "" {
+		return ErrUnavailable
+	}
+	return send(ctx, method, personID, path, query, input, output)
+}
+
+// send is call for a read that names no person, when personID is empty.
+func send(ctx context.Context, method, personID, path string, query url.Values, input, output any) error {
 	base := baseURL()
-	if base == "" || personID == "" {
+	if base == "" {
 		return ErrUnavailable
 	}
 	target := base + "/internal/v1" + path
@@ -82,7 +90,9 @@ func call(ctx context.Context, method, personID, path string, query url.Values, 
 		return ErrUnavailable
 	}
 	request.Header.Set(servicetrust.Header, identity)
-	request.Header.Set(PersonHeader, personID)
+	if personID != "" {
+		request.Header.Set(PersonHeader, personID)
+	}
 	request.Header.Set("Accept", "application/json")
 	if input != nil {
 		request.Header.Set("Content-Type", "application/json")

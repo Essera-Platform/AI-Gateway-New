@@ -38,8 +38,6 @@ export type ModelPerfBadgeData = {
 
 export interface ModelPerfBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   perf: ModelPerfBadgeData | undefined
-  /** Modified by Essera, 2026-11: one quiet line instead of empty metrics when nothing ran. */
-  quietWhenEmpty?: boolean
 }
 
 const STATUS_SAMPLE_LIMIT = 24
@@ -73,26 +71,6 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
         .slice(-STATUS_SAMPLE_LIMIT),
     [props.perf?.recent_success_series]
   )
-  const hasTraffic =
-    hasSuccessRate ||
-    statusSamples.length > 0 ||
-    latencyText !== '—' ||
-    throughputText !== '—'
-  if (props.quietWhenEmpty && !hasTraffic) {
-    return (
-      <div
-        className={cn(
-          'flex w-full min-w-0 items-center justify-between gap-3',
-          props.className
-        )}
-      >
-        <span className='text-muted-foreground text-xs'>
-          {t('No requests yet')}
-        </span>
-        {props.children}
-      </div>
-    )
-  }
   const statusLabel =
     statusSamples.length > 0
       ? t('Success rate')

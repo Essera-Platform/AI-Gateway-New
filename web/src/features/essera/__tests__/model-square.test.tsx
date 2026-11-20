@@ -6,12 +6,18 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import type { TFunction } from 'i18next'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { checkedAgo } from '@/features/essera/model-square-format'
 import { ModelCard } from '@/features/pricing/components/model-card'
+import { ModelDetailsContent } from '@/features/pricing/components/model-details'
 import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
+import type { PricingModel } from '@/features/pricing/types'
 import { api } from '@/lib/api'
+
+vi.mock('@visactor/react-vchart', () => ({ VChart: () => null }))
 
 afterEach(() => {
   cleanup()
@@ -138,22 +144,12 @@ describe('Model Square on a managed gateway', () => {
     expect(screen.queryByText('No price available')).not.toBeInTheDocument()
   })
 
-  it('shows no groups and one quiet line for a model nobody has called', async () => {
+  it('shows no groups and no figures for a model the Console has none for', async () => {
     const model = await managedModel(true, {
       ...claude,
       vendor_id: 1,
       enable_groups: ['essera'],
     })
-
-    render(<ModelCard model={model} onClick={vi.fn()} />)
-
-    expect(screen.getByText('No requests yet')).toBeVisible()
-    expect(screen.queryByText('Status')).not.toBeInTheDocument()
-    expect(screen.queryByText('Groups')).not.toBeInTheDocument()
-  })
-
-  it('keeps the performance figures of a model with traffic', async () => {
-    const model = await managedModel(true, { ...claude, vendor_id: 1 })
 
     render(
       <ModelCard
@@ -163,8 +159,156 @@ describe('Model Square on a managed gateway', () => {
       />
     )
 
-    expect(screen.getByText('Status')).toBeVisible()
-    expect(screen.getByText('850ms')).toBeVisible()
-    expect(screen.queryByText('No requests yet')).not.toBeInTheDocument()
+    expect(screen.queryByText('Availability')).not.toBeInTheDocument()
+    expect(screen.queryByText('Status')).not.toBeInTheDocument()
+    expect(screen.queryByText('850ms')).not.toBeInTheDocument()
+    expect(screen.queryByText('Groups')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Details' })).toBeVisible()
+  })
+
+  it("shows the Console's availability, first-token time and speed, and when it was checked", async () => {
+    const checkedAt = new Date(Date.now() - 5 * 60_000 - 1_000).toISOString()
+    const model = await managedModel(true, {
+      ...claude,
+      vendor_id: 1,
+      essera_metrics: {
+        provider: 'bedrock',
+        model: claude.model_name,
+        availability_24h: 99.5,
+        p50_ttft_ms: 420,
+        p95_ttft_ms: 900,
+        p50_latency_ms: 1100,
+        output_per_second: 85.2,
+        traffic_requests_24h: 40,
+        probe_requests_24h: 48,
+        checked_at: checkedAt,
+      },
+    })
+
+    render(<ModelCard model={model} onClick={vi.fn()} />)
+
+    expect(screen.getByText('Availability').nextSibling).toHaveTextContent(
+      '99.50%'
+    )
+    expect(screen.getByText('TTFT').nextSibling).toHaveTextContent('420ms')
+    expect(screen.getByText('85.2 t/s')).toBeVisible()
+    expect(screen.getByText('Checked 5 min ago')).toBeVisible()
+  })
+
+  it('shows a figure the Console has no data for as a dash, never as zero', async () => {
+    const model = await managedModel(true, {
+      ...claude,
+      vendor_id: 1,
+      model_type: 'embedding',
+      essera_metrics: {
+        provider: 'bedrock',
+        model: claude.model_name,
+        availability_24h: 100,
+        p50_ttft_ms: null,
+        p95_ttft_ms: null,
+        p50_latency_ms: 300,
+        output_per_second: null,
+        traffic_requests_24h: 0,
+        probe_requests_24h: 48,
+        checked_at: null,
+      },
+    })
+
+    render(<ModelCard model={model} onClick={vi.fn()} />)
+
+    expect(screen.getByText('TTFT').nextSibling).toHaveTextContent('—')
+    expect(screen.queryByText(/0ms|0\.00 t\/s/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Checked/)).not.toBeInTheDocument()
+  })
+
+  it('shows a guest no figures', async () => {
+    const model = await managedModel(false, claude)
+
+    render(<ModelCard model={model} onClick={vi.fn()} />)
+
+    expect(screen.queryByText('Availability')).not.toBeInTheDocument()
+    expect(screen.queryByText(/t\/s/)).not.toBeInTheDocument()
+  })
+})
+
+describe('Model details on a managed gateway', () => {
+  function details(model: PricingModel) {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <ModelDetailsContent
+          model={model}
+          groupRatio={{}}
+          usableGroup={{}}
+          endpointMap={{}}
+          autoGroups={[]}
+          priceRate={1}
+          usdExchangeRate={1}
+          tokenUnit='M'
+        />
+      </QueryClientProvider>
+    )
+  }
+
+  it("leads with the Console's figures and has no tab of the Gateway's own counts", async () => {
+    const model = await managedModel(true, {
+      ...claude,
+      vendor_id: 1,
+      essera_metrics: {
+        provider: 'bedrock',
+        model: claude.model_name,
+        availability_24h: 97.25,
+        p50_ttft_ms: 1250,
+        p95_ttft_ms: 3000,
+        p50_latency_ms: 2000,
+        output_per_second: 40,
+        traffic_requests_24h: 3,
+        probe_requests_24h: 48,
+        checked_at: new Date().toISOString(),
+      },
+    })
+    const get = vi.spyOn(api, 'get')
+    details(model)
+
+    expect(screen.getByText('Availability').nextSibling).toHaveTextContent(
+      '97.25%'
+    )
+    expect(screen.getByText('TTFT').nextSibling).toHaveTextContent('1.25s')
+    expect(screen.getByText('Checked just now')).toBeVisible()
+    expect(
+      screen.queryByRole('tab', { name: /Performance/ })
+    ).not.toBeInTheDocument()
+    const perfCalls = get.mock.calls.filter(([url]) =>
+      String(url).includes('perf')
+    )
+    expect(perfCalls).toHaveLength(0)
+  })
+
+  it('shows no figures while the Console has none', async () => {
+    const model = await managedModel(true, { ...claude, vendor_id: 1 })
+    details(model)
+
+    expect(screen.queryByText('Availability')).not.toBeInTheDocument()
+    expect(screen.queryByText('Success rate')).not.toBeInTheDocument()
+  })
+})
+
+describe('checkedAgo', () => {
+  const t = ((key: string, values?: Record<string, number>) =>
+    key.replaceAll(/{{(\w+)}}/g, (_, name: string) =>
+      String(values?.[name])
+    )) as unknown as TFunction
+  const now = Date.parse('2026-11-20T12:00:00Z')
+
+  it('says how long ago the newest data point was', () => {
+    expect(checkedAgo(t, '2026-11-20T11:59:30Z', now)).toBe('Checked just now')
+    expect(checkedAgo(t, '2026-11-20T11:31:00Z', now)).toBe(
+      'Checked 29 min ago'
+    )
+    expect(checkedAgo(t, '2026-11-20T09:00:00Z', now)).toBe('Checked 3 h ago')
+    expect(checkedAgo(t, null, now)).toBeNull()
+    expect(checkedAgo(t, 'not a date', now)).toBeNull()
   })
 })

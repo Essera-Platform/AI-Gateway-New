@@ -7807,7 +7807,6 @@
     "Admins and your own account cannot be changed here.": "管理员和您自己的账号无法在此更改。",
     "The Console refused this request.": "控制台拒绝了此请求。",
     "This account cannot sign in to the Essera gateway.": "此账号无法登录 Essera 网关。",
-    "No requests yet": "暂无请求",
     "Refine models by provider, type, and tags.": "按供应商、类型和标签筛选模型。",
     "API key revoked": "API 密钥已吊销",
     "API key rotated": "API 密钥已轮换",
@@ -7851,6 +7850,13 @@
     "Providers": "提供商",
     "API Docs": "API 文档",
     "Loading API documentation...": "正在加载 API 文档...",
-    "The API documentation could not be loaded.": "无法加载 API 文档。"
+    "The API documentation could not be loaded.": "无法加载 API 文档。",
+    "TTFT": "首字延迟",
+    "Median time to first token": "首个 token 的中位耗时",
+    "Output tokens per second": "每秒输出 token 数",
+    "Requests that succeeded, leaving out those the caller caused": "成功请求的比例，不计调用方自身导致的错误",
+    "Checked just now": "刚刚检查",
+    "Checked {{minutes}} min ago": "{{minutes}} 分钟前检查",
+    "Checked {{hours}} h ago": "{{hours}} 小时前检查"
   }
 }

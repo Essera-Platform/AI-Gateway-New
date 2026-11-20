@@ -3,12 +3,9 @@ import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
 import { Button } from '@/components/ui/button'
-import {
-  ModelPerfBadge,
-  type ModelPerfBadgeData,
-} from '@/features/pricing/components/model-perf-badge'
 import type { PricingModel } from '@/features/pricing/types'
 
+import { EsseraModelMetricsLine } from './model-metrics'
 import { EsseraModelPrices } from './model-square'
 import {
   esseraModelTypeLabel,
@@ -17,12 +14,11 @@ import {
 
 /**
  * A model on a managed gateway's Model Square, in the Essera card design: the display name,
- * the model id to copy, its type, the person's prices and how the model has been doing.
+ * the model id to copy, its type, the person's prices and the Console's measurements of it.
  */
 export function EsseraModelCard(props: {
   model: PricingModel
   info: EsseraModelInfo
-  perf?: ModelPerfBadgeData
   onClick: (modelName: string) => void
 }) {
   const { t } = useTranslation()
@@ -87,25 +83,22 @@ export function EsseraModelCard(props: {
         <EsseraModelPrices info={props.info} />
       </div>
 
-      <ModelPerfBadge
-        perf={props.perf}
-        quietWhenEmpty
+      <EsseraModelMetricsLine
+        metrics={props.info.metrics}
         className='border-border/60 border-t pt-2'
       >
-        <div className='flex items-center gap-2'>
-          {props.info.signedIn && (
-            <Button
-              variant='ghost'
-              size='sm'
-              className='text-primary hover:text-primary'
-              onClick={() => props.onClick(modelName)}
-            >
-              {t('Details')}
-              <ChevronRight aria-hidden className='size-3.5' />
-            </Button>
-          )}
-        </div>
-      </ModelPerfBadge>
+        {props.info.signedIn && (
+          <Button
+            variant='ghost'
+            size='sm'
+            className='text-primary hover:text-primary'
+            onClick={() => props.onClick(modelName)}
+          >
+            {t('Details')}
+            <ChevronRight aria-hidden className='size-3.5' />
+          </Button>
+        )}
+      </EsseraModelMetricsLine>
     </article>
   )
 }
