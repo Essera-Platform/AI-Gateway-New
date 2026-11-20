@@ -82,3 +82,42 @@ func TestGetStatusSaysWhetherTheEsseraConsoleManagesTheGateway(t *testing.T) {
 		assert.Equal(t, managed, payload.Data["essera_managed"])
 	}
 }
+
+// Modified by Essera, 2026-11: a managed gateway shows its public address, not the locked option.
+func TestGetStatusGivesAManagedGatewaysPublicAddress(t *testing.T) {
+	originalOptionMap, originalAddress := common.OptionMap, system_setting.ServerAddress
+	t.Cleanup(func() { common.OptionMap, system_setting.ServerAddress = originalOptionMap, originalAddress })
+	common.OptionMap = map[string]string{}
+	system_setting.ServerAddress = "http://localhost:3000"
+
+	tests := []struct {
+		name       string
+		managed    string
+		publicURL  string
+		trustedURL string
+		want       string
+	}{
+		{name: "not managed keeps the option", managed: "false", trustedURL: "https://gateway.example.com", want: "http://localhost:3000"},
+		{name: "managed without an address keeps the option", managed: "true", want: "http://localhost:3000"},
+		{name: "managed takes the trusted session URL", managed: "true", trustedURL: "https://gateway.example.com/, https://other.example.com", want: "https://gateway.example.com"},
+		{name: "managed prefers ESSERA_PUBLIC_URL", managed: "true", publicURL: " https://api.example.com/ ", trustedURL: "https://gateway.example.com", want: "https://api.example.com"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("ESSERA_MANAGED", tt.managed)
+			t.Setenv("ESSERA_PUBLIC_URL", tt.publicURL)
+			t.Setenv("SESSION_COOKIE_TRUSTED_URL", tt.trustedURL)
+			response := httptest.NewRecorder()
+			context, _ := gin.CreateTestContext(response)
+			context.Request = httptest.NewRequest(http.MethodGet, "/api/status", nil)
+
+			GetStatus(context)
+
+			var payload struct {
+				Data map[string]any `json:"data"`
+			}
+			require.NoError(t, common.Unmarshal(response.Body.Bytes(), &payload))
+			assert.Equal(t, tt.want, payload.Data["server_address"])
+		})
+	}
+}

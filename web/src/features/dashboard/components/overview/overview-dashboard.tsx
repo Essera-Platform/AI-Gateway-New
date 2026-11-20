@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway's example request names its public address and a key placeholder, and copies without reading the key back.
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
@@ -48,11 +49,18 @@ import {
 } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
+import {
+  API_KEY_PLACEHOLDER,
+  FALLBACK_EXAMPLE_MODEL,
+  buildCurlCommand,
+  chatCompletionsEndpoint,
+  useServerAddress,
+  userModelsQueryOptions,
+} from '@/features/essera/example-request'
 import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
 import type { ApiKey } from '@/features/keys/types'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { getUserModels } from '@/lib/api'
 import { handleServerError } from '@/lib/handle-server-error'
 import { MOTION_TRANSITION } from '@/lib/motion'
 import { ROLE } from '@/lib/roles'
@@ -115,6 +123,7 @@ interface RequestExample {
   keyName: string
   keyId?: number
   displayKey: string
+  keyPlaceholder: boolean
   ready: boolean
 }
 
@@ -141,26 +150,6 @@ function saveSetupGuideExpanded(expanded: boolean): void {
   )
 }
 
-function getCurrentOrigin(): string {
-  if (typeof window === 'undefined') return ''
-  return window.location.origin
-}
-
-function normalizeEndpoint(sourceUrl?: string): string {
-  const fallback = `${getCurrentOrigin()}/v1/chat/completions`
-  const trimmed = sourceUrl?.trim()
-  if (!trimmed) return fallback
-
-  const withoutTrailingSlash = trimmed.replace(/\/+$/, '')
-  if (withoutTrailingSlash.endsWith('/v1/chat/completions')) {
-    return withoutTrailingSlash
-  }
-  if (withoutTrailingSlash.endsWith('/v1')) {
-    return `${withoutTrailingSlash}/chat/completions`
-  }
-  return `${withoutTrailingSlash}/v1/chat/completions`
-}
-
 function getPreferredKey(keys: ApiKey[]): ApiKey | null {
   return keys.find((item) => item.status === 1) ?? keys[0] ?? null
 }
@@ -169,19 +158,6 @@ function formatDisplayKey(key?: string): string {
   if (!key) return 'sk-...'
   if (key.length <= 14) return key
   return `${key.slice(0, 7)}...${key.slice(-4)}`
-}
-
-function buildCurlCommand(args: {
-  endpoint: string
-  apiKey: string
-  model: string
-}): string {
-  return [
-    `curl ${args.endpoint} \\`,
-    '  -H "Content-Type: application/json" \\',
-    `  -H "Authorization: Bearer ${args.apiKey}" \\`,
-    `  -d '{"model":"${args.model}","messages":[{"role":"user","content":"Say hello in one sentence."}]}'`,
-  ].join('\n')
 }
 
 function SetupGuideBackdrop(props: { compact?: boolean }) {
@@ -294,6 +270,15 @@ function RequestPreview(props: {
   })
   const previewLines = previewCurl.split('\n')
   const handleCopyRequest = async () => {
+    if (props.example.keyPlaceholder) {
+      const copied = await copyToClipboard(previewCurl)
+      if (copied) {
+        toast.success(t('Copied to clipboard'))
+      } else {
+        toast.error(t('Failed to copy to clipboard'))
+      }
+      return
+    }
     if (!props.example.keyId || isCopying) return
 
     setIsCopying(true)
@@ -492,14 +477,8 @@ export function OverviewDashboard() {
     staleTime: 60 * 1000,
   })
 
-  const modelsQuery = useQuery({
-    queryKey: ['dashboard', 'overview', 'user-models'],
-    queryFn: async () => {
-      const result = requireServerSuccess(await getUserModels())
-      return result.success ? (result.data ?? []) : []
-    },
-    staleTime: 5 * 60 * 1000,
-  })
+  const modelsQuery = useQuery(userModelsQueryOptions)
+  const serverAddress = useServerAddress()
 
   const preferredKey = useMemo(
     () => getPreferredKey(apiKeysQuery.data ?? []),
@@ -598,22 +577,29 @@ export function OverviewDashboard() {
   )
 
   const requestExample = useMemo<RequestExample>(() => {
-    const endpoint = normalizeEndpoint(apiInfoItems[0]?.url)
-    const model = modelsQuery.data?.[0] ?? 'gpt-4o-mini'
+    const endpoint = chatCompletionsEndpoint(
+      managed ? serverAddress : apiInfoItems[0]?.url
+    )
+    const model = modelsQuery.data?.[0] ?? FALLBACK_EXAMPLE_MODEL
     const keyName = preferredKey?.name ?? t('No API key yet')
     const ready = Boolean(preferredKey?.id && model)
+    let displayKey = API_KEY_PLACEHOLDER
+    if (!managed) {
+      displayKey = preferredKey
+        ? formatDisplayKey(`sk-${preferredKey.key}`)
+        : 'sk-...'
+    }
 
     return {
       endpoint,
       model,
       keyName,
       keyId: preferredKey?.id,
-      displayKey: preferredKey
-        ? formatDisplayKey(`sk-${preferredKey.key}`)
-        : 'sk-...',
+      displayKey,
+      keyPlaceholder: managed,
       ready,
     }
-  }, [apiInfoItems, modelsQuery.data, preferredKey, t])
+  }, [apiInfoItems, managed, modelsQuery.data, preferredKey, serverAddress, t])
 
   const completedStepCount = startSteps.filter((step) => step.completed).length
   const setupComplete = completedStepCount === startSteps.length
