@@ -92,7 +92,9 @@ export function AuditLogs() {
     <SectionPageLayout fixedContent>
       <SectionPageLayout.Title>{t('Audit Logs')}</SectionPageLayout.Title>
       <SectionPageLayout.Description>
-        {t('Sign-ins, key changes and account changes, with who made them.')}
+        {t(
+          'Track system events, administrative changes, and user credential activities'
+        )}
       </SectionPageLayout.Description>
       <SectionPageLayout.Actions>
         {canReadAll && !accessRevoked && (

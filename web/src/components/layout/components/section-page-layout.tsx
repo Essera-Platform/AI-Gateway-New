@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the designs' page header (24px title, optional description) and page padding.
+// Modified by Essera, 2026-11: the designs' page header (20px title, optional 12px description) and 24px page padding.
 import {
   Children,
   isValidElement,
@@ -90,7 +90,7 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
   return (
     <PageFooterProvider container={footerContainer}>
       <Main>
-        <div className='shrink-0 px-3 pt-3 pb-3 sm:px-6 sm:pt-6 sm:pb-4 lg:px-8'>
+        <div className='shrink-0 px-3 pt-3 pb-3 sm:px-6 sm:pt-6 sm:pb-5'>
           {breadcrumb != null && (
             <div className='mb-2 sm:mb-3'>{breadcrumb}</div>
           )}
@@ -102,11 +102,11 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
                   : 'min-w-0 flex-1'
               }
             >
-              <h2 className='truncate text-lg font-bold tracking-tight sm:text-2xl'>
+              <h2 className='truncate text-lg font-bold tracking-tight sm:text-xl'>
                 {title}
               </h2>
               {description != null && (
-                <p className='text-muted-foreground mt-1 text-[13px] sm:text-sm'>
+                <p className='text-muted-foreground mt-0.5 text-xs'>
                   {description}
                 </p>
               )}
@@ -122,8 +122,8 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
         <div
           className={
             props.fixedContent
-              ? 'min-h-0 flex-1 overflow-hidden px-3 pt-1 pb-3 sm:px-6 sm:pt-1.5 sm:pb-6 lg:px-8'
-              : 'min-h-0 flex-1 overflow-auto px-3 pt-1 pb-3 sm:px-6 sm:pt-1.5 sm:pb-6 lg:px-8'
+              ? 'min-h-0 flex-1 overflow-hidden px-3 pt-1 pb-3 sm:px-6 sm:pt-0 sm:pb-6'
+              : 'min-h-0 flex-1 overflow-auto px-3 pt-1 pb-3 sm:px-6 sm:pt-0 sm:pb-6'
           }
         >
           {content}
@@ -131,7 +131,7 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
 
         <div
           ref={setFooterContainer}
-          className='bg-background shrink-0 border-t px-3 py-2.5 empty:hidden sm:px-6 sm:py-3 lg:px-8'
+          className='bg-background shrink-0 border-t px-3 py-2.5 empty:hidden sm:px-6 sm:py-3'
         />
       </Main>
     </PageFooterProvider>

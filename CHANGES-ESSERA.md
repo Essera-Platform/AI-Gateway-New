@@ -261,3 +261,18 @@ Essera rewrote the design and frontend, so a managed gateway's footer no longer 
 - a summary of the third-party notices in `NOTICE` and `THIRD-PARTY-LICENSES.md`: the dependency licenses, the OFL-1.1 fonts and the Apache-2.0 NOTICE entries.
 
 `/legal` is not a managed closed path, so guests reach it. A self-hosted gateway's footer keeps the attribution as before. `NOTICE` is unchanged.
+
+## 2026-11 — The Essera design (closer to the Stitch screens)
+
+A side-by-side pass against the client's Stitch screens fixed what still differed:
+
+- **Shell:** the sidebar takes the designs' 12px entries (30px tall, in groups 24px apart) and the Playground's section is "Chat" again, as every screen shows; the top bar's search is the 30px field with 12px text and a white ⌘ K chip, the avatar is 28px with a divider before it; page titles are 20px with a 12px description, and pages have 24px padding.
+- **Tables:** status pills keep their own 11px type inside tables; the filters are 30px with 12px text; the facet button is a solid "+ Status"; "View" is a quiet text button; the pager is 12px with ghost arrows and a 24px current page.
+- **Overview:** the sparklines are smooth curves with the designs' glow; the spend limit's month figures sit in one box at the bottom of the panel.
+- **Dashboard:** every figure card has its tinted icon tile; the section tabs are 12px.
+- **Usage and Audit Logs:** 12px filters, a chosen date range in mono, the model as plain mono text after a framed provider icon; on Audit Logs the filters and Reset, Search and View share one row, the headers are 11px uppercase, the result pill has a dot and "Details" is an emerald link.
+- **Copy:** API Keys and Audit Logs take the designs' descriptions; Common Logs and Users have none, as in the designs.
+- **Users:** a 36px Add User button.
+- **Profile:** a 64px avatar, the role as a square tag and the user ID as a link-coloured label; the sidebar settings are the design's tinted panels with plain switch lists.
+- **Model Square:** someone signed in on a managed gateway sees it in the console shell, with the console's 20px title and the line "AWS Bedrock models on this Gateway. Prices in USD per 1M tokens."
+- **Landing:** the links sit in the middle of the floating bar, the hero text is slate-600, and "Three steps to get started" has its subtitle.

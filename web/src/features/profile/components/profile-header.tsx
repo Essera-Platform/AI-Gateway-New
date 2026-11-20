@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the profile design: round avatar, the person's Gateway role, figures with their icon tiles in the Essera number style.
+// Modified by Essera, 2026-11: the profile design: a 64px round avatar, the person's Gateway role as a square tag and the user ID as a link-coloured label, figures with their icon tiles in the Essera number style.
 import { Activity, BarChart3, WalletCards } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -141,7 +141,7 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
     >
       <CardContent className='p-3 sm:p-6'>
         <div className='flex items-center gap-3 text-left sm:gap-5'>
-          <Avatar className='ring-background h-12 w-12 rounded-full text-sm ring-2 sm:h-[72px] sm:w-[72px] sm:text-2xl sm:ring-4'>
+          <Avatar className='h-12 w-12 rounded-full text-sm shadow-md sm:h-16 sm:w-16 sm:text-2xl'>
             <AvatarFallback
               className='rounded-full font-semibold text-white'
               style={avatarFallbackStyle}
@@ -150,28 +150,31 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
             </AvatarFallback>
           </Avatar>
 
-          <div className='min-w-0 flex-1 space-y-1.5 sm:space-y-3'>
-            <div className='flex min-w-0 items-center gap-2'>
-              <h1 className='truncate text-xl font-bold tracking-tight sm:text-2xl'>
+          <div className='min-w-0 flex-1 space-y-1'>
+            <div className='flex min-w-0 items-center gap-2.5'>
+              <h1 className='truncate text-xl font-bold tracking-tight'>
                 {displayName}
               </h1>
               <StatusBadge
                 label={roleLabel}
                 variant='neutral'
                 copyable={false}
+                className='bg-muted text-muted-foreground border-border h-auto rounded px-2 py-0.5 text-xs font-medium'
               />
               <StatusBadge
                 label={`${t('User ID')} ${profile.id}`}
                 variant='info'
+                type='text'
                 copyText={String(profile.id)}
+                className='text-xs font-medium'
               />
             </div>
 
-            <div className='text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:gap-x-4 sm:text-sm'>
+            <div className='text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs'>
               <span className='truncate'>@{profile.username}</span>
               {profile.email && (
                 <>
-                  <span>•</span>
+                  <span className='text-muted-foreground/50'>•</span>
                   <span className='truncate'>{profile.email}</span>
                 </>
               )}
@@ -186,9 +189,9 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
         </div>
       </CardContent>
       <div className='mx-3 border-t sm:mx-6'>
-        <div className='grid grid-cols-3 gap-3 py-3 sm:gap-6 sm:py-6'>
+        <div className='grid grid-cols-3 gap-3 py-3 sm:gap-6 sm:pt-6 sm:pb-6'>
           {stats.map((item) => (
-            <div key={item.label} className='flex min-w-0 items-start gap-3'>
+            <div key={item.label} className='flex min-w-0 items-start gap-3.5'>
               <IconBadge
                 tone={item.tone}
                 size='lg'
@@ -197,10 +200,10 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
                 <item.icon />
               </IconBadge>
               <div className='min-w-0'>
-                <div className='text-muted-foreground truncate text-[11px] font-bold tracking-wider uppercase'>
+                <div className='text-muted-foreground/80 truncate text-[11px] font-semibold tracking-wider uppercase'>
                   {item.label}
                 </div>
-                <div className='text-foreground mt-1 truncate text-lg font-bold sm:text-2xl'>
+                <div className='text-foreground mt-0.5 truncate text-lg font-bold tracking-tight sm:text-2xl'>
                   <NumberValue value={item.value} />
                 </div>
                 <div className='text-muted-foreground mt-0.5 hidden truncate text-xs md:block'>

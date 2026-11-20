@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a 28px avatar, as in the designs.
 import { useNavigate } from '@tanstack/react-router'
 import { User, Wallet, LogOut, Settings, ShieldCheck } from 'lucide-react'
 import { useMemo } from 'react'
@@ -60,9 +61,14 @@ export function ProfileDropdown() {
     <>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger
-          render={<Button variant='ghost' className='relative size-6 p-0' />}
+          render={
+            <Button
+              variant='ghost'
+              className='relative size-7 rounded-full p-0'
+            />
+          }
         >
-          <Avatar className='size-6'>
+          <Avatar className='size-7'>
             <AvatarFallback
               className={`${avatarFallbackClassName} text-[11px]`}
               style={avatarFallbackStyle}

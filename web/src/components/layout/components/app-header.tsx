@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the managed badge, the Light and Dark switch, and a divider before the avatar.
 import { ConfigDrawer } from '@/components/config-drawer'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationPopover } from '@/components/notification-popover'
@@ -153,7 +154,12 @@ export function AppHeader({
           {/* Modified by Essera, 2026-11: a Light and Dark switch in the top bar. */}
           <ThemeSwitch />
           {showConfigDrawer && <ConfigDrawer />}
-          {showProfileDropdown && <ProfileDropdown />}
+          {showProfileDropdown && (
+            <>
+              <div aria-hidden='true' className='bg-border mx-1 h-4 w-px' />
+              <ProfileDropdown />
+            </>
+          )}
         </div>
       )}
     </Header>

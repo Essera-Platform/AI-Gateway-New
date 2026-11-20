@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: 13px cells and 12px headers; mono cells and status pills keep their own type.
 'use client'
 
 import * as React from 'react'
@@ -31,7 +32,7 @@ function Table({
     <table
       data-slot='table'
       className={cn(
-        'w-full caption-bottom text-sm tabular-nums [font-family:var(--font-body)] [&_td]:text-[13px] [&_td]:font-medium [&_th]:text-xs [&_:is(th,td)_:not(.font-mono,.num)]:[font-family:inherit] [&_:is(th,td)_*]:[font-size:inherit] [&_:is(th,td)_*]:[font-weight:inherit]',
+        'w-full caption-bottom text-sm tabular-nums [font-family:var(--font-body)] [&_td]:text-[13px] [&_td]:font-medium [&_th]:text-xs [&_:is(th,td)_:not(.font-mono,.num)]:[font-family:inherit] [&_:is(th,td)_*:not([data-slot=status-badge],[data-slot=status-badge]_*)]:[font-size:inherit] [&_:is(th,td)_*:not([data-slot=status-badge],[data-slot=status-badge]_*)]:[font-weight:inherit]',
         '[&_[data-table-text=secondary]]:text-xs [&_[data-table-text=secondary]]:font-normal',
         className
       )}

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the designs' 14px sidebar padding.
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 
 import { Sidebar, SidebarContent, SidebarRail } from '@/components/ui/sidebar'
@@ -52,7 +53,7 @@ export function AppSidebar() {
     <Sidebar collapsible={collapsible} variant={variant}>
       {view && <SidebarViewHeader view={view} />}
 
-      <SidebarContent className='py-2'>
+      <SidebarContent className='py-3.5'>
         <AnimatePresence mode='wait' initial={false}>
           <motion.div
             key={key}

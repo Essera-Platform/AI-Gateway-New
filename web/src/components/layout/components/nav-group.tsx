@@ -66,11 +66,11 @@ export function NavGroup({ title, items }: NavGroupProps) {
   const href = useLocation({ select: (location) => location.href })
 
   return (
-    <SidebarGroup className='px-3 py-1.5'>
-      <SidebarGroupLabel className='text-muted-foreground/80 px-2.5 text-[11px] font-bold tracking-wider uppercase'>
+    <SidebarGroup className='px-3.5 py-0 not-first:mt-6'>
+      <SidebarGroupLabel className='text-muted-foreground/80 h-auto px-2.5 text-[11px] leading-4 font-bold tracking-wider uppercase'>
         {title}
       </SidebarGroupLabel>
-      <SidebarMenu>
+      <SidebarMenu className='mt-1.5 gap-0.5'>
         {items.map((item) => {
           const key = `${item.title}-${item.url || item.type}`
 
@@ -111,9 +111,9 @@ export function NavGroup({ title, items }: NavGroupProps) {
   )
 }
 
-/** A sidebar entry: 13px, an outline icon, and the emerald pill with a hairline border when active. */
+/** A sidebar entry: 12px, an outline icon, and the emerald pill with a hairline border when active. */
 const NAV_ITEM_CLASS =
-  'h-8 gap-2.5 border border-transparent px-2.5 text-[13px] font-medium text-sidebar-foreground hover:bg-muted hover:text-foreground [&_svg]:text-muted-foreground/80 data-active:border-emerald-200/60 data-active:font-semibold data-active:shadow-[0_1px_2px_rgb(16_185_129/0.08)] data-active:[&_svg]:text-primary dark:data-active:border-emerald-500/30'
+  'h-[30px] gap-2.5 border border-transparent px-2.5 text-xs font-medium text-sidebar-foreground hover:bg-muted hover:text-foreground [&_svg]:text-muted-foreground/80 data-active:border-emerald-200/60 data-active:font-semibold data-active:shadow-[0_1px_2px_rgb(16_185_129/0.08)] data-active:[&_svg]:text-primary dark:data-active:border-emerald-500/30'
 
 /**
  * Navigation badge component

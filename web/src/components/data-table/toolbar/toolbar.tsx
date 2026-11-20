@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the designs' 30px filter fields with 12px text.
 import type { Table } from '@tanstack/react-table'
 import { ChevronDown, Loader2, X as Cross2Icon } from 'lucide-react'
 import * as React from 'react'
@@ -256,7 +257,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
       onChange={handleSearchChange}
       onCompositionStart={handleSearchCompositionStart}
       onCompositionEnd={handleSearchCompositionEnd}
-      className='w-full sm:w-[200px] lg:w-[240px]'
+      className='h-[30px] w-full text-xs sm:w-44 md:text-xs'
     />
   )
 

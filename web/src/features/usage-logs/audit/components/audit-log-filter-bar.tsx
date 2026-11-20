@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the filters and Reset, Search and View sit on one row, as in the Audit Logs design.
 import type { Table } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 
@@ -223,6 +224,7 @@ export function AuditLogFilterBar(props: {
       searchLoading={props.isFetching}
       onSearch={props.onSearch}
       onReset={props.onReset}
+      inlineActions
     />
   )
 }

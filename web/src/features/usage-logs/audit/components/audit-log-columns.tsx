@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the time on two mono lines and narrower columns, so the audit table fits 1366px.
+// Modified by Essera, 2026-11: the time on two mono lines and narrower columns, so the audit table fits 1366px; the result pill has a dot.
 import type { ColumnDef } from '@tanstack/react-table'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -173,6 +173,7 @@ export function useAuditLogColumns(
           <StatusBadge
             label={row.original.success ? t('Success') : t('Failed')}
             variant={row.original.success ? 'success' : 'danger'}
+            showDot
             copyable={false}
           />
         ),

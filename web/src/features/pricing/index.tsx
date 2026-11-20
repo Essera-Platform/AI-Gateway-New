@@ -16,12 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the designs' page header (left aligned, model count pill) and the search in the toolbar card.
-import { useCallback, useMemo, useState } from 'react'
+// Modified by Essera, 2026-11: the designs' page header (left aligned, model count pill) and the search in the toolbar card; signed in on a managed gateway, the page sits in the console shell.
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { PublicLayout } from '@/components/layout'
+import { AuthenticatedLayout, PublicLayout } from '@/components/layout'
 import { PageTransition } from '@/components/page-transition'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   LoadingSkeleton,
@@ -83,6 +85,10 @@ export function Pricing() {
     clearFilters,
     clearSearch,
   } = useFilters(models || [])
+
+  const { managed } = useEsseraManaged()
+  const signedIn = useAuthStore((state) => !!state.auth.user)
+  const inConsole = managed && signedIn
 
   // Modified by Essera, 2026-11: a guest on a managed gateway sees names and types only.
   const handleModelClick = useCallback(
@@ -155,27 +161,54 @@ export function Pricing() {
     )
   }
 
+  const Shell = inConsole ? ConsoleShell : PublicShell
+  const pagePadding = inConsole
+    ? 'px-3 py-3 sm:p-6'
+    : 'mx-auto w-full max-w-[1800px] px-3 pt-16 pb-8 sm:px-6 sm:pt-20 sm:pb-10 xl:px-8'
+
   if (isLoading) {
     return (
-      <PublicLayout showMainContainer={false}>
-        <div className='mx-auto w-full max-w-[1800px] px-3 pt-16 pb-8 sm:px-6 sm:pt-20 sm:pb-10 xl:px-8'>
+      <Shell>
+        <div className={pagePadding}>
           <LoadingSkeleton viewMode={viewMode} />
         </div>
-      </PublicLayout>
+      </Shell>
     )
   }
 
   return (
-    <PublicLayout showMainContainer={false}>
+    <Shell>
       <div className='relative'>
-        <PageTransition className='relative mx-auto w-full max-w-[1800px] px-3 pt-16 pb-8 sm:px-6 sm:pt-20 sm:pb-10 xl:px-8'>
-          <header className='mb-5 flex flex-wrap items-start justify-between gap-3 pt-4 sm:mb-6 sm:pt-6'>
+        <PageTransition className={`relative ${pagePadding}`}>
+          <header
+            className={
+              inConsole
+                ? 'mb-5 flex flex-wrap items-start justify-between gap-3'
+                : 'mb-5 flex flex-wrap items-start justify-between gap-3 pt-4 sm:mb-6 sm:pt-6'
+            }
+          >
             <div className='min-w-0'>
-              <h1 className='text-2xl font-bold tracking-tight sm:text-3xl'>
+              <h1
+                className={
+                  inConsole
+                    ? 'text-lg font-bold tracking-tight sm:text-xl'
+                    : 'text-2xl font-bold tracking-tight sm:text-3xl'
+                }
+              >
                 {t('Model Square')}
               </h1>
-              <p className='text-muted-foreground mt-1.5 text-sm'>
-                {t('Browse available models and pricing')}
+              <p
+                className={
+                  inConsole
+                    ? 'text-muted-foreground mt-0.5 text-xs'
+                    : 'text-muted-foreground mt-1.5 text-sm'
+                }
+              >
+                {managed
+                  ? t(
+                      'AWS Bedrock models on this Gateway. Prices in USD per 1M tokens.'
+                    )
+                  : t('Browse available models and pricing')}
               </p>
             </div>
             <span className='bg-card text-foreground inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1 font-mono text-xs font-semibold shadow-xs'>
@@ -280,6 +313,18 @@ export function Pricing() {
           )}
         </PageTransition>
       </div>
-    </PublicLayout>
+    </Shell>
+  )
+}
+
+function PublicShell(props: { children: ReactNode }) {
+  return <PublicLayout showMainContainer={false}>{props.children}</PublicLayout>
+}
+
+function ConsoleShell(props: { children: ReactNode }) {
+  return (
+    <AuthenticatedLayout>
+      <main className='h-full overflow-y-auto'>{props.children}</main>
+    </AuthenticatedLayout>
   )
 }

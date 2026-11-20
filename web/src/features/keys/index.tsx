@@ -36,7 +36,9 @@ export function ApiKeys() {
         <SectionPageLayout.Title>{t('API Keys')}</SectionPageLayout.Title>
         {managed && (
           <SectionPageLayout.Description>
-            {t('Create and revoke the keys your apps use to call the Gateway.')}
+            {t(
+              'Manage authentication credentials for downstream LLM gateway routing.'
+            )}
           </SectionPageLayout.Description>
         )}
         <SectionPageLayout.Actions>

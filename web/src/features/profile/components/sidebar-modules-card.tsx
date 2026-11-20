@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the Profile design's settings card: a 16px title, and each area a tinted panel with its switches as a plain list.
 import { LayoutDashboard } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -235,16 +236,16 @@ export function SidebarModulesCard(props: { wide?: boolean }) {
 
   return (
     <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
-      <CardHeader className='border-b p-3 !pb-3 sm:p-5 sm:!pb-5'>
+      <CardHeader className='p-3 !pb-0 sm:p-6 sm:!pb-0'>
         <div className='flex items-center gap-3'>
           <IconBadge tone='info' size='title'>
             <LayoutDashboard />
           </IconBadge>
           <div className='min-w-0'>
-            <CardTitle className='text-lg tracking-tight sm:text-xl'>
+            <CardTitle className='text-base leading-none font-bold'>
               {t('Sidebar Personal Settings')}
             </CardTitle>
-            <CardDescription className='text-xs sm:text-sm'>
+            <CardDescription className='mt-1 text-xs'>
               {t('Customize sidebar display content')}
             </CardDescription>
           </div>
@@ -259,60 +260,54 @@ export function SidebarModulesCard(props: { wide?: boolean }) {
               : 'space-y-4 sm:space-y-5'
           }
         >
-        {visibleSectionDefs.map((section) => {
-          const sectionEnabled = config[section.key]?.enabled !== false
-          return (
-            <div
-              key={section.key}
-              className='bg-background/60 rounded-xl border p-3'
-            >
-              <div className='flex items-start justify-between gap-3'>
-                <div className='min-w-0'>
-                  <p className='text-sm font-medium'>{section.title}</p>
-                  <p className='text-muted-foreground text-xs'>
-                    {section.description}
-                  </p>
-                </div>
-                <Switch
-                  checked={sectionEnabled}
-                  onCheckedChange={(v) => toggleSection(section.key, v)}
-                />
-              </div>
+          {visibleSectionDefs.map((section) => {
+            const sectionEnabled = config[section.key]?.enabled !== false
+            return (
               <div
-                className={
-                  props.wide
-                    ? 'mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1'
-                    : 'mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1'
-                }
+                key={section.key}
+                className='bg-muted/40 space-y-2 rounded-xl border p-3.5'
               >
-                {section.modules.map((mod) => (
-                  <div
-                    key={mod.key}
-                    className={`flex min-h-16 items-center justify-between rounded-lg border p-3 ${
-                      sectionEnabled ? '' : 'opacity-50'
-                    }`}
-                  >
-                    <div className='mr-2 min-w-0'>
-                      <p className='truncate text-sm font-medium'>
-                        {mod.title}
-                      </p>
-                      <p className='text-muted-foreground truncate text-xs'>
-                        {mod.description}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={config[section.key]?.[mod.key] !== false}
-                      onCheckedChange={(v) =>
-                        toggleModule(section.key, mod.key, v)
-                      }
-                      disabled={!sectionEnabled}
-                    />
+                <div className='flex items-center justify-between gap-3 border-b pb-2'>
+                  <div className='min-w-0'>
+                    <p className='text-xs font-bold'>{section.title}</p>
+                    <p className='text-muted-foreground text-[11px]'>
+                      {section.description}
+                    </p>
                   </div>
-                ))}
+                  <Switch
+                    checked={sectionEnabled}
+                    onCheckedChange={(v) => toggleSection(section.key, v)}
+                  />
+                </div>
+                <div className='space-y-3 pt-1'>
+                  {section.modules.map((mod) => (
+                    <div
+                      key={mod.key}
+                      className={`flex items-center justify-between pl-1 ${
+                        sectionEnabled ? '' : 'opacity-50'
+                      }`}
+                    >
+                      <div className='mr-2 min-w-0'>
+                        <p className='truncate text-xs font-medium'>
+                          {mod.title}
+                        </p>
+                        <p className='text-muted-foreground/80 truncate text-[11px]'>
+                          {mod.description}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={config[section.key]?.[mod.key] !== false}
+                        onCheckedChange={(v) =>
+                          toggleModule(section.key, mod.key, v)
+                        }
+                        disabled={!sectionEnabled}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
         </div>
 
         <div className='flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end'>

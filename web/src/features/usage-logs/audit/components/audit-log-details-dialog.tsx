@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: "Details" is the design's emerald text link.
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -76,7 +77,11 @@ export function AuditLogDetailsDialog(props: { entry: AuditLog }) {
       description={t('View the complete details for this log entry')}
       descriptionClassName='sr-only'
       trigger={
-        <Button variant='ghost' size='sm' className='h-7 px-2'>
+        <Button
+          variant='ghost'
+          size='sm'
+          className='text-primary hover:text-primary h-7 px-2 text-xs font-semibold'
+        >
           {t('Details')}
         </Button>
       }
