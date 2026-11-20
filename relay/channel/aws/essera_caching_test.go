@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/essera/policy"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
@@ -22,11 +23,13 @@ import (
 
 const cachedMessagesBody = `{"model":"claude-opus-4-7","max_tokens":128,"cache_control":{"type":"ephemeral"},"prompt_cache_key":"k","system":[{"type":"text","text":"Long manual","cache_control":{"type":"ephemeral","ttl":"1h"}}],"tools":[{"name":"lookup","input_schema":{"type":"object"},"cache_control":{"type":"ephemeral"}}],"messages":[{"role":"user","content":[{"type":"text","text":"hi","cache_control":{"type":"ephemeral"}}]},{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"lookup","input":{"n":12345678901234567890}}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":[{"type":"text","text":"42","cache_control":{"type":"ephemeral"}}]}]},{"role":"user","content":"plain"}]}`
 
-func cachingOff(t *testing.T) {
-	original := promptCachingOff
-	promptCachingOff = func() bool { return true }
-	t.Cleanup(func() { promptCachingOff = original })
+func cachingAllowed(t *testing.T, caching policy.Caching) {
+	original := cachingFor
+	cachingFor = func(*gin.Context, *relaycommon.RelayInfo) policy.Caching { return caching }
+	t.Cleanup(func() { cachingFor = original })
 }
+
+func cachingOff(t *testing.T) { cachingAllowed(t, policy.CachingOff) }
 
 func assertNoCaching(t *testing.T, payload []byte) {
 	t.Helper()
@@ -132,4 +135,48 @@ func TestConverseSendsNoCachePointWhenManaged(t *testing.T) {
 			assert.Contains(t, string(decoded["messages"]), `"Q"`)
 		})
 	}
+}
+
+func invokeBody(t *testing.T, body string) []byte {
+	t.Helper()
+	info := newMantleTestInfo()
+	info.ChannelOtherSettings.AwsApiType = dto.AwsApiTypeInvokeModel
+	info.IsStream = false
+	info.UpstreamModelName = "claude-3-5-sonnet-20240620"
+	c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+	a := &Adaptor{}
+	_, err := a.DoRequest(c, info, strings.NewReader(body))
+	require.NoError(t, err)
+	input, ok := a.AwsReq.(*bedrockruntime.InvokeModelInput)
+	require.True(t, ok)
+	return input.Body
+}
+
+func TestClaudeKeepsCachingWhereItsUnitsArePriced(t *testing.T) {
+	cachingAllowed(t, policy.CachingAll)
+	body := invokeBody(t, cachedMessagesBody)
+	assert.Contains(t, string(body), `"ttl":"1h"`)
+	assert.Equal(t, 4, strings.Count(string(body), "cache_control"), "every block marker; InvokeModel drops only the top-level one")
+}
+
+func TestClaudeWritesFiveMinutesWhereOnlyThoseArePriced(t *testing.T) {
+	cachingAllowed(t, policy.CachingFiveMinutes)
+	body := invokeBody(t, cachedMessagesBody)
+	assert.NotContains(t, string(body), `"ttl"`)
+	assert.Contains(t, string(body), `"cache_control":{"type":"ephemeral"}`)
+	assert.NotContains(t, string(body), "prompt_cache")
+}
+
+func TestConverseKeepsTheCachePointWhereCachingIsPriced(t *testing.T) {
+	cachingAllowed(t, policy.CachingFiveMinutes)
+	server, _ := startBedrockStub(t, jsonFixture(converseTextReply))
+	c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+	info := newBedrockTestInfo(server, relayconstant.RelayModeChatCompletions, relaytypes.RelayFormatOpenAI, "eu.amazon.nova-2-lite-v1:0", false)
+	var request dto.GeneralOpenAIRequest
+	require.NoError(t, common.Unmarshal([]byte(`{"model":"eu.amazon.nova-2-lite-v1:0","messages":[{"role":"system","content":[{"type":"text","text":"Long manual","cache_control":{"type":"ephemeral"}}]},{"role":"user","content":"Q"}]}`), &request))
+	converted, err := (&Adaptor{}).ConvertOpenAIRequest(c, info, &request)
+	require.NoError(t, err)
+	body, err := common.Marshal(converted)
+	require.NoError(t, err)
+	assert.Contains(t, string(body), `"cachePoint":{"type":"default"}`)
 }
