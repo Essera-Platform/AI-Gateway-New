@@ -452,7 +452,7 @@ func converseContentBlocks(c *gin.Context, message *dto.Message, documents *int)
 			return nil, newBadRequest("content type %q is not supported by Bedrock Converse", part.Type)
 		}
 		blocks = append(blocks, block)
-		if cached(i) {
+		if cached(i) && !promptCachingOff() {
 			blocks = append(blocks, converseContentBlock{CachePoint: &converseCachePoint{Type: "default"}})
 		}
 	}

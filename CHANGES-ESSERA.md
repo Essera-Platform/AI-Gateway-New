@@ -47,6 +47,8 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 - **Groups:** everyone is in group `essera`; group choices are hidden, and the Model Square, its model details and the usage logs show no group.
 - **`web/src/features/essera`:** in managed mode, the Essera sign-in (email, then the emailed code with resend and expiry, or the password and a first new password), without a link to the operators' sign-in, which only `/sign-in?operator=1` opens; creating a key with only a name and an expiry and showing it once, with a ready-to-run example request; and a badge in the admin header says the Console administers the gateway, and its tooltip says what is changed there.
 
+- **Prompt caching is disabled until cache units are billed separately:** on a managed gateway every Bedrock request goes out without caching markers: `cache_control` and `prompt_cache_*` are dropped from Anthropic Messages bodies (the request, system blocks, tools, message content and tool results) on InvokeModel and Mantle, and Converse gets no `cachePoint`, for chat completions, Responses and Messages alike (`relay/channel/aws/essera_caching.go`).
+
 ### What a managed gateway does not offer
 
 One deny-list in `essera/managed` closes what the Gateway does not use when the Console administers it. Upstream code stays in place, so upstream merges stay easy; the web UI hides the matching entry points.
