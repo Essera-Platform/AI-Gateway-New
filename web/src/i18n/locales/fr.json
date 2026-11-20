@@ -7857,6 +7857,18 @@
     "Requests that succeeded, leaving out those the caller caused": "Part des requêtes réussies, hors erreurs causées par l'appelant",
     "Checked just now": "Vérifié à l'instant",
     "Checked {{minutes}} min ago": "Vérifié il y a {{minutes}} min",
-    "Checked {{hours}} h ago": "Vérifié il y a {{hours}} h"
+    "Checked {{hours}} h ago": "Vérifié il y a {{hours}} h",
+    "Cache read": "Lecture du cache",
+    "Cache write (5 min)": "Écriture du cache (5 min)",
+    "Cache write (1 h)": "Écriture du cache (1 h)",
+    "Long context input": "Entrée en contexte long",
+    "Long context cache read": "Lecture du cache en contexte long",
+    "Long context cache write (5 min)": "Écriture du cache en contexte long (5 min)",
+    "Long context cache write (1 h)": "Écriture du cache en contexte long (1 h)",
+    "Long context output": "Sortie en contexte long",
+    "Input image": "Image en entrée",
+    "Charges": "Frais",
+    "Not priced yet": "Pas encore tarifé",
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Les prix en contexte long s’appliquent à chaque token d’une requête dont le prompt dépasse la taille de contexte long du modèle."
   }
 }

@@ -137,6 +137,9 @@ func TestAPersonsUsageLogsAreTheConsolesLedgerInNewAPIsFormat(t *testing.T) {
 	console, users := consolePages(t)
 	console.on("GET /internal/v1/usage", http.StatusOK, `{"data":[{"ts":"2026-11-19T10:00:00Z","request_id":"req-1","provider":"bedrock",
 		"model":"claude-sonnet","modality":"text","input_units":1200,"output_units":340,"generated_units":0,"billable_amount":"0.009150",
+		"cache_read_units":5000,"cache_write_units":800,"cache_write_1h_units":200,"input_image_units":0,
+		"charges":[{"unit":"input_tokens","quantity":1200,"amount":"0.003600","currency":"USD"},{"unit":"cache_read_tokens","quantity":5000,"amount":"0.001500","currency":"USD"},
+		{"unit":"cache_write_tokens","quantity":800,"amount":"0.003000","currency":"USD"},{"unit":"cache_write_1h_tokens","quantity":200,"amount":null,"currency":null}],
 		"billable_currency":"USD","status":"succeeded","key_id":"k_unknown","end_user":"user-1","latency_ms":2400}],"total":41,"page":2,"page_size":20}`)
 
 	response := page(t, users[snapshottest.AdminSub], http.MethodGet, "/api/log/self?p=2&page_size=20&model_name=claude-sonnet&start_timestamp=1795000000", "", GetUserLogs, "/api/log/self")
@@ -160,6 +163,16 @@ func TestAPersonsUsageLogsAreTheConsolesLedgerInNewAPIsFormat(t *testing.T) {
 	assert.Empty(t, log["group"], "a managed gateway shows no groups")
 	assert.EqualValues(t, int(0.00915*common.QuotaPerUnit+0.5), log["quota"])
 	assert.Contains(t, log["other"], `"billable_amount":"0.009150"`)
+	var other map[string]any
+	require.NoError(t, common.UnmarshalJsonStr(log["other"].(string), &other))
+	assert.EqualValues(t, 5000, other["cache_tokens"], "cache reads where new-api's log views read them")
+	assert.EqualValues(t, 800, other["cache_creation_tokens_5m"])
+	assert.EqualValues(t, 200, other["cache_creation_tokens_1h"])
+	assert.EqualValues(t, 1000, other["cache_creation_tokens"])
+	charges := other["essera"].(map[string]any)["charges"].([]any)
+	require.Len(t, charges, 4, "what each unit came to, as the Console rated it")
+	assert.Equal(t, map[string]any{"unit": "cache_read_tokens", "quantity": float64(5000), "amount": "0.001500", "currency": "USD"}, charges[1])
+	assert.Nil(t, charges[3].(map[string]any)["amount"], "an unpriced unit stays unpriced")
 
 	console.on("GET /internal/v1/usage", http.StatusBadGateway, `{}`)
 	down := page(t, users[snapshottest.AdminSub], http.MethodGet, "/api/log/self", "", GetUserLogs, "/api/log/self")
@@ -171,7 +184,7 @@ func TestTheAccountSummaryIsTheConsolesOrUnavailable(t *testing.T) {
 	console, users := consolePages(t)
 	console.on("GET /internal/v1/me", http.StatusOK, `{"person":{"id":"`+snapshottest.UserPersonID+`","email":"user-1@acme.example","role":"user","status":"active","end_user_external_id":"user-1"},
 		"customer":{"id":"`+snapshottest.CustomerID+`","name":"Acme","status":"active"},
-		"month":{"since":"2026-11-01T00:00:00Z","requests":42,"input_units":1000,"output_units":500,"generated_units":0,"spend":{"USD":"3.840000"}},
+		"month":{"since":"2026-11-01T00:00:00Z","requests":42,"input_units":1000,"output_units":500,"generated_units":0,"cache_read_units":300,"cache_write_units":20,"cache_write_1h_units":10,"spend":{"USD":"3.840000"}},
 		"limits":{"monthly_request_quota":1000,"monthly_token_quota":null,"monthly_spend_limit":"50.00","currency":"USD"},
 		"remaining":{"requests":958,"tokens":null,"spend":"46.160000"}}`)
 
@@ -183,7 +196,7 @@ func TestTheAccountSummaryIsTheConsolesOrUnavailable(t *testing.T) {
 	assert.Equal(t, "3.840000", account["spend"])
 	assert.Equal(t, "50.00", account["spend_limit"])
 	assert.Equal(t, "46.160000", account["spend_left"])
-	assert.EqualValues(t, 1500, account["tokens"])
+	assert.EqualValues(t, 1830, account["tokens"], "cached tokens count with the rest")
 	assert.Equal(t, "Acme", account["customer_name"])
 
 	console.server.Close()
@@ -422,7 +435,7 @@ func TestTheModelSquareShowsAPersonOnlyTheirModelsWithTheConsolesPrices(t *testi
 func TestTheDashboardAndAuditOfAPersonAreTheConsoles(t *testing.T) {
 	console, users := consolePages(t)
 	console.on("GET /internal/v1/usage/series", http.StatusOK, `{"bucket":"hour","rows":[
-		{"ts":"2026-11-19T10:00:00Z","provider":"bedrock","model":"claude-sonnet","requests":2,"input_units":300,"output_units":100,"generated_units":0,"spend":{"USD":"0.030000"}},
+		{"ts":"2026-11-19T10:00:00Z","provider":"bedrock","model":"claude-sonnet","requests":2,"input_units":300,"output_units":100,"generated_units":0,"cache_read_units":50,"cache_write_units":25,"cache_write_1h_units":5,"spend":{"USD":"0.030000"}},
 		{"ts":"2026-11-19T11:00:00Z","provider":"openai","model":"gpt-4o","requests":1,"input_units":10,"output_units":5,"generated_units":0,"spend":{"EUR":"0.004000","USD":"0.001000"}}],
 		"total":{"requests":3,"input_units":310,"output_units":105,"generated_units":0,"spend":{"USD":"0.031000"}},"truncated":false}`)
 	console.on("GET /internal/v1/audit", http.StatusOK, `{"data":[{"id":"0b8f8a52-63a4-4bd4-8c86-5f3a1f0d4e21","ts":"2026-11-19T09:12:44Z","action":"credential.create",
@@ -438,7 +451,7 @@ func TestTheDashboardAndAuditOfAPersonAreTheConsoles(t *testing.T) {
 	assert.Equal(t, "claude-sonnet", first["model_name"])
 	assert.EqualValues(t, 1795082400, first["created_at"])
 	assert.EqualValues(t, 2, first["count"])
-	assert.EqualValues(t, 400, first["token_used"])
+	assert.EqualValues(t, 480, first["token_used"], "cached tokens count with the rest")
 	assert.EqualValues(t, int(0.03*common.QuotaPerUnit), first["quota"], "the Console's amount, shown in new-api's units")
 	assert.EqualValues(t, int(0.001*common.QuotaPerUnit), dates.List[1].(map[string]any)["quota"], "in the customer's currency")
 

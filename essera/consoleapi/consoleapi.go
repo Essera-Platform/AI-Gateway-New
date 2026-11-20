@@ -171,13 +171,31 @@ type Customer struct {
 	Status string `json:"status"`
 }
 
+// CachedUnits are the prompt-cache tokens of a request or a total: read, and written with the
+// 5-minute and the 1-hour TTL. A Console that reports none leaves them zero.
+type CachedUnits struct {
+	CacheReadUnits    int64 `json:"cache_read_units"`
+	CacheWriteUnits   int64 `json:"cache_write_units"`
+	CacheWrite1hUnits int64 `json:"cache_write_1h_units"`
+}
+
+func (u CachedUnits) Written() int64 {
+	return u.CacheWriteUnits + u.CacheWrite1hUnits
+}
+
+// Tokens is the input, output and cached tokens together.
+func (u CachedUnits) Tokens(input, output int64) int64 {
+	return input + output + u.CacheReadUnits + u.Written()
+}
+
 type Month struct {
-	Since          time.Time         `json:"since"`
-	Requests       int64             `json:"requests"`
-	InputUnits     int64             `json:"input_units"`
-	OutputUnits    int64             `json:"output_units"`
-	GeneratedUnits int64             `json:"generated_units"`
-	Spend          map[string]string `json:"spend"`
+	Since          time.Time `json:"since"`
+	Requests       int64     `json:"requests"`
+	InputUnits     int64     `json:"input_units"`
+	OutputUnits    int64     `json:"output_units"`
+	GeneratedUnits int64     `json:"generated_units"`
+	CachedUnits
+	Spend map[string]string `json:"spend"`
 }
 
 type Limits struct {
@@ -202,21 +220,32 @@ type Me struct {
 	Remaining Remaining `json:"remaining"`
 }
 
+// Charge is what one unit of a request came to: Amount is nil while it is unpriced.
+type Charge struct {
+	Unit     string  `json:"unit"`
+	Quantity int64   `json:"quantity"`
+	Amount   *string `json:"amount"`
+	Currency *string `json:"currency"`
+}
+
 type UsageRow struct {
-	TS               time.Time `json:"ts"`
-	RequestID        *string   `json:"request_id"`
-	Provider         string    `json:"provider"`
-	Model            string    `json:"model"`
-	Modality         string    `json:"modality"`
-	InputUnits       int64     `json:"input_units"`
-	OutputUnits      int64     `json:"output_units"`
-	GeneratedUnits   int64     `json:"generated_units"`
-	BillableAmount   *string   `json:"billable_amount"`
-	BillableCurrency *string   `json:"billable_currency"`
-	Status           string    `json:"status"`
-	KeyID            *string   `json:"key_id"`
-	EndUser          *string   `json:"end_user"`
-	LatencyMS        *int64    `json:"latency_ms"`
+	TS             time.Time `json:"ts"`
+	RequestID      *string   `json:"request_id"`
+	Provider       string    `json:"provider"`
+	Model          string    `json:"model"`
+	Modality       string    `json:"modality"`
+	InputUnits     int64     `json:"input_units"`
+	OutputUnits    int64     `json:"output_units"`
+	GeneratedUnits int64     `json:"generated_units"`
+	CachedUnits
+	InputImageUnits  int64    `json:"input_image_units"`
+	Charges          []Charge `json:"charges"`
+	BillableAmount   *string  `json:"billable_amount"`
+	BillableCurrency *string  `json:"billable_currency"`
+	Status           string   `json:"status"`
+	KeyID            *string  `json:"key_id"`
+	EndUser          *string  `json:"end_user"`
+	LatencyMS        *int64   `json:"latency_ms"`
 }
 
 type AuditRow struct {
@@ -233,22 +262,24 @@ type AuditRow struct {
 
 // SeriesRow is the totals of one provider and model in one hour or day, ts its UTC start.
 type SeriesRow struct {
-	TS             time.Time         `json:"ts"`
-	Provider       string            `json:"provider"`
-	Model          string            `json:"model"`
-	Requests       int64             `json:"requests"`
-	InputUnits     int64             `json:"input_units"`
-	OutputUnits    int64             `json:"output_units"`
-	GeneratedUnits int64             `json:"generated_units"`
-	Spend          map[string]string `json:"spend"`
+	TS             time.Time `json:"ts"`
+	Provider       string    `json:"provider"`
+	Model          string    `json:"model"`
+	Requests       int64     `json:"requests"`
+	InputUnits     int64     `json:"input_units"`
+	OutputUnits    int64     `json:"output_units"`
+	GeneratedUnits int64     `json:"generated_units"`
+	CachedUnits
+	Spend map[string]string `json:"spend"`
 }
 
 type SeriesTotal struct {
-	Requests       int64             `json:"requests"`
-	InputUnits     int64             `json:"input_units"`
-	OutputUnits    int64             `json:"output_units"`
-	GeneratedUnits int64             `json:"generated_units"`
-	Spend          map[string]string `json:"spend"`
+	Requests       int64 `json:"requests"`
+	InputUnits     int64 `json:"input_units"`
+	OutputUnits    int64 `json:"output_units"`
+	GeneratedUnits int64 `json:"generated_units"`
+	CachedUnits
+	Spend map[string]string `json:"spend"`
 }
 
 // Series is the person's usage by hour or day and model, oldest first, with the window's
@@ -349,7 +380,8 @@ func RemovePerson(ctx context.Context, adminID, personID string) error {
 }
 
 // Price is the person's selling price of one unit of a model, as the Console rates it: Amount
-// for PerQuantity units (1000000 tokens, 1 image, 1 second, 1 minute, 1 request).
+// for PerQuantity units (1000000 tokens, 1 image, 1 second, 1 minute, 1 request). Cache reads and
+// writes, long-context tokens and input images have their own units.
 type Price struct {
 	Provider    string `json:"provider"`
 	Model       string `json:"model"`

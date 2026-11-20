@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 /**
  * Type definitions for usage logs
  */
+import type { EsseraCharge } from '@/features/essera/charges'
 import type { RequestRuleTrace } from '@/features/pricing/lib/billing-expr'
 import type { PolicyEvent } from '@/features/system-settings/request-policies/api'
 import type { LocalizedTextValue } from '@/lib/localized-text'
@@ -209,6 +210,8 @@ export interface LogOtherData {
     status?: string
     generated_units?: number
     latency_ms?: number
+    input_image_units?: number
+    charges?: EsseraCharge[]
   }
   admin_info?: {
     request_policy?: PolicyEvent[]

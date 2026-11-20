@@ -42,12 +42,37 @@ export type EsseraModelInfo = {
   metrics?: EsseraModelMetrics | undefined
 }
 
+const TOKENS = { one: 'token', many: '{{count}} tokens' }
+
+/**
+ * The Console's units, in the order a bill lists them. The `_long` units are the prices of a
+ * request whose prompt is over the model's long-context size; they then apply to all its tokens.
+ */
 const UNIT_LABEL_KEYS: Record<
   string,
   { label: string; one: string; many: string }
 > = {
-  input_tokens: { label: 'Input', one: 'token', many: '{{count}} tokens' },
-  output_tokens: { label: 'Output', one: 'token', many: '{{count}} tokens' },
+  input_tokens: { label: 'Input', ...TOKENS },
+  cache_read_tokens: { label: 'Cache read', ...TOKENS },
+  cache_write_tokens: { label: 'Cache write (5 min)', ...TOKENS },
+  cache_write_1h_tokens: { label: 'Cache write (1 h)', ...TOKENS },
+  output_tokens: { label: 'Output', ...TOKENS },
+  input_tokens_long: { label: 'Long context input', ...TOKENS },
+  cache_read_tokens_long: { label: 'Long context cache read', ...TOKENS },
+  cache_write_tokens_long: {
+    label: 'Long context cache write (5 min)',
+    ...TOKENS,
+  },
+  cache_write_1h_tokens_long: {
+    label: 'Long context cache write (1 h)',
+    ...TOKENS,
+  },
+  output_tokens_long: { label: 'Long context output', ...TOKENS },
+  input_images: {
+    label: 'Input image',
+    one: 'image',
+    many: '{{count}} images',
+  },
   images: { label: 'Image', one: 'image', many: '{{count}} images' },
   video_seconds: { label: 'Video', one: 'second', many: '{{count}} seconds' },
   audio_minutes: { label: 'Audio', one: 'minute', many: '{{count}} minutes' },
@@ -67,9 +92,32 @@ export function esseraModelTypeLabel(t: TFunction, modelType: string): string {
   return key ? t(key) : modelType
 }
 
+const UNIT_ORDER = Object.keys(UNIT_LABEL_KEYS)
+
+/** Prices in the order a bill lists their units; units this gateway does not know go last. */
+export function inBillOrder<T extends { unit: string }>(
+  items: readonly T[]
+): T[] {
+  const rank = (unit: string) => {
+    const index = UNIT_ORDER.indexOf(unit)
+    return index === -1 ? UNIT_ORDER.length : index
+  }
+  return [...items].sort((a, b) => rank(a.unit) - rank(b.unit))
+}
+
+/** "Cache read", "Input image": a unit as people read it. */
+export function esseraUnitLabel(t: TFunction, unit: string): string {
+  const keys = UNIT_LABEL_KEYS[unit]
+  return keys ? t(keys.label) : unit
+}
+
+export function isLongContextUnit(unit: string): boolean {
+  return unit.endsWith('_long')
+}
+
 function perLabel(t: TFunction, unit: string, perQuantity: number): string {
   const keys = UNIT_LABEL_KEYS[unit]
-  const perMillionTokens = perQuantity === 1_000_000 && unit.endsWith('_tokens')
+  const perMillionTokens = perQuantity === 1_000_000 && unit.includes('_tokens')
   if (perMillionTokens) return t('1M tokens')
   if (perQuantity === 1) return keys ? t(keys.one) : unit
   if (keys) return t(keys.many, { count: perQuantity })
@@ -81,9 +129,8 @@ export function esseraPriceParts(
   t: TFunction,
   price: EsseraPrice
 ): { label: string; value: string; per: string } {
-  const keys = UNIT_LABEL_KEYS[price.unit]
   return {
-    label: keys ? t(keys.label) : price.unit,
+    label: esseraUnitLabel(t, price.unit),
     value: formatSpend(price.amount, price.currency),
     per: perLabel(t, price.unit, price.per_quantity ?? 1),
   }

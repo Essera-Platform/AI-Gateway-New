@@ -7857,6 +7857,18 @@
     "Requests that succeeded, leaving out those the caller caused": "Доля успешных запросов без ошибок, вызванных самим клиентом",
     "Checked just now": "Проверено только что",
     "Checked {{minutes}} min ago": "Проверено {{minutes}} мин назад",
-    "Checked {{hours}} h ago": "Проверено {{hours}} ч назад"
+    "Checked {{hours}} h ago": "Проверено {{hours}} ч назад",
+    "Cache read": "Чтение из кэша",
+    "Cache write (5 min)": "Запись в кэш (5 мин)",
+    "Cache write (1 h)": "Запись в кэш (1 ч)",
+    "Long context input": "Ввод с длинным контекстом",
+    "Long context cache read": "Чтение из кэша с длинным контекстом",
+    "Long context cache write (5 min)": "Запись в кэш с длинным контекстом (5 мин)",
+    "Long context cache write (1 h)": "Запись в кэш с длинным контекстом (1 ч)",
+    "Long context output": "Вывод с длинным контекстом",
+    "Input image": "Входное изображение",
+    "Charges": "Начисления",
+    "Not priced yet": "Ещё не оценено",
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Цены с длинным контекстом применяются ко всем токенам запроса, промпт которого длиннее порога длинного контекста модели."
   }
 }

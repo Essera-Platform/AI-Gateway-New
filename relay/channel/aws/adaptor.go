@@ -1,5 +1,6 @@
 // Modified by Essera, 2026-11: every Bedrock model through Converse and ConverseStream,
-// /v1/responses, embeddings, Bedrock error mapping and the inference profile retry (see essera_*.go).
+// /v1/responses, embeddings, Bedrock error mapping and the inference profile retry (see essera_*.go),
+// and the units Bedrock billed recorded for the Console (essera/metering).
 package aws
 
 import (
@@ -8,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/essera/metering"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -177,6 +179,7 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
+	metering.Forget(c)
 	switch info.ChannelOtherSettings.AwsApiType {
 	case "", dto.AwsApiTypeInvokeModel, dto.AwsApiTypeMantle:
 	default:
@@ -269,7 +272,18 @@ func (a *Adaptor) doRuntimeRequest(c *gin.Context, info *relaycommon.RelayInfo, 
 	return nil
 }
 
+// DoResponse records the units Bedrock billed for the answer. Modified by Essera, 2026-11.
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
+	usage, err = a.doResponse(c, resp, info)
+	if settled, ok := usage.(*dto.Usage); ok && err == nil {
+		units := metering.FromUsage(settled)
+		units.InputImages = imagesPricedApart(embeddingFamilyOf(a.modelID), a.embeddingPlan)
+		metering.Record(c, units)
+	}
+	return usage, err
+}
+
+func (a *Adaptor) doResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
 	// Modified by Essera, 2026-11: the Bedrock Runtime REST routes.
 	route := selectBedrockRoute(info)
 	switch route {

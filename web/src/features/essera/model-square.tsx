@@ -3,7 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 import { NumberValue } from './brand/number-value'
-import { esseraPriceParts, type EsseraModelInfo } from './model-square-format'
+import {
+  esseraPriceParts,
+  inBillOrder,
+  isLongContextUnit,
+  type EsseraModelInfo,
+} from './model-square-format'
 
 /**
  * The person's prices for a model, or, for a guest, that prices follow sign-in. Laid out
@@ -35,9 +40,12 @@ export function EsseraModelPrices(props: {
       </span>
     )
   }
+  const hasLongContext = props.info.prices.some((price) =>
+    isLongContextUnit(price.unit)
+  )
   return (
     <>
-      {props.info.prices.map((price) => {
+      {inBillOrder(props.info.prices).map((price) => {
         const parts = esseraPriceParts(t, price)
         return (
           <div
@@ -62,6 +70,13 @@ export function EsseraModelPrices(props: {
           </div>
         )
       })}
+      {hasLongContext && !props.compact && (
+        <span className='text-muted-foreground col-span-full text-xs'>
+          {t(
+            'Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.'
+          )}
+        </span>
+      )}
     </>
   )
 }

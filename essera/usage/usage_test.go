@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/essera/auth"
 	"github.com/QuantumNous/new-api/essera/limits"
+	"github.com/QuantumNous/new-api/essera/metering"
 	"github.com/QuantumNous/new-api/essera/policy"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/records/recordstest"
@@ -103,6 +104,22 @@ func TestAServedRequestIsReportedAndCounted(t *testing.T) {
 	requests, tokens := counted(t, "customer", snapshottest.CustomerID)
 	assert.Equal(t, int64(1), requests, "reserved when the policy admitted it")
 	assert.Equal(t, int64(1_500_000), tokens)
+}
+
+func TestTheUnitsTheProviderBilledAreReportedApart(t *testing.T) {
+	s := serve(t, "")
+	metering.Record(s.context, metering.Units{Input: 10, CacheRead: 1000, CacheWrite: 20, CacheWrite1h: 30, Output: 5, InputImages: 2})
+
+	usage.Finished(s.context, s.info, nil)
+
+	events := queued(t)
+	require.Len(t, events, 1)
+	event := events[0]
+	assert.Equal(t, [6]int64{10, 1000, 20, 30, 5, 2},
+		[6]int64{event.InputUnits, event.CacheReadUnits, event.CacheWriteUnits, event.CacheWrite1hUnits, event.OutputUnits, event.InputImageUnits},
+		"the provider's own counts, not the settled prompt tokens")
+	_, tokens := counted(t, "customer", snapshottest.CustomerID)
+	assert.Equal(t, int64(1065), tokens, "the token limit counts cached tokens too")
 }
 
 func TestTheGatewayPricesNothing(t *testing.T) {
