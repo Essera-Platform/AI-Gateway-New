@@ -75,7 +75,7 @@ describe('Model Square on a managed gateway', () => {
     render(<ModelCard model={model} onClick={vi.fn()} />)
 
     expect(screen.getByText('Claude Sonnet 4')).toBeVisible()
-    expect(screen.getByText('text')).toBeVisible()
+    expect(screen.getByText('Text')).toBeVisible()
     expect(screen.getByText('Sign in to see prices')).toBeVisible()
     expect(screen.queryByText(/USD/)).not.toBeInTheDocument()
     expect(

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the designs' card (12px radius, card shadow, bold title).
 import { Logout01Icon, SmartPhone01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -174,9 +175,11 @@ export function LoginSessionsCard() {
 
   return (
     <>
-      <Card data-card-hover='false'>
-        <CardHeader>
-          <CardTitle>{t('Login sessions')}</CardTitle>
+      <Card data-card-hover='false' className='shadow-card rounded-xl'>
+        <CardHeader className='border-b'>
+          <CardTitle className='text-base font-bold tracking-tight'>
+            {t('Login sessions')}
+          </CardTitle>
           <CardDescription>
             {t('Review and sign out devices currently using your account.')}
           </CardDescription>

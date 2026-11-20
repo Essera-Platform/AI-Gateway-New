@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: tables sit on the designs' card (12px radius, card surface and shadow).
 import type { Row, Table as TanstackTable } from '@tanstack/react-table'
 import * as React from 'react'
 
@@ -62,7 +63,7 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-lg border',
+        'bg-card shadow-card overflow-hidden rounded-xl border',
         props.containerClassName
       )}
       {...props.containerProps}

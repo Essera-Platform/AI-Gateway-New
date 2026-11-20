@@ -88,6 +88,8 @@ function renderForm(signInMode: 'password' | 'email_otp' = 'email_otp') {
 
 beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+  // The code boxes (input-otp) ask where the caret is; jsdom has no layout.
+  document.elementFromPoint = () => null
   localStorage.clear()
   useAuthStore.getState().auth.reset('complete')
 })
@@ -123,11 +125,8 @@ describe('Essera sign-in by emailed code', () => {
     expect(
       screen.getByText(`Enter the code we sent to ${EMAIL}.`)
     ).toBeInTheDocument()
-    expect(screen.getByRole('timer')).toHaveTextContent(
-      'The code expires in 3:00.'
-    )
+    expect(screen.getByRole('timer')).toHaveTextContent('Code expires in 3:00')
     await user.type(code, '12345678')
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
 
     expect(await screen.findByText('Dashboard destination')).toBeInTheDocument()
     expect(post).toHaveBeenNthCalledWith(
@@ -145,7 +144,7 @@ describe('Essera sign-in by emailed code', () => {
     expect(useAuthStore.getState().auth.session?.sid).toBe('person-sid')
   })
 
-  it('counts the code down and disables Continue once it has expired', async () => {
+  it('counts the code down and disables Verify once it has expired', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
     vi.spyOn(api, 'post').mockResolvedValueOnce(nextStep('code', 120))
     renderForm()
@@ -159,7 +158,9 @@ describe('Essera sign-in by emailed code', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent(EXPIRED)
     expect(screen.queryByRole('timer')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Verify and sign in' })
+    ).toBeDisabled()
   })
 
   it('sends a new code for the same email only after the cooldown and restarts the countdown', async () => {
@@ -191,6 +192,31 @@ describe('Essera sign-in by emailed code', () => {
     expect(screen.getByLabelText('Verification code')).toHaveValue('')
   })
 
+  it('sends a complete code once, even when Verify is clicked while it is being checked', async () => {
+    let answer: (value: unknown) => void = () => {}
+    const post = vi
+      .spyOn(api, 'post')
+      .mockResolvedValueOnce(nextStep('code'))
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (answer = resolve))
+      )
+    renderForm()
+    const user = userEvent.setup()
+
+    await user.type(await requestCode(user), '12345678')
+    const verify = screen.getByRole('button', { name: /Verify and sign in/ })
+    expect(verify).toBeDisabled()
+    await user.click(verify)
+    await user.keyboard('{Enter}')
+
+    const continues = post.mock.calls.filter(
+      (call) => call[0] === '/api/essera/sign-in/continue'
+    )
+    expect(continues).toHaveLength(1)
+    answer({ data: { success: true, data: bundle } })
+    expect(await screen.findByText('Dashboard destination')).toBeInTheDocument()
+  })
+
   it('stays on the code step with the resend button when the server says the code expired', async () => {
     vi.spyOn(api, 'post')
       .mockResolvedValueOnce(nextStep('code'))
@@ -199,11 +225,12 @@ describe('Essera sign-in by emailed code', () => {
     const user = userEvent.setup()
 
     await user.type(await requestCode(user), '12345678')
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(EXPIRED)
     expect(screen.getByLabelText('Verification code')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Verify and sign in' })
+    ).toBeDisabled()
     expect(
       screen.getByRole('button', { name: /Send a new code/ })
     ).toBeInTheDocument()
@@ -219,7 +246,6 @@ describe('Essera sign-in by emailed code', () => {
     const user = userEvent.setup()
 
     await user.type(await requestCode(user), '12345678')
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
 
     expect(
       await screen.findByText('Too many sign-in attempts. Try again later.')
@@ -237,7 +263,7 @@ describe('Essera sign-in by emailed code', () => {
     const user = userEvent.setup()
 
     await user.type(await requestCode(user), '000000')
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.click(screen.getByRole('button', { name: 'Verify and sign in' }))
 
     expect(
       await screen.findByText('The email, password or code is not correct.')
@@ -251,15 +277,13 @@ describe('Essera sign-in by emailed code', () => {
     expect(useAuthStore.getState().auth.session).toBeFalsy()
   })
 
-  it('goes back to the email step through "Use a different email"', async () => {
+  it('goes back to the email step through "Change email"', async () => {
     vi.spyOn(api, 'post').mockResolvedValueOnce(nextStep('code'))
     renderForm()
     const user = userEvent.setup()
 
     await requestCode(user)
-    await user.click(
-      screen.getByRole('button', { name: 'Use a different email' })
-    )
+    await user.click(screen.getByRole('button', { name: 'Change email' }))
 
     expect(await screen.findByLabelText('Email')).toBeInTheDocument()
     expect(screen.queryByLabelText('Verification code')).not.toBeInTheDocument()

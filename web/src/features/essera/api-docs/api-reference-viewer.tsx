@@ -10,7 +10,9 @@ import { useTheme } from '@/context/theme-provider'
 
 /**
  * Scalar's colours, type and radii taken from the app's theme tokens, which already follow the
- * light or dark theme, so the reference looks like the rest of the console in both.
+ * light or dark theme, so the reference looks like the rest of the console in both. Request and
+ * response examples sit on the designs' dark code surface in both themes, and the methods in the
+ * sidebar are tinted chips.
  */
 const THEME_CSS = `
 .light-mode, .dark-mode, .light-mode .scalar-app, .dark-mode .scalar-app {
@@ -35,6 +37,15 @@ const THEME_CSS = `
   --scalar-color-orange: var(--warning);
   --scalar-color-blue: var(--info);
   --scalar-font: var(--font-sans);
+  --scalar-font-code: var(--font-mono);
+  --scalar-font-size-1: 22px;
+  --scalar-font-size-2: 14px;
+  --scalar-font-size-3: 13px;
+  --scalar-paragraph: 14px;
+  --scalar-small: 13px;
+  --scalar-mini: 12px;
+  --scalar-heading-1: 26px;
+  --scalar-heading-2: 20px;
   --scalar-radius: var(--radius-sm);
   --scalar-radius-lg: var(--radius-md);
   --scalar-radius-xl: var(--radius-lg);
@@ -51,6 +62,33 @@ const THEME_CSS = `
 }
 .scalar-app .references-layout {
   min-height: 100%;
+}
+.scalar-app .markdown {
+  font-size: var(--scalar-paragraph);
+}
+.scalar-app .sidebar-heading-type {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--method-color, currentColor) 12%, transparent);
+}
+.scalar-app .examples,
+.scalar-app .request-card,
+.scalar-app .response-card {
+  --scalar-background-1: var(--code);
+  --scalar-background-2: #111726;
+  --scalar-background-3: #1e293b;
+  --scalar-background-accent: rgb(16 185 129 / 0.12);
+  --scalar-color-1: #f1f5f9;
+  --scalar-color-2: #cbd5e1;
+  --scalar-color-3: #94a3b8;
+  --scalar-color-accent: #34d399;
+  --scalar-border-color: #1e293b;
+  --scalar-color-green: #34d399;
+  --scalar-color-blue: #38bdf8;
+  --scalar-color-orange: #fbbf24;
+  --scalar-color-yellow: #fbbf24;
+  --scalar-color-red: #fb7185;
+  --scalar-color-purple: #a78bfa;
 }
 `
 
@@ -91,7 +129,7 @@ export default function ApiReferenceViewer(props: ApiReferenceViewerProps) {
   )
 
   return (
-    <div className='essera-api-reference -mx-3 -mb-3 sm:-mx-4 sm:-mb-4'>
+    <div className='essera-api-reference bg-card -mx-3 -mb-3 border-t sm:-mx-6 sm:-mb-6 lg:-mx-8'>
       <ApiReferenceReact configuration={configuration} />
     </div>
   )

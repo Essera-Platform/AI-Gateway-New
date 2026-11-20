@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: pinned cells sit on the card surface, like the rest of the row.
 import { cn } from '@/lib/utils'
 
 import type { DataTableColumnClassName, DataTablePinnedColumn } from './types'
@@ -69,7 +70,7 @@ function getPinnedColumnClassName(
     edgeClassName,
     kind === 'header'
       ? '[background-color:var(--table-header-bg,var(--table-header))] group-hover:[background-color:var(--table-header-hover)] z-30'
-      : 'bg-background z-10 group-hover:[background-color:color-mix(in_oklch,var(--muted)_50%,var(--background))] group-data-[state=selected]:bg-muted',
+      : 'bg-card z-10 group-hover:[background-color:color-mix(in_oklch,var(--muted)_50%,var(--card))] group-data-[state=selected]:bg-muted',
     pinnedColumn.className,
     kind === 'header'
       ? pinnedColumn.headerClassName

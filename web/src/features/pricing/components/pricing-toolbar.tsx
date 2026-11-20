@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the toolbar card carries the search, as in the designs.
 import { ArrowUpDown, Check, Filter } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DataTableViewModeToggle } from '@/components/data-table'
@@ -50,6 +51,7 @@ import type { PricingModel, PricingVendor, TokenUnit } from '../types'
 import { PricingSidebar } from './pricing-sidebar'
 
 export interface PricingToolbarProps {
+  search?: ReactNode
   filteredCount: number
   totalCount?: number
   sortBy: string
@@ -87,7 +89,8 @@ export function PricingToolbar(props: PricingToolbarProps) {
   const sortLabels = getSortLabels(t)
 
   return (
-    <div className='bg-card rounded-xl border p-3'>
+    <div className='bg-card shadow-card rounded-xl border p-3'>
+      {props.search && <div className='mb-3'>{props.search}</div>}
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div className='flex items-center gap-2'>
           <Button

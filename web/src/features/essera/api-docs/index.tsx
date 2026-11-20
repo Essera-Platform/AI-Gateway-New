@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import { KeyRound } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout/components/section-page-layout'
 import { LoadingState } from '@/components/loading-state'
+import { buttonVariants } from '@/components/ui/button'
 import { api } from '@/lib/api'
 
 const ApiReferenceViewer = lazy(() => import('./api-reference-viewer'))
@@ -48,6 +51,17 @@ export function ApiDocs() {
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('API Docs')}</SectionPageLayout.Title>
+      <SectionPageLayout.Description>
+        {t(
+          'The OpenAPI 3.1 reference of the Gateway: endpoints, authentication, errors and code samples.'
+        )}
+      </SectionPageLayout.Description>
+      <SectionPageLayout.Actions>
+        <Link to='/keys' className={buttonVariants()}>
+          <KeyRound aria-hidden='true' />
+          {t('View API Keys')}
+        </Link>
+      </SectionPageLayout.Actions>
       <SectionPageLayout.Content>{content}</SectionPageLayout.Content>
     </SectionPageLayout>
   )

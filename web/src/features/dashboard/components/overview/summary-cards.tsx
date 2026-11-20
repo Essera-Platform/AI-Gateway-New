@@ -269,16 +269,17 @@ export function SummaryCards() {
     }
   })
 
+  // Modified by Essera, 2026-11: the designs' card, title and KPI tiles.
   return (
-    <div className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
-      <div className='grid xl:grid-cols-[minmax(0,1fr)_19rem]'>
-        <div className='flex flex-col gap-2.5 p-3 sm:gap-3 sm:p-5'>
+    <div className='bg-card shadow-card overflow-hidden rounded-xl border'>
+      <div className='grid xl:grid-cols-[minmax(0,1fr)_21rem]'>
+        <div className='flex flex-col gap-2.5 p-3 sm:gap-4 sm:p-6'>
           <div className='flex flex-wrap items-start justify-between gap-3'>
             <div className='flex flex-col gap-1'>
-              <h3 className='text-sm font-semibold sm:text-base'>
+              <h3 className='text-sm font-bold tracking-tight sm:text-base'>
                 {t('Usage at a glance')}
               </h3>
-              <p className='text-muted-foreground text-xs sm:text-sm'>
+              <p className='text-muted-foreground text-xs sm:text-[13px]'>
                 {t('Monitor balance, usage, and request volume')}
               </p>
             </div>
@@ -287,7 +288,7 @@ export function SummaryCards() {
             {items.map((it) => (
               <StaggerItem
                 key={it.key}
-                className='bg-background/60 rounded-lg border px-2 py-1.5 sm:rounded-xl sm:p-3'
+                className='bg-background/60 hover:border-primary/30 rounded-lg border px-2 py-1.5 transition-colors sm:rounded-xl sm:p-4'
               >
                 <StatCard
                   title={it.title}

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a badge is the designs' pill: a tinted background and border in its own colour.
 import type { LucideIcon } from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
@@ -105,9 +106,9 @@ export const StatusBadgeTypeContext =
   React.createContext<StatusBadgeType>('badge')
 
 const sizeMap = {
-  sm: 'h-5 gap-1 px-1.5 text-sm leading-none',
-  md: 'h-5 gap-1 px-1.5 text-sm leading-none',
-  lg: 'h-6 gap-1.5 px-2 text-sm leading-none',
+  sm: 'h-5 gap-1 px-2 text-[11px] font-semibold leading-none',
+  md: 'h-5 gap-1 px-2 text-xs font-semibold leading-none',
+  lg: 'h-6 gap-1.5 px-2.5 text-xs font-semibold leading-none',
 } as const
 
 const textSizeMap = {
@@ -184,7 +185,10 @@ export function StatusBadge({
       className={cn(
         'inline-flex w-fit max-w-full min-w-0 shrink items-center font-medium tracking-normal whitespace-nowrap transition-colors',
         isBadge
-          ? cn('rounded-4xl', sizeMap[size ?? 'sm'])
+          ? cn(
+              'rounded-full border border-current/25 bg-current/10',
+              sizeMap[size ?? 'sm']
+            )
           : cn(
               textSizeMap[size ?? 'sm'],
               type === 'underline' && 'border-b border-current pb-px'

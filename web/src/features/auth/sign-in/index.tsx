@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: on a managed gateway people sign in with the Essera form; operators use /sign-in?operator=1.
+// Modified by Essera, 2026-11: on a managed gateway people sign in with the Essera form, which carries its own heading; operators use /sign-in?operator=1.
 import { Link, useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
@@ -33,31 +33,34 @@ export function SignIn() {
   const { redirect, operator } = useSearch({ from: '/(auth)/sign-in' })
   const { status } = useStatus()
   const { managed } = useEsseraManaged()
+  const esseraForm = managed && !operator
 
   return (
     <AuthLayout>
       <div className='w-full space-y-8'>
-        <div className='space-y-2'>
-          <h2 className='text-center text-2xl font-semibold tracking-tight sm:text-left'>
-            {t('Sign in')}
-          </h2>
-          {!managed &&
-            !status?.self_use_mode_enabled &&
-            status?.register_enabled !== false && (
-              <p className='text-muted-foreground text-left text-sm sm:text-base'>
-                {t("Don't have an account?")}{' '}
-                <Link
-                  to='/sign-up'
-                  className='hover:text-primary font-medium underline underline-offset-4'
-                >
-                  {t('Sign up')}
-                </Link>
-                .
-              </p>
-            )}
-        </div>
+        {!esseraForm && (
+          <div className='space-y-2'>
+            <h2 className='text-center text-2xl font-semibold tracking-tight sm:text-left'>
+              {t('Sign in')}
+            </h2>
+            {!managed &&
+              !status?.self_use_mode_enabled &&
+              status?.register_enabled !== false && (
+                <p className='text-muted-foreground text-left text-sm sm:text-base'>
+                  {t("Don't have an account?")}{' '}
+                  <Link
+                    to='/sign-up'
+                    className='hover:text-primary font-medium underline underline-offset-4'
+                  >
+                    {t('Sign up')}
+                  </Link>
+                  .
+                </p>
+              )}
+          </div>
+        )}
 
-        {managed && !operator ? (
+        {esseraForm ? (
           <EsseraSignInForm redirectTo={redirect} />
         ) : (
           <UserAuthForm redirectTo={redirect} />

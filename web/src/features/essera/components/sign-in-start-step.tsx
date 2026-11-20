@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Mail } from 'lucide-react'
 import { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -16,7 +17,7 @@ import { Input } from '@/components/ui/input'
 
 import { getStartSchema, type StartValues } from '../lib/sign-in-schema'
 import type { EsseraSignInMode } from '../use-essera-managed'
-import { SignInSubmitButton } from './sign-in-submit-button'
+import { FIELD_LABEL, SignInSubmitButton } from './sign-in-submit-button'
 
 export function SignInStartStep(props: {
   mode: EsseraSignInMode
@@ -44,15 +45,23 @@ export function SignInStartStep(props: {
           name='email'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t('Email')}</FormLabel>
-              <FormControl>
-                <Input
-                  type='email'
-                  autoComplete='username'
-                  placeholder={t('Enter your email')}
-                  {...field}
+              <FormLabel className={FIELD_LABEL}>{t('Email')}</FormLabel>
+              <div className='relative'>
+                <Mail
+                  aria-hidden='true'
+                  className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2'
                 />
-              </FormControl>
+                <FormControl>
+                  <Input
+                    type='email'
+                    autoComplete='username'
+                    autoFocus
+                    placeholder='name@company.com'
+                    className='h-11 pl-9'
+                    {...field}
+                  />
+                </FormControl>
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -63,7 +72,7 @@ export function SignInStartStep(props: {
             name='password'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('Password')}</FormLabel>
+                <FormLabel className={FIELD_LABEL}>{t('Password')}</FormLabel>
                 <FormControl>
                   <PasswordInput
                     autoComplete='current-password'

@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 // Modified by Essera, 2026-11: no Search button on a managed gateway; it is a stub, and Bedrock has no web search.
 // Modified by Essera, 2026-11: the Attach menu attaches files, photos and screenshots.
+// Modified by Essera, 2026-11: the tools sit in the composer footer without their own frame, as in the design.
 import { GlobeIcon, Trash2Icon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -82,7 +83,7 @@ export function PlaygroundInputTools({
 
   return (
     <>
-      <PromptInputTools className='bg-background/70 border-border/60 rounded-lg border p-1 shadow-xs'>
+      <PromptInputTools className='gap-0.5'>
         <AttachMenu disabled={disabled} />
 
         {!managed && (

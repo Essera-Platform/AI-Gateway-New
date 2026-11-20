@@ -14,15 +14,15 @@ export function EsseraSummaryPanel(props: { stats: EsseraAccountStat[] }) {
   const requests = byKey.get('requests')
 
   return (
-    <div className='flex flex-col justify-between gap-3 border-t bg-[linear-gradient(135deg,color-mix(in_oklch,var(--overview-accent-2)_12%,var(--background))_0%,color-mix(in_oklch,oklch(0.82_0.04_155)_8%,var(--background))_48%,color-mix(in_oklch,var(--overview-accent-1)_7%,var(--background))_100%)] p-3 sm:gap-4 sm:p-5 xl:border-t-0 xl:border-l'>
+    <div className='bg-card flex flex-col justify-between gap-3 border-t p-3 sm:gap-4 sm:p-6 xl:my-6 xl:border-t-0 xl:border-l xl:py-0'>
       <div className='flex flex-col gap-2 sm:gap-3'>
-        <span className='text-muted-foreground text-xs font-medium'>
+        <span className='text-muted-foreground text-[13px] font-medium'>
           {limit?.label}
         </span>
         <div className='text-xl font-extrabold sm:text-3xl'>
           {limit?.value && <NumberValue value={limit.value} />}
         </div>
-        <span className='text-muted-foreground text-[11px]'>
+        <span className='text-muted-foreground text-xs'>
           {limit?.description}
         </span>
         <div className='grid grid-cols-2 gap-2'>
@@ -33,7 +33,7 @@ export function EsseraSummaryPanel(props: { stats: EsseraAccountStat[] }) {
             cell.stat ? (
               <div
                 key={cell.stat.key}
-                className='bg-background/60 rounded-lg px-2.5 py-2'
+                className='bg-muted/50 rounded-lg border px-3 py-2.5'
               >
                 <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
                   <cell.icon className='size-3 shrink-0' aria-hidden='true' />

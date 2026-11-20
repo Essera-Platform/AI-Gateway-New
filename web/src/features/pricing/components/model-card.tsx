@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway's models use the Essera card design.
 import { ChevronRight } from 'lucide-react'
 import { memo, useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -24,6 +25,7 @@ import { CopyButton } from '@/components/copy-button'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { EsseraModelPrices } from '@/features/essera/model-square'
+import { EsseraModelCard } from '@/features/essera/model-square-card'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 import { useSystemConfigStore } from '@/stores/system-config-store'
@@ -274,6 +276,17 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     )
   }
 
+  if (essera) {
+    return (
+      <EsseraModelCard
+        model={props.model}
+        info={essera}
+        perf={props.perf}
+        onClick={props.onClick}
+      />
+    )
+  }
+
   return (
     <Card className='hover:ring-foreground/20 h-full min-w-0 gap-3 transition-colors'>
       <CardHeader className='flex flex-row items-start gap-3'>
@@ -407,19 +420,16 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       <CardFooter className='mt-auto border-0 bg-transparent pt-0'>
         <ModelPerfBadge
           perf={props.perf}
-          quietWhenEmpty={Boolean(essera)}
           className='border-border/60 border-t pt-2'
         >
-          {(!essera || essera.signedIn) && (
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={() => props.onClick(props.model.model_name || '')}
-            >
-              {t('Details')}
-              <ChevronRight aria-hidden className='size-3.5' />
-            </Button>
-          )}
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={() => props.onClick(props.model.model_name || '')}
+          >
+            {t('Details')}
+            <ChevronRight aria-hidden className='size-3.5' />
+          </Button>
         </ModelPerfBadge>
       </CardFooter>
     </Card>

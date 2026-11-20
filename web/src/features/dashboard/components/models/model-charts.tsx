@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the designs' chart theme (mono axis labels and legend, dashed grid) and card.
 import { VChart } from '@visactor/react-vchart'
 import { PieChart as PieChartIcon } from 'lucide-react'
 import { useEffect, useMemo, useState, useRef } from 'react'
@@ -35,6 +36,7 @@ import type {
 } from '@/features/dashboard/types'
 import { useThemeRadiusPx } from '@/lib/theme-radius'
 import type { TimeGranularity } from '@/lib/time'
+import { esseraChartTheme } from '@/features/essera/brand/chart-theme'
 import { VCHART_OPTION } from '@/lib/vchart'
 
 let themeManagerPromise: Promise<
@@ -119,21 +121,21 @@ export function ModelCharts(props: ModelChartsProps) {
   ].join('-')
 
   return (
-    <div className='overflow-hidden rounded-lg border'>
-      <div className='flex w-full flex-col gap-1.5 border-b px-3 py-2 sm:gap-3 sm:px-5 sm:py-3 lg:flex-row lg:items-center lg:justify-between'>
+    <div className='bg-card shadow-card overflow-hidden rounded-xl border'>
+      <div className='flex w-full flex-col gap-1.5 px-3 py-2 sm:gap-3 sm:px-5 sm:pt-4 sm:pb-2 lg:flex-row lg:items-center lg:justify-between'>
         <div className='flex items-center gap-2'>
           <IconBadge tone='chart-4' size='sm'>
             <PieChartIcon />
           </IconBadge>
-          <div className='text-sm font-semibold'>
+          <div className='text-base font-bold tracking-tight'>
             {t('Model Call Analytics')}
           </div>
-          <span className='text-muted-foreground text-xs'>
+          <span className='text-muted-foreground num text-xs'>
             {t('Total:')} {chartData.totalCountDisplay}
           </span>
         </div>
 
-        <div className='bg-muted/60 inline-flex h-7 w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8 sm:w-auto'>
+        <div className='bg-muted/70 inline-flex h-8 w-full overflow-x-auto rounded-lg border p-0.5 sm:h-9 sm:w-auto'>
           {MODEL_ANALYTICS_CHART_OPTIONS.map((tab) => (
             <button
               key={tab.value}
@@ -141,8 +143,8 @@ export function ModelCharts(props: ModelChartsProps) {
               onClick={() => setActiveTab(tab.value)}
               className={`shrink-0 rounded-md px-3 text-xs font-medium transition-colors ${
                 activeTab === tab.value
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-card text-primary border-primary/40 border font-semibold shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground border border-transparent'
               }`}
             >
               {t(tab.labelKey)}
@@ -151,13 +153,15 @@ export function ModelCharts(props: ModelChartsProps) {
         </div>
       </div>
 
-      <div className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
+      <div className='h-[300px] p-1.5 sm:h-96 sm:px-4 sm:pb-3'>
         {themeReady && spec && (
           <VChart
             key={chartKey}
             spec={{
               ...spec,
-              theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+              theme: esseraChartTheme(
+                resolvedTheme === 'dark' ? 'dark' : 'light'
+              ),
               background: 'transparent',
             }}
             option={VCHART_OPTION}

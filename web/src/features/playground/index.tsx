@@ -16,6 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the design's page header and the chat framed in a card.
+import { useTranslation } from 'react-i18next'
+
 import { PlaygroundChat } from './components/chat/playground-chat'
 import { PlaygroundInput } from './components/input/playground-input'
 import {
@@ -26,6 +29,7 @@ import {
 } from './hooks'
 
 export function Playground() {
+  const { t } = useTranslation()
   const {
     config,
     parameterEnabled,
@@ -75,45 +79,61 @@ export function Playground() {
   })
 
   return (
-    <div className='relative flex size-full min-h-0 flex-col overflow-hidden'>
-      {/* Full-width scroll container: scrolling works even over side whitespace */}
-      <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
-        <PlaygroundChat
-          messages={messages}
-          isLoadingMessages={isLoadingMessages}
-          onRegenerateMessage={handleRegenerateMessage}
-          onEditMessage={handleEditMessage}
-          onDeleteMessage={handleDeleteMessage}
-          onSelectPrompt={handleSendMessage}
-          isGenerating={isGenerating}
-          editingKey={editingMessageKey}
-          onCancelEdit={handleEditOpenChange}
-          onSaveEdit={(newContent) => applyEdit(newContent, false)}
-          onSaveEditAndSubmit={(newContent) => applyEdit(newContent, true)}
-        />
+    <div className='flex size-full min-h-0 flex-col gap-4 px-3 pt-3 pb-3 sm:px-6 sm:pt-6 sm:pb-6 lg:px-8'>
+      <div className='flex shrink-0 flex-col gap-1'>
+        <h2 className='flex items-center gap-2.5 text-lg font-bold tracking-tight sm:text-2xl'>
+          <span
+            aria-hidden='true'
+            className='bg-primary size-2 shrink-0 rounded-full shadow-[0_0_0_4px_color-mix(in_oklch,var(--primary)_18%,transparent)]'
+          />
+          {t('Model Playground')}
+        </h2>
+        <p className='text-muted-foreground text-[13px] sm:text-sm'>
+          {t(
+            'Send test requests to the models your account can call. They count toward your usage and limits.'
+          )}
+        </p>
       </div>
+      <div className='bg-card shadow-card relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border'>
+        {/* Full-width scroll container: scrolling works even over side whitespace */}
+        <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+          <PlaygroundChat
+            messages={messages}
+            isLoadingMessages={isLoadingMessages}
+            onRegenerateMessage={handleRegenerateMessage}
+            onEditMessage={handleEditMessage}
+            onDeleteMessage={handleDeleteMessage}
+            onSelectPrompt={handleSendMessage}
+            isGenerating={isGenerating}
+            editingKey={editingMessageKey}
+            onCancelEdit={handleEditOpenChange}
+            onSaveEdit={(newContent) => applyEdit(newContent, false)}
+            onSaveEditAndSubmit={(newContent) => applyEdit(newContent, true)}
+          />
+        </div>
 
-      {/* Input area: center content and constrain to the same container width */}
-      <div className='mx-auto w-full max-w-4xl'>
-        <PlaygroundInput
-          config={config}
-          disabled={isGenerating}
-          groups={groups}
-          groupValue={config.group}
-          isGenerating={isGenerating}
-          isModelLoading={isLoadingModels}
-          modelValue={config.model}
-          models={models}
-          onGroupChange={(value) => updateConfig('group', value)}
-          onConfigChange={updateConfig}
-          onClearMessages={handleClearMessages}
-          onModelChange={(value) => updateConfig('model', value)}
-          onParameterEnabledChange={updateParameterEnabled}
-          onStop={stopGeneration}
-          onSubmit={handleSendMessage}
-          parameterEnabled={parameterEnabled}
-          hasMessages={messages.length > 0}
-        />
+        {/* Input area: center content and constrain to the same container width */}
+        <div className='mx-auto w-full max-w-4xl px-3 pb-3 sm:px-5 sm:pb-4'>
+          <PlaygroundInput
+            config={config}
+            disabled={isGenerating}
+            groups={groups}
+            groupValue={config.group}
+            isGenerating={isGenerating}
+            isModelLoading={isLoadingModels}
+            modelValue={config.model}
+            models={models}
+            onGroupChange={(value) => updateConfig('group', value)}
+            onConfigChange={updateConfig}
+            onClearMessages={handleClearMessages}
+            onModelChange={(value) => updateConfig('model', value)}
+            onParameterEnabledChange={updateParameterEnabled}
+            onStop={stopGeneration}
+            onSubmit={handleSendMessage}
+            parameterEnabled={parameterEnabled}
+            hasMessages={messages.length > 0}
+          />
+        </div>
       </div>
     </div>
   )

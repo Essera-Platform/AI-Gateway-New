@@ -17,7 +17,7 @@ import {
   getNewPasswordSchema,
   type NewPasswordValues,
 } from '../lib/sign-in-schema'
-import { SignInSubmitButton } from './sign-in-submit-button'
+import { FIELD_LABEL, SignInSubmitButton } from './sign-in-submit-button'
 
 export function SignInNewPasswordStep(props: {
   isLoading: boolean
@@ -33,15 +33,12 @@ export function SignInNewPasswordStep(props: {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(props.onSubmit)} className='grid gap-4'>
-        <p className='text-muted-foreground text-sm'>
-          {t('Choose a new password for your account.')}
-        </p>
         <FormField
           control={form.control}
           name='newPassword'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t('New password')}</FormLabel>
+              <FormLabel className={FIELD_LABEL}>{t('New password')}</FormLabel>
               <FormControl>
                 <PasswordInput
                   autoComplete='new-password'
@@ -58,7 +55,9 @@ export function SignInNewPasswordStep(props: {
           name='confirmPassword'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t('Confirm new password')}</FormLabel>
+              <FormLabel className={FIELD_LABEL}>
+                {t('Confirm new password')}
+              </FormLabel>
               <FormControl>
                 <PasswordInput autoComplete='new-password' {...field} />
               </FormControl>

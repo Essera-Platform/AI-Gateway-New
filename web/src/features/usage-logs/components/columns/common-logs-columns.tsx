@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the designs' log rows: the time on two mono lines, a wrapping model badge and mono tokens, so the table fits 1366px.
 import type { ColumnDef } from '@tanstack/react-table'
 import { GitBranch, Sparkles, KeyRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -367,16 +368,22 @@ export function useCommonLogsColumns(
           const config = getLogTypeConfig(log.type)
 
           return (
-            <div className='flex min-w-0 flex-col gap-0.5'>
-              <span className='truncate font-mono text-xs tabular-nums'>
-                {formatTimestampToDate(timestamp)}
+            <div className='flex min-w-0 flex-col items-start gap-1'>
+              <span className='text-foreground font-mono leading-tight whitespace-normal tabular-nums'>
+                {formatTimestampToDate(timestamp)
+                  .split(' ')
+                  .map((part) => (
+                    <span key={part} className='block whitespace-nowrap'>
+                      {part}
+                    </span>
+                  ))}
               </span>
               <StatusBadge
                 label={t(config.label)}
                 variant={config.color as StatusBadgeProps['variant']}
                 size='sm'
                 copyable={false}
-                className='-ml-1.5 !text-xs [&_span]:!text-xs'
+                className='text-[11px]! [&_span]:text-[11px]!'
               />
             </div>
           )
@@ -387,7 +394,7 @@ export function useCommonLogsColumns(
           return value.includes(String(row.original.type))
         },
         enableHiding: false,
-        size: 180,
+        size: 105,
       },
     ]
 
@@ -633,7 +640,7 @@ export function useCommonLogsColumns(
         const groupRatio = getGroupRatio(other)
 
         return (
-          <div className='flex max-w-[200px] flex-col gap-0.5'>
+          <div className='flex max-w-[150px] flex-col gap-0.5'>
             <TooltipProvider delay={300}>
               <Tooltip>
                 <TooltipTrigger render={<div className='max-w-full' />}>
@@ -643,7 +650,7 @@ export function useCommonLogsColumns(
                     copyText={sensitiveVisible ? log.token_name : undefined}
                     size='sm'
                     showDot={false}
-                    className='border-border/60 bg-muted/30 text-foreground h-6 max-w-full gap-1.5 overflow-hidden rounded-md border px-2 py-0.5 [font-family:var(--font-body)]'
+                    className='border-border/60 bg-muted/30 text-foreground h-6 max-w-full gap-1.5 overflow-hidden rounded-md border px-2 py-0.5 text-xs! font-mono'
                   />
                 </TooltipTrigger>
                 {sensitiveVisible && tokenName.length > 16 && (
@@ -675,7 +682,7 @@ export function useCommonLogsColumns(
           </div>
         )
       },
-      size: 160,
+      size: 140,
     })
     columns.push(
       {
@@ -689,8 +696,9 @@ export function useCommonLogsColumns(
           const requestPlugins = parseLogOther(log.other)?.request_plugins
 
           return (
-            <div className='flex w-fit flex-col gap-0.5'>
+            <div className='flex w-fit max-w-[260px] min-w-[200px] flex-col gap-0.5'>
               <ModelBadge
+                wrapText
                 modelName={modelInfo.name}
                 actualModel={modelInfo.actualModel}
                 responseModel={modelInfo.responseModel}
@@ -702,6 +710,7 @@ export function useCommonLogsColumns(
           )
         },
         meta: { mobileTitle: true },
+        size: 220,
       },
       {
         accessorKey: 'is_stream',
@@ -728,6 +737,7 @@ export function useCommonLogsColumns(
           )
         },
         meta: { label: t('Stream') },
+        size: 95,
       },
       {
         accessorKey: 'prompt_tokens',
@@ -754,7 +764,7 @@ export function useCommonLogsColumns(
 
           return (
             <div className='flex flex-col gap-0.5'>
-              <span className='font-mono text-xs font-medium tabular-nums'>
+              <span className='font-mono font-medium whitespace-nowrap tabular-nums'>
                 {promptTokens.toLocaleString()} /{' '}
                 {completionTokens.toLocaleString()}
               </span>
@@ -775,6 +785,7 @@ export function useCommonLogsColumns(
             </div>
           )
         },
+        size: 110,
       },
       {
         accessorKey: 'quota',
@@ -793,6 +804,7 @@ export function useCommonLogsColumns(
             />
           )
         },
+        size: 115,
       },
 
       {
@@ -814,6 +826,7 @@ export function useCommonLogsColumns(
             />
           )
         },
+        size: 120,
       },
 
       {
@@ -883,7 +896,7 @@ export function useCommonLogsColumns(
             <>
               <button
                 type='button'
-                className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
+                className='group flex max-w-[160px] items-center gap-1 text-left text-xs'
                 onClick={() => setDialogOpen(true)}
                 title={t('Click to view full details')}
               >
@@ -899,7 +912,7 @@ export function useCommonLogsColumns(
             </>
           )
         },
-        size: 180,
+        size: 120,
         maxSize: 200,
       }
     )

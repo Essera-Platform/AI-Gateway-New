@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the cost is set in mono, as in the designs.
 import {
   CrownIcon,
   Wallet01Icon,
@@ -109,7 +110,7 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
           variant='neutral'
           size='lg'
           copyable={false}
-          className='border-border/80 bg-muted/60 text-foreground rounded-md border font-semibold tabular-nums'
+          className='border-border/80 bg-muted/60 text-foreground rounded-md border font-semibold tabular-nums font-mono'
         >
           {source ? (
             <Tooltip>
