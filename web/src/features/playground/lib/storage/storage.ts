@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: saved messages keep no attachment data.
+import { withoutAttachmentData } from '@/features/essera/playground/attachments'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { MESSAGE_STATUS, STORAGE_KEYS } from '../../constants'
@@ -391,7 +393,7 @@ export function loadMessages(): Message[] | null {
  */
 export function saveMessages(messages: Message[]): void {
   try {
-    const trimmed = trimMessages(messages)
+    const trimmed = trimMessages(messages).map(withoutAttachmentData)
     const parsed = messagesSchema.parse(trimmed) as Message[]
     writeStoredValue(STORAGE_KEYS.MESSAGES, parsed)
   } catch (error) {

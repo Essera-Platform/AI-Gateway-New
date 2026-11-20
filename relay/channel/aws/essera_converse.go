@@ -184,6 +184,61 @@ var converseAudioFormats = map[string]bool{
 
 var converseDocumentNameUnsafe = regexp.MustCompile(`[^A-Za-z0-9 \-()\[\]]+`)
 
+// Bedrock's limits on the images and documents of one request.
+const (
+	bedrockMaxImages        = 20
+	bedrockMaxImageBytes    = 3_932_160 // 3.75 MB
+	bedrockMaxDocuments     = 5
+	bedrockMaxDocumentBytes = 4_718_592 // 4.5 MB
+)
+
+// checkBedrockMediaLimits refuses a request with more images or documents
+// than Bedrock takes, or an inline one larger than Bedrock takes, so that it
+// is not sent at all. Linked media are counted; their size is Bedrock's to
+// check.
+func checkBedrockMediaLimits(messages []dto.Message) error {
+	images, documents := 0, 0
+	for i := range messages {
+		for _, part := range messages[i].ParseContent() {
+			switch part.Type {
+			case dto.ContentTypeImageURL:
+				images++
+				if images > bedrockMaxImages {
+					return newBadRequest("Bedrock accepts at most %d images in a request", bedrockMaxImages)
+				}
+				if image := part.GetImageMedia(); image != nil && inlineMediaBytes(image.Url) > bedrockMaxImageBytes {
+					return newBadRequest("image %d is %s; Bedrock accepts images of up to 3.75 MB", images, formatMegabytes(inlineMediaBytes(image.Url)))
+				}
+			case dto.ContentTypeFile:
+				documents++
+				if documents > bedrockMaxDocuments {
+					return newBadRequest("Bedrock accepts at most %d documents in a request", bedrockMaxDocuments)
+				}
+				if file := part.GetFile(); file != nil && inlineMediaBytes(file.FileData) > bedrockMaxDocumentBytes {
+					return newBadRequest("document %d is %s; Bedrock accepts documents of up to 4.5 MB", documents, formatMegabytes(inlineMediaBytes(file.FileData)))
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// inlineMediaBytes is the decoded size of base64 media, bare or in a data
+// URL, and 0 for a link.
+func inlineMediaBytes(data string) int {
+	if strings.HasPrefix(data, "http://") || strings.HasPrefix(data, "https://") || strings.HasPrefix(data, "s3://") {
+		return 0
+	}
+	if _, encoded, found := strings.Cut(data, ";base64,"); found {
+		data = encoded
+	}
+	return len(strings.TrimRight(data, "=")) * 3 / 4
+}
+
+func formatMegabytes(size int) string {
+	return fmt.Sprintf("%.1f MB", float64(size)/(1<<20))
+}
+
 // convertOpenAIToConverse maps an OpenAI chat request to a Converse body.
 func convertOpenAIToConverse(c *gin.Context, modelID string, request *dto.GeneralOpenAIRequest) (*converseRequest, error) {
 	if request.N != nil && *request.N > 1 {

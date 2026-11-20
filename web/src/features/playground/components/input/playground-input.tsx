@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: files can be attached to a message.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -25,6 +26,12 @@ import {
   PromptInputTextarea,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
+import { PendingAttachments } from '@/features/essera/playground/attachment-chips'
+import {
+  toMessageAttachments,
+  type MessageAttachment,
+} from '@/features/essera/playground/attachments'
+import { useAttachmentFilter } from '@/features/essera/playground/use-attachment-filter'
 
 import { getSubmittableInputText } from '../../lib'
 import type {
@@ -38,7 +45,7 @@ import { PlaygroundInputTools } from './playground-input-tools'
 
 interface PlaygroundInputProps {
   config: PlaygroundConfig
-  onSubmit: (text: string) => void
+  onSubmit: (text: string, attachments: MessageAttachment[]) => void
   onStop?: () => void
   disabled?: boolean
   isGenerating?: boolean
@@ -83,12 +90,14 @@ export function PlaygroundInput({
 }: PlaygroundInputProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
+  const filterAttachments = useAttachmentFilter()
 
   const handleSubmit = (message: PromptInputMessage) => {
     const submittableText = getSubmittableInputText(message, disabled)
 
-    if (!submittableText) return
-    onSubmit(submittableText)
+    // PromptInput keeps the attachments when onSubmit throws.
+    if (!submittableText) throw new Error('Nothing to submit')
+    onSubmit(submittableText, toMessageAttachments(message.files))
     setText('')
   }
 
@@ -96,9 +105,11 @@ export function PlaygroundInput({
     <div className='grid shrink-0 gap-4 px-1 md:pb-4'>
       <PromptInput
         className='relative'
+        filterFiles={filterAttachments}
         groupClassName='bg-background/95 dark:bg-background/80 border-border/70 shadow-[0_18px_60px_-32px_rgba(0,0,0,0.65)] ring-1 ring-foreground/5 rounded-xl overflow-hidden transition-all duration-200 focus-within:border-primary/45 focus-within:ring-primary/15 focus-within:shadow-[0_22px_70px_-34px_rgba(0,0,0,0.75)]'
         onSubmit={handleSubmit}
       >
+        <PendingAttachments />
         <PromptInputTextarea
           autoComplete='off'
           autoCorrect='off'

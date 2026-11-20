@@ -7826,6 +7826,16 @@
     "Account created": "帳戶已建立",
     "Account details changed": "帳戶資料已變更",
     "Account limits changed": "帳戶限額已變更",
-    "Account status changed": "帳戶狀態已變更"
+    "Account status changed": "帳戶狀態已變更",
+    "{{name}} is not a supported file type": "{{name}} 不是支援的檔案類型",
+    "{{name}} is larger than {{size}} MB": "{{name}} 超過 {{size}} MB",
+    "A message can carry up to {{limit}} files": "一則訊息最多可附帶 {{limit}} 個檔案",
+    "A message can carry up to {{limit}} documents": "一則訊息最多可附帶 {{limit}} 份文件",
+    "Could not take a screenshot": "無法擷取螢幕",
+    "Could not open the camera": "無法開啟相機",
+    "Could not take a photo": "無法拍照",
+    "Capture": "拍攝",
+    "Camera preview": "相機預覽",
+    "Not kept after reload": "重新整理後不再保留"
   }
 }

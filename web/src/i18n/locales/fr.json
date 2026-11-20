@@ -7826,6 +7826,16 @@
     "Account created": "Compte créé",
     "Account details changed": "Informations du compte modifiées",
     "Account limits changed": "Limites du compte modifiées",
-    "Account status changed": "Statut du compte modifié"
+    "Account status changed": "Statut du compte modifié",
+    "{{name}} is not a supported file type": "{{name}} n'est pas un type de fichier pris en charge",
+    "{{name}} is larger than {{size}} MB": "{{name}} dépasse {{size}} Mo",
+    "A message can carry up to {{limit}} files": "Un message peut contenir jusqu'à {{limit}} fichiers",
+    "A message can carry up to {{limit}} documents": "Un message peut contenir jusqu'à {{limit}} documents",
+    "Could not take a screenshot": "Impossible de prendre une capture d'écran",
+    "Could not open the camera": "Impossible d'ouvrir la caméra",
+    "Could not take a photo": "Impossible de prendre une photo",
+    "Capture": "Capturer",
+    "Camera preview": "Aperçu de la caméra",
+    "Not kept after reload": "Non conservé après rechargement"
   }
 }

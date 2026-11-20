@@ -16,7 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a sent message keeps its attachments.
 import { useCallback, useState } from 'react'
+
+import type { MessageAttachment } from '@/features/essera/playground/attachments'
 
 import {
   appendUserMessagePair,
@@ -44,8 +47,8 @@ export function usePlaygroundConversation({
   )
 
   const handleSendMessage = useCallback(
-    (text: string) => {
-      const nextMessages = appendUserMessagePair(messages, text)
+    (text: string, attachments?: MessageAttachment[]) => {
+      const nextMessages = appendUserMessagePair(messages, text, attachments)
       updateMessages(nextMessages)
       sendChat(nextMessages)
     },

@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 /* eslint-disable react-refresh/only-export-components */
+// Modified by Essera, 2026-11: filterFiles lets the caller vet the files a user adds.
 'use client'
 
 import type { ChatStatus, FileUIPart } from 'ai'
@@ -438,6 +439,11 @@ export type PromptInputProps = Omit<
   // Minimal constraints
   maxFiles?: number
   maxFileSize?: number // bytes
+  // Returns the files to add out of those the user picked, dropped or pasted.
+  filterFiles?: (
+    incoming: File[],
+    current: (FileUIPart & { id: string })[]
+  ) => File[]
   onError?: (err: {
     code: 'max_files' | 'max_file_size' | 'accept'
     message: string
@@ -462,6 +468,7 @@ export const PromptInput = ({
   syncHiddenInput,
   maxFiles,
   maxFileSize,
+  filterFiles,
   onError,
   onSubmit,
   children,
@@ -509,7 +516,9 @@ export const PromptInput = ({
 
   const addLocal = useCallback(
     (fileList: File[] | FileList) => {
-      const incoming = Array.from(fileList)
+      const picked = [...fileList]
+      const incoming = filterFiles ? filterFiles(picked, items) : picked
+      if (incoming.length === 0) return
       const accepted = incoming.filter((f) => matchesAccept(f))
       if (incoming.length && accepted.length === 0) {
         onError?.({
@@ -555,7 +564,7 @@ export const PromptInput = ({
         return prev.concat(next)
       })
     },
-    [matchesAccept, maxFiles, maxFileSize, onError, t]
+    [filterFiles, items, matchesAccept, maxFiles, maxFileSize, onError, t]
   )
 
   const add = useMemo(

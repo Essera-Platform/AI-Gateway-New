@@ -7826,6 +7826,16 @@
     "Account created": "Đã tạo tài khoản",
     "Account details changed": "Đã thay đổi thông tin tài khoản",
     "Account limits changed": "Đã thay đổi hạn mức tài khoản",
-    "Account status changed": "Đã thay đổi trạng thái tài khoản"
+    "Account status changed": "Đã thay đổi trạng thái tài khoản",
+    "{{name}} is not a supported file type": "{{name}} không phải là loại tệp được hỗ trợ",
+    "{{name}} is larger than {{size}} MB": "{{name}} lớn hơn {{size}} MB",
+    "A message can carry up to {{limit}} files": "Một tin nhắn có thể đính kèm tối đa {{limit}} tệp",
+    "A message can carry up to {{limit}} documents": "Một tin nhắn có thể đính kèm tối đa {{limit}} tài liệu",
+    "Could not take a screenshot": "Không thể chụp màn hình",
+    "Could not open the camera": "Không thể mở camera",
+    "Could not take a photo": "Không thể chụp ảnh",
+    "Capture": "Chụp",
+    "Camera preview": "Xem trước camera",
+    "Not kept after reload": "Không được giữ lại sau khi tải lại"
   }
 }

@@ -152,3 +152,24 @@ They hold working state; every business record stays in the Console.
 - **Errors:** Bedrock exceptions map to 429, 400, 403, 404, 503, 504 or 401. Rerank is refused, because it is not offered in eu-west-1. The Gemini request format is not converted for Bedrock.
 - **Files:** `relay/channel/aws/adaptor.go`, `relay-aws.go`, `dto.go` and `mantle.go` were changed. `essera_runtime.go`, `essera_converse.go`, `essera_embedding.go` and `essera_bedrock_test.go` are new.
 - **Inference profiles:** in eu-west-1 many models are served only through the `eu.` inference profile; Bedrock refuses their plain id with a ValidationException saying on-demand throughput isn't supported. The Gateway then calls the same request once more through the region's geographic profile (`eu.`, `us.` or `apac.`, never `global.`, so the data stays in the geography) and remembers this per channel, region and model, so later calls go straight to the profile. An id that already names a profile (`eu.`, `us.`, `apac.`, `global.`, an ARN) is never changed, any other error is not retried, and a request is never repeated once the client got any bytes. Nova 2 Lite, Claude Opus 5, Claude Sonnet 5 and Pixtral Large are added to upstream's cross-region table for `eu`, so their first call needs no retry. Usage and logs keep the catalog model; the profile is only how Bedrock is called. This covers Converse, ConverseStream, embeddings and Claude on InvokeModel, and the Console's connection test, which runs through the same adaptor. Files: `essera_runtime.go`, `adaptor.go`, `relay-aws.go` and `constants.go`.
+- **Image and document limits:** a chat completions or Responses request with more than 20 images or 5 documents, an inline image over 3.75 MB or an inline document over 4.5 MB is refused with 400 `invalid_request_error` naming the limit, before Bedrock is called, on Converse and on Claude's InvokeModel alike. Linked media are counted; their size is left to Bedrock. Files: `essera_converse.go`, `adaptor.go`.
+
+## 2026-11 — Playground attachments
+
+The playground's Attach menu attaches files to a message instead of saying the feature is in development.
+
+- **Upload photo**, paste or drop an image: PNG, JPEG, GIF or WebP of up to 3.75 MB, sent as an `image_url` part with a data URL.
+- **Upload file:** text and code files (txt, md, csv, json, yaml, html, source code; up to 1 MB) are inlined as a text part headed `File: <name>`; PDF, Word and Excel files (up to 4.5 MB) are sent as an OpenAI `file` part with `file_data`, which the Bedrock adaptor maps to a Converse `document` block (Claude on InvokeModel takes PDF). A message carries up to 10 files and 5 documents; a file over a limit or of another type is left out with a message naming it.
+- **Take screenshot** (`getDisplayMedia`) and **Take photo** (`getUserMedia`, with a preview to capture from) are offered only where the browser has them.
+- Attachments show as chips that can be removed before sending, and on the sent message. The browser keeps a saved conversation's attachment names but not their data, so after a reload they are no longer sent.
+- Whether a model takes images or documents is not known to the web UI; the Gateway's error is shown when it does not.
+- **New files:** `web/src/features/essera/playground/*`.
+
+| File | Change |
+| --- | --- |
+| `web/src/components/ai-elements/prompt-input.tsx` | `filterFiles` lets the caller vet the files a user adds |
+| `web/src/features/playground/components/input/playground-input.tsx`, `playground-input-tools.tsx`, `lib/input/input-tool-utils.ts` | The Attach menu, the pending attachments and their limits; the stubs are gone |
+| `web/src/features/playground/types.ts`, `lib/message/message-utils.ts`, `lib/message/conversation-message-utils.ts`, `hooks/use-playground-conversation.ts` | A user message carries its attachments into the chat request |
+| `web/src/features/playground/components/message/playground-message-content.tsx` | A message shows the files it carried |
+| `web/src/features/playground/lib/storage/storage.ts`, `storage-schema.ts`, `__tests__/storage.test.ts` | Saved messages keep attachment names, not data |
+| `web/src/i18n/locales/*.json` | The attachment messages |

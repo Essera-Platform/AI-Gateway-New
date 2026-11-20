@@ -7826,6 +7826,16 @@
     "Account created": "账户已创建",
     "Account details changed": "账户信息已更改",
     "Account limits changed": "账户限额已更改",
-    "Account status changed": "账户状态已更改"
+    "Account status changed": "账户状态已更改",
+    "{{name}} is not a supported file type": "{{name}} 不是支持的文件类型",
+    "{{name}} is larger than {{size}} MB": "{{name}} 超过 {{size}} MB",
+    "A message can carry up to {{limit}} files": "一条消息最多可附带 {{limit}} 个文件",
+    "A message can carry up to {{limit}} documents": "一条消息最多可附带 {{limit}} 个文档",
+    "Could not take a screenshot": "无法截取屏幕",
+    "Could not open the camera": "无法打开摄像头",
+    "Could not take a photo": "无法拍照",
+    "Capture": "拍摄",
+    "Camera preview": "摄像头预览",
+    "Not kept after reload": "刷新后不再保留"
   }
 }
