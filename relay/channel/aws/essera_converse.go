@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/essera/policy"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -459,7 +460,7 @@ func converseContentBlocks(c *gin.Context, message *dto.Message, documents *int)
 			return nil, newBadRequest("content type %q is not supported by Bedrock Converse", part.Type)
 		}
 		blocks = append(blocks, block)
-		if cached(i) && !promptCachingOff() {
+		if cached(i) && cachingDecided(c) != policy.CachingOff {
 			blocks = append(blocks, converseContentBlock{CachePoint: &converseCachePoint{Type: "default"}})
 		}
 	}

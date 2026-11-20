@@ -101,7 +101,7 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 		CustomerID:           caller.Customer.ID,
 		CredentialRef:        caller.CredentialRef,
 		RequestID:            requestID,
-		Provider:             providerOf(info.ChannelId),
+		Provider:             ProviderOf(info.ChannelId),
 		Model:                info.OriginModelName,
 		Modality:             modalityOf(info.RelayMode),
 		Status:               outcomeOf(apiErr),
@@ -155,7 +155,8 @@ func (e Event) tokens() int64 {
 // Console, which requires a provider and flags the request as unpriced.
 const unknownProvider = "unknown"
 
-func providerOf(channelID int) string {
+// ProviderOf is the Console provider key of a channel, "unknown" when it has none.
+func ProviderOf(channelID int) string {
 	channel, err := model.CacheGetChannel(channelID)
 	if err != nil {
 		return unknownProvider

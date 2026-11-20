@@ -43,6 +43,7 @@ func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dt
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
+	decideCaching(c, info) // Modified by Essera, 2026-11
 	// Modified by Essera, 2026-11: a model other than Claude answers Anthropic
 	// Messages through Converse.
 	if selectBedrockRoute(info) == routeConverse {
@@ -125,6 +126,7 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 }
 
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
+	decideCaching(c, info) // Modified by Essera, 2026-11
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
@@ -163,6 +165,7 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
+	decideCaching(c, info) // Modified by Essera, 2026-11
 	// Modified by Essera, 2026-11: Responses go through Converse for every model.
 	result, err := service.ConvertRequestByID(c, info, relayconvert.ConverterOpenAIResponsesToOpenAIChat, &request)
 	if err != nil {
@@ -188,13 +191,13 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 	// Modified by Essera, 2026-11: Converse and embeddings use the Bedrock
 	// Runtime REST API; Claude keeps InvokeModel through the SDK, or Mantle.
 	a.route = selectBedrockRoute(info)
-	// Modified by Essera, 2026-11: no prompt caching on a managed Gateway.
-	if promptCachingOff() && (a.route == routeMantle || a.route == routeClaudeInvoke) {
-		stripped, err := withoutPromptCaching(requestBody)
+	// Modified by Essera, 2026-11: prompt caching only where the Console bills its units.
+	if a.route == routeMantle || a.route == routeClaudeInvoke {
+		fitted, err := withCaching(requestBody, decideCaching(c, info))
 		if err != nil {
 			return nil, err
 		}
-		requestBody = stripped
+		requestBody = fitted
 	}
 	switch a.route {
 	case routeMantle:
