@@ -16,11 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: on a managed gateway the page says what the keys are for, as in the designs.
+// Modified by Essera, 2026-11: the page carries no description, which said nothing the title does not.
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
-import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 
 import { ApiKeysDialogs } from './components/api-keys-dialogs'
 import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
@@ -29,18 +28,10 @@ import { ApiKeysTable } from './components/api-keys-table'
 
 export function ApiKeys() {
   const { t } = useTranslation()
-  const { managed } = useEsseraManaged()
   return (
     <ApiKeysProvider>
       <SectionPageLayout fixedContent>
         <SectionPageLayout.Title>{t('API Keys')}</SectionPageLayout.Title>
-        {managed && (
-          <SectionPageLayout.Description>
-            {t(
-              'Manage authentication credentials for downstream LLM gateway routing.'
-            )}
-          </SectionPageLayout.Description>
-        )}
         <SectionPageLayout.Actions>
           <ApiKeysPrimaryButtons />
         </SectionPageLayout.Actions>

@@ -292,10 +292,8 @@ describe('security page of a person on a managed gateway', () => {
       await within(access).findByText('No active login sessions')
     ).toBeVisible()
     expect(
-      screen
-        .getAllByRole('region')
-        .map((region) => within(region).getAllByRole('heading')[0].textContent)
-    ).toEqual(['Sessions & Access'])
+      within(access).queryByRole('heading', { name: 'Sessions & Access' })
+    ).not.toBeInTheDocument()
     for (const label of ['Change Password', 'Delete Account']) {
       expect(
         screen.queryByRole('button', { name: label })

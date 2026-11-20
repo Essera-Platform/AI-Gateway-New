@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the analytics design's section tabs (the active one white with an emerald edge) and card placeholders.
+// Modified by Essera, 2026-11: the analytics design's section tabs (the active one white with an emerald edge) and card placeholders; the flow tab appears only once there are records to draw.
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { Eye, EyeOff } from 'lucide-react'
 import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
@@ -245,12 +245,18 @@ export function Dashboard() {
 
   const meta = SECTION_META[activeSection] ?? SECTION_META.overview
   const isAdmin = Boolean(userRole && userRole >= ROLE.ADMIN)
+  // The flow view draws the same records as the model charts, so without them it has nothing
+  // to show; its tab waits until there are.
+  const hasFlowData = modelData.length > 0
   const visibleSections = useMemo(
     () =>
       DASHBOARD_SECTION_IDS.filter(
-        (section) => section !== 'overview' && (section !== 'users' || isAdmin)
+        (section) =>
+          section !== 'overview' &&
+          (section !== 'users' || isAdmin) &&
+          (section !== 'flow' || hasFlowData)
       ),
-    [isAdmin]
+    [hasFlowData, isAdmin]
   )
   const handleSectionChange = useCallback(
     (section: string) => {
@@ -405,7 +411,7 @@ export function Dashboard() {
               </Suspense>
             </FadeIn>
           )}
-          {activeSection === 'flow' && (
+          {activeSection === 'flow' && hasFlowData && (
             <FadeIn>
               <Suspense fallback={<ModelChartsFallback />}>
                 <LazyFlowCharts
