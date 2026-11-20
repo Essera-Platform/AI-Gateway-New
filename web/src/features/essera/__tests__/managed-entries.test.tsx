@@ -9,6 +9,7 @@ import {
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { PromptInput } from '@/components/ai-elements/prompt-input'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SidebarModulesCard } from '@/features/profile/components/sidebar-modules-card'
 import { PlaygroundInputTools } from '@/features/playground/components/input/playground-input-tools'
@@ -106,12 +107,14 @@ describe('Playground tools on a managed gateway', () => {
     const Wrapper = withStatus(status)
     render(
       <Wrapper>
-        <PlaygroundInputTools
-          config={DEFAULT_CONFIG}
-          onConfigChange={() => undefined}
-          onParameterEnabledChange={() => undefined}
-          parameterEnabled={DEFAULT_PARAMETER_ENABLED}
-        />
+        <PromptInput onSubmit={() => undefined}>
+          <PlaygroundInputTools
+            config={DEFAULT_CONFIG}
+            onConfigChange={() => undefined}
+            onParameterEnabledChange={() => undefined}
+            parameterEnabled={DEFAULT_PARAMETER_ENABLED}
+          />
+        </PromptInput>
       </Wrapper>
     )
   }

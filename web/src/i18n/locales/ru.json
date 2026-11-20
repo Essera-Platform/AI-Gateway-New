@@ -7826,6 +7826,16 @@
     "Account created": "Аккаунт создан",
     "Account details changed": "Данные аккаунта изменены",
     "Account limits changed": "Лимиты аккаунта изменены",
-    "Account status changed": "Статус аккаунта изменён"
+    "Account status changed": "Статус аккаунта изменён",
+    "{{name}} is not a supported file type": "Тип файла {{name}} не поддерживается",
+    "{{name}} is larger than {{size}} MB": "Файл {{name}} больше {{size}} МБ",
+    "A message can carry up to {{limit}} files": "К сообщению можно приложить не более {{limit}} файлов",
+    "A message can carry up to {{limit}} documents": "К сообщению можно приложить не более {{limit}} документов",
+    "Could not take a screenshot": "Не удалось сделать снимок экрана",
+    "Could not open the camera": "Не удалось открыть камеру",
+    "Could not take a photo": "Не удалось сделать фото",
+    "Capture": "Снять",
+    "Camera preview": "Предпросмотр камеры",
+    "Not kept after reload": "Не сохраняется после перезагрузки"
   }
 }

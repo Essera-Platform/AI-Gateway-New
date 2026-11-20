@@ -205,6 +205,11 @@ func TestConvertOpenAIToConverse(t *testing.T) {
 			want:    `{"messages":[{"role":"user","content":[{"text":"Hi"}]}],"inferenceConfig":{"temperature":0},"toolConfig":{"tools":[{"toolSpec":{"name":"lookup","inputSchema":{"json":{"type":"object","properties":{}}}}}],"toolChoice":{"tool":{"name":"lookup"}}}}`,
 		},
 		{
+			name:    "Nova: a file part with file_data becomes a named document block",
+			request: `{"model":"eu.amazon.nova-pro-v1:0","messages":[{"role":"user","content":[{"type":"file","file":{"filename":"Q3 report.pdf","file_data":"data:application/pdf;base64,JVBERi0="}},{"type":"text","text":"Summarise"}]}]}`,
+			want:    `{"messages":[{"role":"user","content":[{"document":{"format":"pdf","name":"Q3 report pdf","source":{"bytes":"JVBERi0="}}},{"text":"Summarise"}]}]}`,
+		},
+		{
 			name:    "n above 1 is refused",
 			request: `{"model":"eu.meta.llama3-2-3b-instruct-v1:0","n":2,"messages":[{"role":"user","content":"Hi"}]}`,
 			wantErr: http.StatusBadRequest,
@@ -315,6 +320,68 @@ func TestNova2HighEffortRefusesMaxTokens(t *testing.T) {
 		require.NotNil(t, converse.InferenceConfig)
 		assert.Equal(t, uint(50), *converse.InferenceConfig.MaxTokens)
 		assert.Equal(t, map[string]any{"reasoningConfig": map[string]any{"type": "enabled", "maxReasoningEffort": "medium"}}, converse.AdditionalModelRequestFields)
+	})
+}
+
+// Images and documents over Bedrock's limits are refused before Bedrock is
+// called, on Converse and on Claude's InvokeModel alike.
+func TestBedrockMediaLimits(t *testing.T) {
+	image := func(bytes int) string {
+		return `{"type":"image_url","image_url":{"url":"data:image/png;base64,` + strings.Repeat("A", bytes/3*4) + `"}}`
+	}
+	document := func(bytes int) string {
+		return `{"type":"file","file":{"filename":"a.pdf","file_data":"data:application/pdf;base64,` + strings.Repeat("A", bytes/3*4) + `"}}`
+	}
+	repeat := func(part string, n int) string {
+		return strings.TrimSuffix(strings.Repeat(part+",", n), ",")
+	}
+	tests := []struct {
+		name    string
+		parts   string
+		wantErr string
+	}{
+		{name: "an image of 3.75 MB passes", parts: image(bedrockMaxImageBytes)},
+		{name: "an image over 3.75 MB is refused", parts: image(bedrockMaxImageBytes + 3), wantErr: "image 1 is 3.8 MB; Bedrock accepts images of up to 3.75 MB"},
+		{name: "20 images pass", parts: repeat(image(3), 20)},
+		{name: "21 images are refused", parts: repeat(image(3), 21), wantErr: "Bedrock accepts at most 20 images in a request"},
+		{name: "a document of 4.5 MB passes", parts: document(bedrockMaxDocumentBytes)},
+		{name: "a document over 4.5 MB is refused", parts: document(bedrockMaxDocumentBytes + 3), wantErr: "document 1 is 4.5 MB; Bedrock accepts documents of up to 4.5 MB"},
+		{name: "5 documents pass", parts: repeat(document(3), 5)},
+		{name: "6 documents are refused", parts: repeat(document(3), 6), wantErr: "Bedrock accepts at most 5 documents in a request"},
+		{name: "a linked image is counted, not measured", parts: `{"type":"image_url","image_url":{"url":"https://example.com/a.png"}}`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var request dto.GeneralOpenAIRequest
+			require.NoError(t, common.Unmarshal([]byte(`{"model":"m","messages":[{"role":"user","content":[`+test.parts+`]}]}`), &request))
+			err := checkBedrockMediaLimits(request.Messages)
+			if test.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+			assert.True(t, relaytypes.IsSkipRetryError(apiErr))
+			assert.Equal(t, test.wantErr, apiErr.ToOpenAIError().Message)
+		})
+	}
+
+	t.Run("the adaptor refuses before calling Bedrock, on either route", func(t *testing.T) {
+		for _, model := range []string{"eu.amazon.nova-pro-v1:0", "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"} {
+			server, captured := startBedrockStub(t, jsonFixture(converseTextReply))
+			c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+			info := newBedrockTestInfo(server, relayconstant.RelayModeChatCompletions, relaytypes.RelayFormatOpenAI, model, false)
+			var request dto.GeneralOpenAIRequest
+			require.NoError(t, common.Unmarshal([]byte(`{"model":"`+model+`","messages":[{"role":"user","content":[`+repeat(document(3), 6)+`]}]}`), &request))
+
+			_, err := (&Adaptor{}).ConvertOpenAIRequest(c, info, &request)
+
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr, model)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode, model)
+			assert.Empty(t, captured(), model)
+		}
 	})
 }
 

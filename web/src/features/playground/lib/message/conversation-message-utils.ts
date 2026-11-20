@@ -16,6 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a sent message keeps its attachments.
+import type { MessageAttachment } from '@/features/essera/playground/attachments'
+
 import { MESSAGE_ROLES } from '../../constants'
 /*
 Copyright (C) 2023-2026 QuantumNous
@@ -56,13 +59,14 @@ type ChatMessageRenderState = {
 
 export function appendUserMessagePair(
   messages: Message[],
-  content: string
+  content: string,
+  attachments: MessageAttachment[] = []
 ): Message[] {
   const submittedAt = Date.now()
 
   return [
     ...messages,
-    createUserMessage(content, submittedAt),
+    createUserMessage(content, submittedAt, attachments),
     createLoadingAssistantMessage(submittedAt),
   ]
 }

@@ -7826,6 +7826,16 @@
     "Account created": "Account created",
     "Account details changed": "Account details changed",
     "Account limits changed": "Account limits changed",
-    "Account status changed": "Account status changed"
+    "Account status changed": "Account status changed",
+    "{{name}} is not a supported file type": "{{name}} is not a supported file type",
+    "{{name}} is larger than {{size}} MB": "{{name}} is larger than {{size}} MB",
+    "A message can carry up to {{limit}} files": "A message can carry up to {{limit}} files",
+    "A message can carry up to {{limit}} documents": "A message can carry up to {{limit}} documents",
+    "Could not take a screenshot": "Could not take a screenshot",
+    "Could not open the camera": "Could not open the camera",
+    "Could not take a photo": "Could not take a photo",
+    "Capture": "Capture",
+    "Camera preview": "Camera preview",
+    "Not kept after reload": "Not kept after reload"
   }
 }

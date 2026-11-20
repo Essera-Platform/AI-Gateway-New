@@ -16,6 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: messages carry attachments; content parts include files.
+import type { MessageAttachment } from '@/features/essera/playground/attachments'
+
 // Message types
 export type MessageRole = 'user' | 'assistant' | 'system'
 
@@ -49,6 +52,7 @@ export interface Message {
   isContentComplete?: boolean
   status?: MessageStatus
   errorCode?: string | null
+  attachments?: MessageAttachment[]
 }
 
 // API payload types
@@ -58,10 +62,14 @@ export interface ChatCompletionMessage {
 }
 
 export interface ContentPart {
-  type: 'text' | 'image_url'
+  type: 'text' | 'image_url' | 'file'
   text?: string
   image_url?: {
     url: string
+  }
+  file?: {
+    filename: string
+    file_data: string
   }
 }
 

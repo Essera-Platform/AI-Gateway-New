@@ -16,7 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a user message carries its attachments to the API.
 import { nanoid } from 'nanoid'
+
+import {
+  buildAttachmentContent,
+  type MessageAttachment,
+} from '@/features/essera/playground/attachments'
 
 import { MESSAGE_ROLES, MESSAGE_STATUS } from '../../constants'
 import type {
@@ -76,13 +82,15 @@ export function updateCurrentVersionContent(
  */
 export function createUserMessage(
   content: string,
-  createdAt: number = Date.now()
+  createdAt: number = Date.now(),
+  attachments: MessageAttachment[] = []
 ): Message {
   return {
     key: nanoid(),
     from: MESSAGE_ROLES.USER,
     versions: [createMessageVersion(content)],
     createdAt,
+    ...(attachments.length > 0 && { attachments }),
   }
 }
 
@@ -156,7 +164,10 @@ export function formatMessageForAPI(message: Message): ChatCompletionMessage {
   const currentVersion = getCurrentVersion(message)
   return {
     role: message.from,
-    content: currentVersion.content,
+    content: buildAttachmentContent(
+      currentVersion.content,
+      message.attachments
+    ),
   }
 }
 

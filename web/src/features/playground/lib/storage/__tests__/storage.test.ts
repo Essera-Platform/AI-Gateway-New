@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a test that attachment data is not saved in the browser.
 import { afterEach, beforeEach, expect, test } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth-store'
@@ -106,4 +107,26 @@ test('storage calls without a signed-in user do not persist shared data', () => 
   expect(loadMessages()).toBeNull()
   expect(loadParameterEnabled()).toEqual({})
   expect(localStorage.length).toBe(0)
+})
+
+test('a saved message keeps its attachment names but not their data', () => {
+  useAuthStore.getState().auth.setUser({ id: 1, username: 'A', role: 1 })
+  saveMessages([
+    {
+      ...messages[0],
+      attachments: [
+        {
+          id: 'att-1',
+          kind: 'image',
+          name: 'cat.png',
+          mediaType: 'image/png',
+          url: 'data:image/png;base64,iVBO',
+        },
+      ],
+    },
+  ])
+
+  expect(loadMessages()?.[0].attachments).toEqual([
+    { id: 'att-1', kind: 'image', name: 'cat.png', mediaType: 'image/png' },
+  ])
 })

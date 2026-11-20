@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: messages keep the names of their attachments.
 import { z } from 'zod'
 
 export const STORAGE_VERSION = 1
@@ -71,6 +72,14 @@ const reasoningSchema = z.object({
   durationMs: z.number().optional(),
 })
 
+const attachmentSchema = z.object({
+  id: z.string(),
+  kind: z.enum(['image', 'document', 'text']),
+  name: z.string(),
+  mediaType: z.string(),
+  url: z.string().optional(),
+})
+
 const messageSchema = z.object({
   key: z.string(),
   from: messageRoleSchema,
@@ -86,6 +95,7 @@ const messageSchema = z.object({
   isContentComplete: z.boolean().optional(),
   status: messageStatusSchema.optional(),
   errorCode: z.string().nullable().optional(),
+  attachments: z.array(attachmentSchema).optional(),
 })
 
 export const messagesSchema = z.array(messageSchema)

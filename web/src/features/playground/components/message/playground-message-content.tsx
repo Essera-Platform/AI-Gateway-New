@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a message shows the files it carried.
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -38,6 +39,7 @@ import {
   SourcesContent,
   SourcesTrigger,
 } from '@/components/ai-elements/sources'
+import { MessageAttachments } from '@/features/essera/playground/attachment-chips'
 import { cn } from '@/lib/utils'
 
 import { MESSAGE_STATUS } from '../../constants'
@@ -136,6 +138,7 @@ export function PlaygroundMessageContent({
 
       {!isError && showMessageContent && (
         <>
+          <MessageAttachments attachments={message.attachments} />
           {isSourceVisible ? (
             <CodeBlock
               code={versionContent}

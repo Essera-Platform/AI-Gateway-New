@@ -126,8 +126,12 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
-	// Modified by Essera, 2026-11: every model but Claude, Amazon Nova included,
-	// goes through Converse.
+	// Modified by Essera, 2026-11: images and documents over Bedrock's limits
+	// are refused before sending; every model but Claude, Amazon Nova
+	// included, goes through Converse.
+	if err := checkBedrockMediaLimits(request.Messages); err != nil {
+		return nil, err
+	}
 	if selectBedrockRoute(info) == routeConverse {
 		return convertOpenAIToConverse(c, getAwsModelID(info.UpstreamModelName), request)
 	}
@@ -165,6 +169,9 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 	chatRequest, ok := result.Value.(*dto.GeneralOpenAIRequest)
 	if !ok {
 		return nil, fmt.Errorf("expected OpenAI chat completions request, got %T", result.Value)
+	}
+	if err := checkBedrockMediaLimits(chatRequest.Messages); err != nil {
+		return nil, err
 	}
 	return convertOpenAIToConverse(c, getAwsModelID(info.UpstreamModelName), chatRequest)
 }

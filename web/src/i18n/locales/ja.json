@@ -7826,6 +7826,16 @@
     "Account created": "アカウントを作成しました",
     "Account details changed": "アカウント情報を変更しました",
     "Account limits changed": "アカウントの上限を変更しました",
-    "Account status changed": "アカウントの状態を変更しました"
+    "Account status changed": "アカウントの状態を変更しました",
+    "{{name}} is not a supported file type": "{{name}} はサポートされていないファイル形式です",
+    "{{name}} is larger than {{size}} MB": "{{name}} は {{size}} MB を超えています",
+    "A message can carry up to {{limit}} files": "1 つのメッセージに添付できるファイルは {{limit}} 個までです",
+    "A message can carry up to {{limit}} documents": "1 つのメッセージに添付できるドキュメントは {{limit}} 件までです",
+    "Could not take a screenshot": "スクリーンショットを撮れませんでした",
+    "Could not open the camera": "カメラを起動できませんでした",
+    "Could not take a photo": "写真を撮れませんでした",
+    "Capture": "撮影",
+    "Camera preview": "カメラのプレビュー",
+    "Not kept after reload": "再読み込み後は保持されません"
   }
 }
