@@ -1,7 +1,7 @@
 // Essera fork: on a managed gateway the pages of the Console's people read the Console (its
 // internal API, essera/consoleapi) in new-api's response formats, so the web UI stays new-api's:
-// usage logs, the dashboard, audit, the account summary, the tenant's people and the Model
-// Square. Operators keep new-api's own pages.
+// usage logs, the dashboard, audit, the account summary, the tenant's people, the service
+// status and the Model Square. Operators keep new-api's own pages.
 package controller
 
 import (
@@ -494,6 +494,33 @@ func EsseraChangePerson(c *gin.Context) {
 	item := personItem(*changed, admin)
 	item.Pending = true
 	common.ApiSuccess(c, item)
+}
+
+// EsseraStatus shows the admin how the providers their customer may use are doing, and any
+// maintenance announced, from the Console. While the Console does not answer, the status is
+// said to be unavailable rather than guessed.
+func EsseraStatus(c *gin.Context) {
+	admin, ok := esseraAdmin(c)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 4*time.Second)
+	defer cancel()
+	status, err := consoleapi.GetStatus(ctx, admin.ID)
+	var refused *consoleapi.Refused
+	if errors.As(err, &refused) {
+		writeConsoleError(c, err)
+		return
+	}
+	if err != nil {
+		common.ApiSuccess(c, gin.H{"available": false})
+		return
+	}
+	providers := status.Providers
+	if providers == nil {
+		providers = []consoleapi.ProviderStatus{}
+	}
+	common.ApiSuccess(c, gin.H{"available": true, "providers": providers, "maintenance": status.Maintenance})
 }
 
 type esseraPricing struct {

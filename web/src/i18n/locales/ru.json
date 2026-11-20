@@ -7836,6 +7836,18 @@
     "Could not take a photo": "Не удалось сделать фото",
     "Capture": "Снять",
     "Camera preview": "Предпросмотр камеры",
-    "Not kept after reload": "Не сохраняется после перезагрузки"
+    "Not kept after reload": "Не сохраняется после перезагрузки",
+    "Operational": "Работает",
+    "Degraded": "Работает с перебоями",
+    "Down": "Не работает",
+    "Maintenance in progress": "Идёт обслуживание",
+    "Maintenance scheduled": "Запланировано обслуживание",
+    "From {{start}} to {{end}}": "С {{start}} до {{end}}",
+    "Availability": "Доступность",
+    "Checked {{when}}": "Проверено {{when}}",
+    "Status temporarily unavailable": "Статус временно недоступен",
+    "Service status": "Состояние сервиса",
+    "Provider health over the last hour": "Состояние провайдеров за последний час",
+    "Providers": "Провайдеры"
   }
 }

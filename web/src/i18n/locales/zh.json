@@ -7836,6 +7836,18 @@
     "Could not take a photo": "无法拍照",
     "Capture": "拍摄",
     "Camera preview": "摄像头预览",
-    "Not kept after reload": "刷新后不再保留"
+    "Not kept after reload": "刷新后不再保留",
+    "Operational": "正常运行",
+    "Degraded": "性能下降",
+    "Down": "不可用",
+    "Maintenance in progress": "维护进行中",
+    "Maintenance scheduled": "已计划维护",
+    "From {{start}} to {{end}}": "从 {{start}} 到 {{end}}",
+    "Availability": "可用性",
+    "Checked {{when}}": "检查于 {{when}}",
+    "Status temporarily unavailable": "状态暂时不可用",
+    "Service status": "服务状态",
+    "Provider health over the last hour": "过去一小时的提供商状态",
+    "Providers": "提供商"
   }
 }

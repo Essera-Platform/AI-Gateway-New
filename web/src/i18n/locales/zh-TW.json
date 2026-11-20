@@ -7836,6 +7836,18 @@
     "Could not take a photo": "無法拍照",
     "Capture": "拍攝",
     "Camera preview": "相機預覽",
-    "Not kept after reload": "重新整理後不再保留"
+    "Not kept after reload": "重新整理後不再保留",
+    "Operational": "正常運行",
+    "Degraded": "效能下降",
+    "Down": "無法使用",
+    "Maintenance in progress": "維護進行中",
+    "Maintenance scheduled": "已排定維護",
+    "From {{start}} to {{end}}": "從 {{start}} 到 {{end}}",
+    "Availability": "可用性",
+    "Checked {{when}}": "檢查於 {{when}}",
+    "Status temporarily unavailable": "狀態暫時無法取得",
+    "Service status": "服務狀態",
+    "Provider health over the last hour": "過去一小時的供應商狀態",
+    "Providers": "供應商"
   }
 }

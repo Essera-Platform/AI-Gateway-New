@@ -69,6 +69,8 @@ func SetApiRouter(router *gin.Engine) {
 		esseraPeople.POST("", middleware.CriticalRateLimit(), controller.EsseraAddPerson)
 		esseraPeople.POST("/:id/:action", middleware.CriticalRateLimit(), controller.EsseraChangePerson)
 		esseraPeople.DELETE("/:id", middleware.CriticalRateLimit(), controller.EsseraChangePerson)
+		// Modified by Essera, 2026-11: an admin's view of the providers' status, kept by the Console.
+		apiRouter.GET("/essera/status", middleware.UserAuth(), middleware.DisableCache(), controller.EsseraStatus)
 
 		apiRouter.POST("/stripe/webhook", anonymousRequestBodyLimit, controller.StripeWebhook)
 		apiRouter.POST("/creem/webhook", anonymousRequestBodyLimit, controller.CreemWebhook)

@@ -12,3 +12,37 @@ export type EsseraAccount = {
   tokens: number
   token_quota: number | null
 }
+
+export type EsseraProviderState =
+  | 'operational'
+  | 'degraded'
+  | 'down'
+  | 'maintenance'
+
+/** How one provider the customer may use is doing, as the Console reports it. */
+export type EsseraProviderStatus = {
+  name: string
+  region: string
+  status: EsseraProviderState
+  availability_last_hour: number | null
+  p50_ms: number | null
+  checked_at: string | null
+  models: number
+}
+
+/** Gateway maintenance Essera announced in the Console. */
+export type EsseraMaintenance = {
+  status: 'scheduled' | 'in_progress'
+  message: string
+  starts_at: string | null
+  ends_at: string | null
+}
+
+/** `/api/essera/status`: unavailable while the Console does not answer. */
+export type EsseraServiceStatus =
+  | { available: false }
+  | {
+      available: true
+      providers: EsseraProviderStatus[]
+      maintenance: EsseraMaintenance | null
+    }

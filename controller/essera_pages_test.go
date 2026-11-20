@@ -251,6 +251,38 @@ func TestOnlyAnAdminSeesAndAddsTheCustomersPeople(t *testing.T) {
 	assert.Equal(t, "Data is temporarily unavailable", down.Message)
 }
 
+func TestOnlyAnAdminSeesTheServiceStatusFromTheConsole(t *testing.T) {
+	console, users := consolePages(t)
+	console.on("GET /internal/v1/status", http.StatusOK, `{"providers":[{"name":"AWS Bedrock","region":"eu-west-1","status":"degraded","availability_last_hour":93.5,"p50_ms":840,"checked_at":"2026-11-20T09:30:00Z","models":12}],"maintenance":{"status":"scheduled","message":"Upgrade","starts_at":"2026-11-22T02:00:00Z","ends_at":"2026-11-22T03:00:00Z"}}`)
+	get := func(userID int) pageResponse {
+		return page(t, userID, http.MethodGet, "/api/essera/status", "", EsseraStatus, "/api/essera/status")
+	}
+
+	for name, userID := range map[string]int{"an end user": users[snapshottest.UserSub], "a suspended person": users[snapshottest.SuspendedSub]} {
+		assert.Equal(t, http.StatusForbidden, get(userID).status, name)
+	}
+	assert.Zero(t, console.callCount(), "refused on the Gateway before the Console is asked")
+
+	shown := get(users[snapshottest.AdminSub])
+	require.True(t, shown.Success, shown.raw)
+	assert.Equal(t, snapshottest.AdminPersonID, console.lastCall(t).person)
+	assert.Equal(t, true, shown.Data["available"])
+	providers := shown.Data["providers"].([]any)
+	require.Len(t, providers, 1)
+	assert.Equal(t, map[string]any{"name": "AWS Bedrock", "region": "eu-west-1", "status": "degraded", "availability_last_hour": 93.5, "p50_ms": float64(840), "checked_at": "2026-11-20T09:30:00Z", "models": float64(12)}, providers[0])
+	assert.Equal(t, "scheduled", shown.Data["maintenance"].(map[string]any)["status"])
+
+	console.on("GET /internal/v1/status", http.StatusInternalServerError, `{}`)
+	failing := get(users[snapshottest.AdminSub])
+	require.True(t, failing.Success, failing.raw)
+	assert.Equal(t, map[string]any{"available": false}, failing.Data)
+
+	console.server.Close()
+	down := get(users[snapshottest.AdminSub])
+	require.True(t, down.Success, down.raw)
+	assert.Equal(t, map[string]any{"available": false}, down.Data, "said to be unavailable, not guessed")
+}
+
 func TestAnAdminSuspendsReactivatesAndRemovesOnlyTheirOwnUsers(t *testing.T) {
 	console, users := consolePages(t)
 	admin := users[snapshottest.AdminSub]

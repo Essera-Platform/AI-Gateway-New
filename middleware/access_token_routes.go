@@ -53,6 +53,8 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"POST /api/essera/people":             accessTokenSessionRule,
 	"POST /api/essera/people/:id/:action": accessTokenSessionRule,
 	"DELETE /api/essera/people/:id":       accessTokenSessionRule,
+	// Modified by Essera, 2026-11: an admin reads the service status in the browser only.
+	"GET /api/essera/status":              accessTokenSessionRule,
 	"POST /api/oauth/state":               accessTokenSessionRule,
 	"POST /api/oauth/email/bind/start":    accessTokenScopeRule("account_security:write"),
 	"POST /api/oauth/email/bind/resend":   accessTokenScopeRule("account_security:write"),
