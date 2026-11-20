@@ -675,11 +675,11 @@ func TestAPersonSeesOnlyTheModelsRelayLetsThemCall(t *testing.T) {
 	for _, user := range people {
 		userIDs[user.OidcId] = user.Id
 	}
-	modelsOf := func(userID int) []any {
+	modelsAt := func(userID int, path string) []any {
 		engine := gin.New()
 		engine.GET("/api/user/models", func(c *gin.Context) { c.Set("id", userID) }, GetUserModels)
 		recorder := httptest.NewRecorder()
-		engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/user/models", nil))
+		engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
 		var body struct {
 			Success bool  `json:"success"`
 			Data    []any `json:"data"`
@@ -688,7 +688,12 @@ func TestAPersonSeesOnlyTheModelsRelayLetsThemCall(t *testing.T) {
 		require.True(t, body.Success, recorder.Body.String())
 		return body.Data
 	}
+	modelsOf := func(userID int) []any { return modelsAt(userID, "/api/user/models") }
 
+	assert.Equal(t, []any{"claude-sonnet", "gpt-4o"}, modelsAt(userIDs[snapshottest.AdminSub], "/api/user/models?modality=text"),
+		"the Playground asks for the text models only")
+	assert.Empty(t, modelsAt(userIDs[snapshottest.AdminSub], "/api/user/models?modality=embedding"),
+		"the sample has no embedding model")
 	assert.Equal(t, []any{"claude-sonnet", "gpt-4o"}, modelsOf(userIDs[snapshottest.AdminSub]),
 		"an admin: the customer's entitlements, without the model disabled in the catalog (gpt-old)")
 	assert.Equal(t, []any{"gpt-4o"}, modelsOf(userIDs[snapshottest.UserSub]),
