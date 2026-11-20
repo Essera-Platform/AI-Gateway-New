@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: a managed gateway's example request names its public address and a key placeholder, and copies without reading the key back.
+// Modified by Essera, 2026-11: a managed gateway's example request names its public address and a key placeholder, and copies without reading the key back; its admin sees the Console's service status in place of Uptime Kuma.
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
@@ -49,6 +49,7 @@ import {
 } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
+import { isEsseraAdmin, useEsseraAccount } from '@/features/essera/account'
 import {
   API_KEY_PLACEHOLDER,
   FALLBACK_EXAMPLE_MODEL,
@@ -57,6 +58,7 @@ import {
   useServerAddress,
   userModelsQueryOptions,
 } from '@/features/essera/example-request'
+import { ServiceStatusPanel } from '@/features/essera/service-status'
 import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
 import type { ApiKey } from '@/features/keys/types'
@@ -467,6 +469,9 @@ export function OverviewDashboard() {
   const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
   const { managed } = useEsseraManaged()
+  const esseraAccount = useEsseraAccount()
+  const showServiceStatus = managed && isEsseraAdmin(user?.role, esseraAccount)
+  const showStatusPanel = showServiceStatus || (!managed && showUptimePanel)
 
   const apiKeysQuery = useQuery({
     queryKey: ['dashboard', 'overview', 'api-keys'],
@@ -608,7 +613,7 @@ export function OverviewDashboard() {
     manualSetupGuideExpanded ?? (setupStatusReady && !setupComplete)
   const showLeftContentPanels =
     isAdmin || showApiInfoPanel || showAnnouncementsPanel || showFAQPanel
-  const showContentPanels = showLeftContentPanels || showUptimePanel
+  const showContentPanels = showLeftContentPanels || showStatusPanel
 
   const handleSetupGuideToggle = () => {
     const nextExpanded = !setupGuideExpanded
@@ -786,7 +791,7 @@ export function OverviewDashboard() {
               className={cn(
                 'grid grid-cols-1 gap-4',
                 showLeftContentPanels &&
-                  showUptimePanel &&
+                  showStatusPanel &&
                   'xl:grid-cols-[minmax(0,1fr)_22rem]'
               )}
             >
@@ -822,9 +827,9 @@ export function OverviewDashboard() {
                   )}
                 </div>
               )}
-              {showUptimePanel && (
+              {showStatusPanel && (
                 <CardStaggerItem>
-                  <UptimePanel />
+                  {showServiceStatus ? <ServiceStatusPanel /> : <UptimePanel />}
                 </CardStaggerItem>
               )}
             </CardStaggerContainer>

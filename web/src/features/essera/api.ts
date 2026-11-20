@@ -1,5 +1,7 @@
 import { api } from '@/lib/api'
 
+import type { EsseraServiceStatus } from './types'
+
 export type EsseraSignInStep = 'code' | 'new_password'
 
 export interface EsseraSignInResponse {
@@ -48,4 +50,17 @@ export async function createEsseraKey(payload: {
 }): Promise<{ success: boolean; message?: string; data?: EsseraCreatedKey }> {
   const res = await api.post('/api/token/', payload)
   return res.data
+}
+
+/** The status of the customer's providers, for its admin; unavailable when the Console is down. */
+export async function getEsseraServiceStatus(): Promise<EsseraServiceStatus> {
+  const res = await api.get<{
+    success: boolean
+    message?: string
+    data?: EsseraServiceStatus
+  }>('/api/essera/status', { skipErrorHandler: true })
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Status temporarily unavailable')
+  }
+  return res.data.data
 }

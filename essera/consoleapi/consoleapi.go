@@ -356,3 +356,34 @@ func GetPrices(ctx context.Context, personID string) ([]Price, error) {
 	}
 	return prices.Data, call(ctx, http.MethodGet, personID, "/prices", nil, nil, &prices)
 }
+
+// ProviderStatus is how one provider the customer may use is doing: Status is "operational",
+// "degraded", "down" or "maintenance"; Models counts the models the person may use there.
+type ProviderStatus struct {
+	Name                 string     `json:"name"`
+	Region               string     `json:"region"`
+	Status               string     `json:"status"`
+	AvailabilityLastHour *float64   `json:"availability_last_hour"`
+	P50MS                *int64     `json:"p50_ms"`
+	CheckedAt            *time.Time `json:"checked_at"`
+	Models               int        `json:"models"`
+}
+
+// Maintenance is Gateway maintenance the Console announced: Status "scheduled" or "in_progress".
+type Maintenance struct {
+	Status   string     `json:"status"`
+	Message  string     `json:"message"`
+	StartsAt *time.Time `json:"starts_at"`
+	EndsAt   *time.Time `json:"ends_at"`
+}
+
+// Status is the state of the customer's providers and any announced maintenance.
+type Status struct {
+	Providers   []ProviderStatus `json:"providers"`
+	Maintenance *Maintenance     `json:"maintenance"`
+}
+
+func GetStatus(ctx context.Context, personID string) (*Status, error) {
+	var status Status
+	return &status, call(ctx, http.MethodGet, personID, "/status", nil, nil, &status)
+}

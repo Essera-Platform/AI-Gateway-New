@@ -7836,6 +7836,18 @@
     "Could not take a photo": "写真を撮れませんでした",
     "Capture": "撮影",
     "Camera preview": "カメラのプレビュー",
-    "Not kept after reload": "再読み込み後は保持されません"
+    "Not kept after reload": "再読み込み後は保持されません",
+    "Operational": "稼働中",
+    "Degraded": "低下",
+    "Down": "停止中",
+    "Maintenance in progress": "メンテナンス中",
+    "Maintenance scheduled": "メンテナンス予定",
+    "From {{start}} to {{end}}": "{{start}} から {{end}} まで",
+    "Availability": "可用性",
+    "Checked {{when}}": "確認: {{when}}",
+    "Status temporarily unavailable": "ステータスは一時的に利用できません",
+    "Service status": "サービスの状態",
+    "Provider health over the last hour": "直近1時間のプロバイダーの状態",
+    "Providers": "プロバイダー"
   }
 }

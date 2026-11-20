@@ -7836,6 +7836,18 @@
     "Could not take a photo": "Could not take a photo",
     "Capture": "Capture",
     "Camera preview": "Camera preview",
-    "Not kept after reload": "Not kept after reload"
+    "Not kept after reload": "Not kept after reload",
+    "Operational": "Operational",
+    "Degraded": "Degraded",
+    "Down": "Down",
+    "Maintenance in progress": "Maintenance in progress",
+    "Maintenance scheduled": "Maintenance scheduled",
+    "From {{start}} to {{end}}": "From {{start}} to {{end}}",
+    "Availability": "Availability",
+    "Checked {{when}}": "Checked {{when}}",
+    "Status temporarily unavailable": "Status temporarily unavailable",
+    "Service status": "Service status",
+    "Provider health over the last hour": "Provider health over the last hour",
+    "Providers": "Providers"
   }
 }

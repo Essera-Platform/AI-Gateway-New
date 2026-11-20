@@ -7836,6 +7836,18 @@
     "Could not take a photo": "Không thể chụp ảnh",
     "Capture": "Chụp",
     "Camera preview": "Xem trước camera",
-    "Not kept after reload": "Không được giữ lại sau khi tải lại"
+    "Not kept after reload": "Không được giữ lại sau khi tải lại",
+    "Operational": "Hoạt động",
+    "Degraded": "Suy giảm",
+    "Down": "Ngừng hoạt động",
+    "Maintenance in progress": "Đang bảo trì",
+    "Maintenance scheduled": "Đã lên lịch bảo trì",
+    "From {{start}} to {{end}}": "Từ {{start}} đến {{end}}",
+    "Availability": "Khả dụng",
+    "Checked {{when}}": "Đã kiểm tra {{when}}",
+    "Status temporarily unavailable": "Trạng thái tạm thời không khả dụng",
+    "Service status": "Trạng thái dịch vụ",
+    "Provider health over the last hour": "Tình trạng nhà cung cấp trong giờ qua",
+    "Providers": "Nhà cung cấp"
   }
 }
