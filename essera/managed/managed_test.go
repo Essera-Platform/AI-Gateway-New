@@ -165,6 +165,7 @@ func TestTrimStatus(t *testing.T) {
 		return map[string]any{
 			"chats": []map[string]string{{"Cherry Studio": "cherrystudio://"}}, "docs_link": "https://docs.example",
 			"announcements_enabled": true, "announcements": []any{"hello"}, "uptime_kuma_enabled": true,
+			"api_info_enabled": true, "api_info": []any{"x"}, "faq_enabled": true, "faq": []any{"y"},
 			"github_oauth": true, "custom_oauth_providers": []any{"gitea"}, "system_name": "Essera AI Gateway",
 		}
 	}
@@ -177,10 +178,12 @@ func TestTrimStatus(t *testing.T) {
 	TrimStatus(managed)
 	assert.Empty(t, managed["chats"])
 	assert.Empty(t, managed["docs_link"])
-	for _, key := range []string{"announcements_enabled", "uptime_kuma_enabled", "github_oauth", "register_enabled", "checkin_enabled"} {
+	for _, key := range []string{"announcements_enabled", "uptime_kuma_enabled", "api_info_enabled", "faq_enabled", "github_oauth", "register_enabled", "checkin_enabled"} {
 		assert.Equal(t, false, managed[key], key)
 	}
 	assert.NotContains(t, managed, "announcements")
+	assert.NotContains(t, managed, "api_info")
+	assert.NotContains(t, managed, "faq")
 	assert.NotContains(t, managed, "custom_oauth_providers")
 	assert.Equal(t, "Essera AI Gateway", managed["system_name"], "the rest stays")
 }

@@ -48,9 +48,9 @@ describe('account summary on a managed gateway', () => {
     render(<ProfileHeader profile={profile(account)} loading={false} />)
 
     expect(screen.getByText('Spend this month')).toBeVisible()
-    expect(screen.getByText(figure('12.34 USD'))).toBeVisible()
+    expect(screen.getByText(figure('$12.34'))).toBeVisible()
     expect(screen.getByText('Spend limit')).toBeVisible()
-    expect(screen.getByText(figure('100.00 USD'))).toBeVisible()
+    expect(screen.getByText(figure('$100.00'))).toBeVisible()
     expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
     expect(screen.queryByText('essera')).not.toBeInTheDocument()
   })
@@ -77,7 +77,7 @@ describe('account summary on a managed gateway', () => {
     expect(
       screen.getAllByText('Data is temporarily unavailable').length
     ).toBeGreaterThan(0)
-    expect(screen.queryByText('12.34 USD')).not.toBeInTheDocument()
+    expect(screen.queryByText('$12.34')).not.toBeInTheDocument()
   })
 
   it('keeps the balance for a user the Console does not know', () => {

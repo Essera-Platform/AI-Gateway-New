@@ -133,9 +133,9 @@ func refuse(c *gin.Context, status int, code, message string) {
 }
 
 // statusSwitchedOff are the /api/status switches of what a managed gateway does not offer:
-// announcements and uptime, check-in, registration and new-api's OAuth sign-in.
+// announcements, uptime, the API info and FAQ panels, check-in, registration and new-api's OAuth sign-in.
 var statusSwitchedOff = []string{
-	"announcements_enabled", "uptime_kuma_enabled", "checkin_enabled", "register_enabled", "password_register_enabled",
+	"announcements_enabled", "uptime_kuma_enabled", "api_info_enabled", "faq_enabled", "checkin_enabled", "register_enabled", "password_register_enabled",
 	"github_oauth", "discord_oauth", "linuxdo_oauth", "telegram_oauth", "wechat_login", "oidc_enabled",
 }
 
@@ -152,6 +152,8 @@ func TrimStatus(data map[string]any) {
 		data[key] = false
 	}
 	delete(data, "announcements")
+	delete(data, "api_info")
+	delete(data, "faq")
 	delete(data, "custom_oauth_providers")
 }
 
