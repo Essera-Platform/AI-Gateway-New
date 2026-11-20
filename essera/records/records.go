@@ -110,16 +110,18 @@ type PersonUser struct {
 func (PersonUser) TableName() string { return "essera_people" }
 
 // Key is an API key a person created on the Gateway: its id, never the key. The new-api token
-// row stands for it in the web UI.
+// row stands for it in the web UI. RevokedAt is when the person deleted it on the Gateway;
+// PublishedAt is the first time an applied configuration listed it.
 type Key struct {
-	KeyID      string     `gorm:"primaryKey;type:varchar(40)"`
-	TokenID    int        `gorm:"uniqueIndex"`
-	UserID     int        `gorm:"index"`
-	PersonID   string     `gorm:"type:varchar(64);index"`
-	CustomerID string     `gorm:"type:varchar(64)"`
-	ExpiresAt  time.Time  `gorm:"index"`
-	CreatedAt  time.Time  `gorm:"index"`
-	RevokedAt  *time.Time `gorm:"index"`
+	KeyID       string     `gorm:"primaryKey;type:varchar(40)"`
+	TokenID     int        `gorm:"uniqueIndex"`
+	UserID      int        `gorm:"index"`
+	PersonID    string     `gorm:"type:varchar(64);index"`
+	CustomerID  string     `gorm:"type:varchar(64)"`
+	ExpiresAt   time.Time  `gorm:"index"`
+	CreatedAt   time.Time  `gorm:"index"`
+	RevokedAt   *time.Time `gorm:"index"`
+	PublishedAt *time.Time
 }
 
 func (Key) TableName() string { return "essera_keys" }

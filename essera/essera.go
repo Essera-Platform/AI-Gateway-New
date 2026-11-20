@@ -6,13 +6,16 @@ package essera
 
 import (
 	"context"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/bootstrap"
 	"github.com/QuantumNous/new-api/essera/configsync"
+	"github.com/QuantumNous/new-api/essera/keys"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/secrets"
 	"github.com/QuantumNous/new-api/essera/settings"
+	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/stats"
 	"github.com/QuantumNous/new-api/essera/usage"
 	"github.com/QuantumNous/new-api/model"
@@ -36,6 +39,11 @@ func Start(ctx context.Context) error {
 	}
 	if err := configsync.LoadLatest(ctx); err != nil {
 		common.SysError(common.LogText("essera: loading the last configuration: %s", err.Error()))
+	}
+	if common.IsMasterNode {
+		if err := keys.Project(snapshot.Current(), time.Now()); err != nil {
+			common.SysError(common.LogText("essera: projecting the API keys: %s", err.Error()))
+		}
 	}
 	service.RegisterSyncTopic(configsync.SyncTopic, configsync.LoadLatest)
 	go stats.Run(ctx)

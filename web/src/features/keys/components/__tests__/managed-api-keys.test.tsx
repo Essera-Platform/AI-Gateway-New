@@ -54,12 +54,12 @@ function KeysPage() {
   )
 }
 
-async function renderKeysPage(managed: boolean) {
+async function renderKeysPage(managed: boolean, items = [listed]) {
   const status = managed ? { essera_managed: true } : {}
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
     if (url === '/api/status') return { data: { success: true, data: status } }
     if (url.startsWith('/api/token/')) {
-      return { data: { success: true, data: { items: [listed], total: 1 } } }
+      return { data: { success: true, data: { items, total: items.length } } }
     }
     return { data: { success: true, data: { default: { ratio: 1 } } } }
   })
@@ -96,7 +96,7 @@ async function renderKeysPage(managed: boolean) {
       <RouterProvider router={router} />
     </QueryClientProvider>
   )
-  await screen.findByText(listed.name)
+  await screen.findByText(items[0].name)
   return { post }
 }
 
@@ -128,6 +128,29 @@ describe('API keys on a managed gateway', () => {
     for (const name of ['Edit', 'Disable', 'Open menu', 'Copy API key']) {
       expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
     }
+  })
+
+  it('shows each key as active, revoked or expired, as the Console has it', async () => {
+    const past = Math.floor(Date.now() / 1000) - 60
+    await renderKeysPage(true, [
+      listed,
+      { ...listed, id: 8, name: 'revoked-in-console', status: 5 },
+      { ...listed, id: 9, name: 'expired', status: 3, expired_time: past },
+      { ...listed, id: 10, name: 'expired-since', expired_time: past },
+    ])
+
+    const statusOf = (name: string) =>
+      within(screen.getByText(name).closest('tr') as HTMLElement)
+    expect(statusOf('production').getByText('Active')).toBeInTheDocument()
+    expect(
+      statusOf('revoked-in-console').getByText('Revoked')
+    ).toBeInTheDocument()
+    expect(statusOf('expired').getByText('Expired')).toBeInTheDocument()
+    expect(statusOf('expired-since').getByText('Expired')).toBeInTheDocument()
+    expect(screen.queryByText('Enabled')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Enable' })
+    ).not.toBeInTheDocument()
   })
 
   it('creates a key with a name and a 90-day expiry and shows it once', async () => {

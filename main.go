@@ -19,6 +19,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/essera"
+	"github.com/QuantumNous/new-api/essera/clientip"
 	"github.com/QuantumNous/new-api/essera/managed"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
@@ -261,9 +262,15 @@ func main() {
 		port = strconv.Itoa(*common.Port)
 	}
 
+	// Modified by Essera, 2026-11: the client address from a trusted edge's header (ESSERA_CLIENT_IP_HEADER).
+	handler, err := clientip.Wrap(server)
+	if err != nil {
+		common.FatalLog(common.LogText("failed to configure the client IP header: %s", err.Error()))
+		return
+	}
 	srv := &http.Server{
 		Addr:    net.JoinHostPort(host, port),
-		Handler: server,
+		Handler: handler,
 	}
 
 	go func() {

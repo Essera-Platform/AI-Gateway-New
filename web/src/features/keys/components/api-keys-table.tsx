@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: a managed gateway's key cards leave out quota and model and IP limits.
+// Modified by Essera, 2026-11: a managed gateway's key cards leave out quota and model and IP limits, and keys show and filter by their Console state.
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import { flexRender, type Table as TanstackTable } from '@tanstack/react-table'
@@ -41,6 +41,10 @@ import {
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  MANAGED_KEY_STATUS_OPTIONS,
+  managedKeyStatus,
+} from '@/features/essera/key-status'
 import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { createServerError } from '@/lib/server-error-message'
@@ -139,7 +143,9 @@ function ApiKeysMobileList({
     <div className='min-w-0 space-y-3'>
       {rows.map((row) => {
         const apiKey = row.original
-        const statusConfig = API_KEY_STATUSES[apiKey.status]
+        const statusConfig = managed
+          ? managedKeyStatus(apiKey, now)
+          : API_KEY_STATUSES[apiKey.status]
         const groupCell = row
           .getAllCells()
           .find((cell) => cell.column.id === 'group')
@@ -225,6 +231,7 @@ function ApiKeysMobileList({
 export function ApiKeysTable() {
   const { t } = useTranslation()
   const { refreshTrigger } = useApiKeys()
+  const { managed } = useEsseraManaged()
   const [now, setNow] = useState(() => Date.now())
   const columns = useApiKeysColumns(now)
 
@@ -373,7 +380,9 @@ export function ApiKeysTable() {
           {
             columnId: 'status',
             title: t('Status'),
-            options: API_KEY_STATUS_OPTIONS,
+            options: managed
+              ? MANAGED_KEY_STATUS_OPTIONS
+              : API_KEY_STATUS_OPTIONS,
             singleSelect: true,
           },
         ],

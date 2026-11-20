@@ -34,12 +34,24 @@ const (
 
 	// Lifetime is how long a new key works unless a shorter time is chosen.
 	Lifetime = 90 * 24 * time.Hour
+
+	// TokenStatusRevoked marks the token row of a key the Console no longer publishes, next to
+	// new-api's token statuses (common.TokenStatus*).
+	TokenStatusRevoked = 5
+
+	// publishWait is how long a new key may wait for its first configuration before a version
+	// without it counts as the Console's refusal: credential.created reaches the Console through
+	// the outbox, and it publishes the key in a later version.
+	publishWait = 10 * time.Minute
 )
 
 var (
 	ErrNotAPerson  = errors.New("Keys are created by the people of a Console customer.")
 	ErrExpiryEnded = errors.New("Choose an expiry in the future.")
 	ErrNameMissing = errors.New("Give the key a name.")
+	// ErrStateIsConsoles refuses changing a key in place: its state is what the Console
+	// publishes, so a key it revoked, or one that expired, cannot be enabled again.
+	ErrStateIsConsoles = errors.New("This is managed in the Essera Operations Console.")
 )
 
 // Created is a new key; Key is shown to its person once and kept nowhere.
@@ -240,4 +252,70 @@ func Authenticate(presented string, view *snapshot.View, now time.Time) (*auth.C
 		return nil, &auth.Failure{Code: "essera_unavailable", Message: "The gateway cannot check this key right now."}
 	}
 	return caller, nil
+}
+
+// Project brings the token rows of the keys not deleted on the Gateway to what relay makes of
+// them under the active configuration: active while it publishes the key, expired once its
+// expiry has passed, revoked once it no longer publishes it. A key never published yet keeps
+// its row for publishWait, so a version written before the Console heard of it revokes nothing.
+// A version from before the Console published accounts changes nothing.
+func Project(view *snapshot.View, now time.Time) error {
+	if view == nil || view.Snapshot.Accounts == nil {
+		return nil
+	}
+	var rows []records.Key
+	if err := model.DB.Where("revoked_at IS NULL").Find(&rows).Error; err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	tokenIDs := make([]int, 0, len(rows))
+	for _, row := range rows {
+		tokenIDs = append(tokenIDs, row.TokenID)
+	}
+	var tokens []model.Token
+	if err := model.DB.Where("id IN ?", tokenIDs).Find(&tokens).Error; err != nil {
+		return err
+	}
+	tokenByID := make(map[int]*model.Token, len(tokens))
+	for i := range tokens {
+		tokenByID[tokens[i].Id] = &tokens[i]
+	}
+	var published []string
+	for _, row := range rows {
+		token := tokenByID[row.TokenID]
+		if token == nil {
+			continue
+		}
+		credential := view.APIKey(row.KeyID)
+		status, expiresAt := common.TokenStatusEnabled, row.ExpiresAt
+		switch {
+		case credential != nil:
+			if row.PublishedAt == nil {
+				published = append(published, row.KeyID)
+			}
+			if credential.ExpiresAt != nil {
+				expiresAt = *credential.ExpiresAt
+			}
+		case row.PublishedAt == nil && now.Sub(row.CreatedAt) < publishWait:
+			continue
+		default:
+			status = TokenStatusRevoked
+		}
+		if !now.Before(expiresAt) {
+			status = common.TokenStatusExpired
+		}
+		if token.Status == status && token.ExpiredTime == expiresAt.Unix() {
+			continue
+		}
+		update := map[string]any{"status": status, "expired_time": expiresAt.Unix()}
+		if err := model.DB.Model(&model.Token{}).Where("id = ?", token.Id).Updates(update).Error; err != nil {
+			return err
+		}
+	}
+	if len(published) == 0 {
+		return nil
+	}
+	return model.DB.Model(&records.Key{}).Where("key_id IN ?", published).Update("published_at", now.UTC()).Error
 }

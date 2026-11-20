@@ -16,17 +16,27 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the status filter accepts a managed key's revoked state.
 import { createFileRoute } from '@tanstack/react-router'
 import z from 'zod'
 
+import { MANAGED_KEY_STATUS_OPTIONS } from '@/features/essera/key-status'
 import { ApiKeys } from '@/features/keys'
 import { API_KEY_STATUS_OPTIONS } from '@/features/keys/constants'
+
+const statusValues = [
+  ...new Set(
+    [...API_KEY_STATUS_OPTIONS, ...MANAGED_KEY_STATUS_OPTIONS].map(
+      (s) => s.value as `${number}`
+    )
+  ),
+]
 
 const apiKeySearchSchema = z.object({
   page: z.number().optional().catch(1),
   pageSize: z.number().optional().catch(undefined),
   status: z
-    .array(z.enum(API_KEY_STATUS_OPTIONS.map((s) => s.value as `${number}`)))
+    .array(z.enum(statusValues))
     .optional()
     .catch([]),
   filter: z.string().optional().catch(''),

@@ -234,3 +234,15 @@ Every signed-in page takes its design, with only real data: widgets of the desig
 | `web/src/features/errors/*.tsx` | The designs' error page (404, 401, 403, 500, 503): mono status, Overview or Home, Model Square and Go Back; on a managed gateway no link to new-api's issue tracker; the 503 page's inert "Learn more" is gone |
 
 New Essera files: `web/src/features/essera/brand/chart-theme.ts`, `web/src/features/essera/error-page.tsx`, `web/src/features/essera/model-square-card.tsx`. Essera's own sign-in (8 code boxes; a complete code is sent once, and Verify is disabled while it is checked), key-created dialog, Users page and API Docs page (Scalar themed to the tokens, a View API Keys link) are restyled in place.
+
+## 2026-11 — A key's state from the Console, and the client address behind Cloudflare
+
+- **`essera/keys` (`Project`):** every applied configuration, and the master's start-up, brings the token row of each key not deleted on the Gateway to what relay makes of it: active while the snapshot publishes it, expired once its expiry has passed, and revoked (token status 5, `keys.TokenStatusRevoked`) once the snapshot no longer publishes it. The expiry the snapshot publishes becomes the row's. A key the Console has not published yet keeps its row for 10 minutes, so a version written before the Console heard of it revokes nothing; `essera_keys.published_at` records the first version that listed it. The snapshot lists active keys only and carries no revocation time or reason, so neither is shown.
+- **API keys page** in managed mode (`web/src/features/essera/key-status.ts`): a key reads Active, Expired or Revoked, filters by those states, and an active key whose expiry has passed since the last version reads Expired.
+- **`essera/clientip`:** with `ESSERA_CLIENT_IP_HEADER` set (`CF-Connecting-IP` behind Cloudflare), a request whose peer is a trusted proxy (`TRUSTED_PROXIES`) and that carries one valid address in that header is served as coming from that address, so login sessions, audit, sign-in throttling and rate limits record the person rather than the load balancer or a Cloudflare edge. The header from any other peer is ignored. Unset, nothing changes.
+
+| File | Change |
+| --- | --- |
+| `controller/token.go` | On a managed gateway, `PUT /api/token` is refused (409) in the handler too, so a key the Console revoked or that expired is never enabled again |
+| `main.go` | Serves through `essera/clientip` |
+| `web/src/features/keys/components/api-keys-columns.tsx`, `web/src/features/keys/components/api-keys-table.tsx`, `web/src/routes/_authenticated/keys/index.tsx`, `web/src/i18n/locales/en.json` | A managed key's state and its filter |

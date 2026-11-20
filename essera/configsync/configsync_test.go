@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/essera/configsync"
+	"github.com/QuantumNous/new-api/essera/keys"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/records/recordstest"
 	"github.com/QuantumNous/new-api/essera/snapshot"
@@ -21,7 +22,7 @@ import (
 
 func setup(t *testing.T) {
 	t.Helper()
-	recordstest.UseDatabase(t, &model.Channel{}, &model.Ability{}, &model.SystemTask{}, &model.User{}, &model.UserSession{})
+	recordstest.UseDatabase(t, &model.Channel{}, &model.Ability{}, &model.SystemTask{}, &model.User{}, &model.UserSession{}, &model.Token{})
 	redis := common.RedisEnabled
 	common.RedisEnabled = false
 	t.Cleanup(func() { common.RedisEnabled = redis })
@@ -201,6 +202,62 @@ func TestAVersionBeforeThePeopleLeavesUsersAlone(t *testing.T) {
 	apply(t, 4, withoutPeople)
 
 	assert.Equal(t, common.UserStatusEnabled, usersBySub(t)[snapshottest.AdminSub].Status)
+}
+
+// key adds a person's key the way essera/keys keeps it: an essera_keys row and its token row.
+func key(t *testing.T, keyID string, created, expires time.Time, published, deleted *time.Time) int {
+	t.Helper()
+	token := model.Token{UserId: 1, Name: keyID, Key: keyID, Status: common.TokenStatusEnabled, CreatedTime: created.Unix(), ExpiredTime: expires.Unix(), UnlimitedQuota: true}
+	require.NoError(t, model.DB.Create(&token).Error)
+	require.NoError(t, model.DB.Create(&records.Key{KeyID: keyID, TokenID: token.Id, UserID: 1, PersonID: snapshottest.UserPersonID,
+		CustomerID: snapshottest.CustomerID, ExpiresAt: expires, CreatedAt: created, PublishedAt: published, RevokedAt: deleted}).Error)
+	return token.Id
+}
+
+func TestKeyStatesFollowTheConsole(t *testing.T) {
+	setup(t)
+	now := time.Now().UTC().Truncate(time.Second)
+	later := now.Add(30 * 24 * time.Hour)
+	earlier := now.Add(-time.Hour)
+	listed := key(t, snapshottest.KeyID, earlier, later, nil, nil)
+	revoked := key(t, "k_revoked", earlier, later, &earlier, nil)
+	pending := key(t, "k_pending", now, later, nil, nil)
+	neverPublished := key(t, "k_never_published", earlier, later, nil, nil)
+	expired := key(t, "k_expired", now.Add(-48*time.Hour), earlier, &earlier, nil)
+	deleted := key(t, "k_deleted", earlier, later, &earlier, &now)
+
+	apply(t, 3, snapshottest.Sample())
+
+	states := func() map[int]model.Token {
+		var tokens []model.Token
+		require.NoError(t, model.DB.Find(&tokens).Error)
+		byID := map[int]model.Token{}
+		for _, token := range tokens {
+			byID[token.Id] = token
+		}
+		return byID
+	}
+	tokens := states()
+	assert.Equal(t, common.TokenStatusEnabled, tokens[listed].Status, "published")
+	assert.Equal(t, time.Date(2027, 2, 17, 0, 0, 0, 0, time.UTC).Unix(), tokens[listed].ExpiredTime, "the published expiry")
+	assert.Equal(t, keys.TokenStatusRevoked, tokens[revoked].Status, "published before, gone now")
+	assert.Equal(t, common.TokenStatusEnabled, tokens[pending].Status, "created a moment ago: the Console has not published it yet")
+	assert.Equal(t, keys.TokenStatusRevoked, tokens[neverPublished].Status, "the Console never published it")
+	assert.Equal(t, common.TokenStatusExpired, tokens[expired].Status)
+	assert.Equal(t, common.TokenStatusEnabled, tokens[deleted].Status, "deleted on the Gateway: not the Console's to change")
+	var row records.Key
+	require.NoError(t, model.DB.First(&row, "key_id = ?", snapshottest.KeyID).Error)
+	require.NotNil(t, row.PublishedAt)
+
+	next := snapshottest.Sample()
+	next.Accounts.Credentials = next.Accounts.Credentials[:2] // the Console revokes the end user's key
+	apply(t, 4, next)
+	assert.Equal(t, keys.TokenStatusRevoked, states()[listed].Status, "revoked at once, once published")
+
+	withoutAccounts := snapshottest.Sample()
+	withoutAccounts.Accounts = nil
+	apply(t, 5, withoutAccounts)
+	assert.Equal(t, keys.TokenStatusRevoked, states()[listed].Status, "a version without accounts keeps the previous ones")
 }
 
 func TestApplyRefusesAnUnreadableDocument(t *testing.T) {

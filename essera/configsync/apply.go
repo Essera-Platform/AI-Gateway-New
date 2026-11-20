@@ -1,7 +1,7 @@
 // Package configsync applies the configuration versions the Console publishes: it reads the
 // configuration queue, fetches and verifies each snapshot, keeps the last good one in the
-// Gateway's database, projects the provider catalog into new-api channels and the people into
-// new-api users.
+// Gateway's database, projects the provider catalog into new-api channels, the people into
+// new-api users and the state of their API keys into the keys' token rows.
 package configsync
 
 import (
@@ -17,6 +17,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/awsx"
+	"github.com/QuantumNous/new-api/essera/keys"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/secrets"
 	"github.com/QuantumNous/new-api/essera/settings"
@@ -144,6 +145,11 @@ func Apply(version int64, digest string, data []byte) error {
 		model.InitChannelCache()
 	}
 	activate(version, merged, states)
+	// Relay already follows the version; a key's state on the API keys page catches up at the
+	// next version if this fails, so it does not hold this one back.
+	if err := keys.Project(snapshot.Current(), time.Now()); err != nil {
+		common.SysError(common.LogText("essera: projecting the API keys of version %d: %s", version, err.Error()))
+	}
 	model.BumpSyncTopic(model.SyncTopicChannels)
 	model.BumpSyncTopic(SyncTopic)
 	return nil
