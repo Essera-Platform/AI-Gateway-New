@@ -91,6 +91,8 @@ export function PublicHeader(props: PublicHeaderProps) {
   } = useSystemConfig()
   const dynamicLinks = useTopNavLinks()
   const notifications = useNotifications()
+  // Modified by Essera, 2026-11: no notifications bell on a managed gateway.
+  const notificationsShown = showNotifications && notifications.available
   const routerState = useRouterState()
   const pathname = routerState.location.pathname
 
@@ -284,13 +286,13 @@ export function PublicHeader(props: PublicHeaderProps) {
 
               {(showLanguageSwitcher ||
                 showThemeSwitch ||
-                showNotifications) && (
+                notificationsShown) && (
                 <div className='bg-border/40 mx-2 h-4 w-px' />
               )}
 
               {showLanguageSwitcher && <LanguageSwitcher />}
               {showThemeSwitch && <ThemeSwitch />}
-              {showNotifications && (
+              {notificationsShown && (
                 <NotificationPopover
                   open={notifications.popoverOpen}
                   onOpenChange={notifications.setPopoverOpen}

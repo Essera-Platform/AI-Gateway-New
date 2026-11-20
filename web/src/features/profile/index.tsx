@@ -16,11 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway's people have no notification or unpriced-model settings.
 import { Main } from '@/components/layout'
 import {
   CardStaggerContainer,
   CardStaggerItem,
 } from '@/components/page-transition'
+import { useEsseraPerson } from '@/features/essera/use-essera-managed'
 import { useStatus } from '@/hooks/use-status'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -35,6 +37,7 @@ export function Profile() {
   const { profile, loading, refreshProfile } = useProfile()
   const { status } = useStatus()
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
+  const esseraPerson = useEsseraPerson()
 
   const checkinEnabled = status?.checkin_enabled === true
   const turnstileEnabled = !!(
@@ -57,13 +60,15 @@ export function Profile() {
           <CardStaggerItem>
             <div className='grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
               <div className='space-y-4 sm:space-y-6'>
-                <ProfileSettingsCard
-                  profile={profile}
-                  loading={loading}
-                  onProfileUpdate={refreshProfile}
-                  quotaRemindEnabled={quotaRemindEnabled}
-                  quotaRemindThreshold={quotaRemindThreshold}
-                />
+                {!esseraPerson && (
+                  <ProfileSettingsCard
+                    profile={profile}
+                    loading={loading}
+                    onProfileUpdate={refreshProfile}
+                    quotaRemindEnabled={quotaRemindEnabled}
+                    quotaRemindThreshold={quotaRemindThreshold}
+                  />
+                )}
                 <LanguagePreferencesCard
                   profile={profile}
                   onProfileUpdate={refreshProfile}

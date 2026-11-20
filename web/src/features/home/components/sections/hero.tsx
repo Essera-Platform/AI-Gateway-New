@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: on a managed gateway no link to new-api's docs, and people start at the sign-in.
 import { CherryStudio } from '@lobehub/icons'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, BookOpen } from 'lucide-react'
@@ -48,10 +49,12 @@ const MoreIcon = () => (
 export function Hero(props: HeroProps) {
   const { t } = useTranslation()
   const { status } = useStatus()
+  const managed = status?.essera_managed === true
   const docsUrl =
     (status?.docs_link as string | undefined) || 'https://docs.newapi.pro'
 
   const renderDocsButton = () => {
+    if (managed) return null
     const isExternal = docsUrl.startsWith('http')
     if (isExternal) {
       return (
@@ -152,7 +155,7 @@ export function Hero(props: HeroProps) {
               <>
                 <Button
                   className='group h-11 rounded-lg px-5 text-sm font-medium'
-                  render={<Link to='/sign-up' />}
+                  render={<Link to={managed ? '/sign-in' : '/sign-up'} />}
                 >
                   {t('Get Started')}
                   <ArrowRight className='ml-1.5 size-4 transition-transform duration-200 group-hover:translate-x-0.5' />

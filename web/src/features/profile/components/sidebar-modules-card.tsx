@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Switch } from '@/components/ui/switch'
+import { applyManagedSidebarModules } from '@/features/essera/menu'
 import { parseSidebarModulesAdmin } from '@/features/system-settings/maintenance/config'
 import { useStatus } from '@/hooks/use-status'
 import { api } from '@/lib/api'
@@ -138,9 +139,14 @@ export function SidebarModulesCard() {
     },
   ]
 
-  const adminConfig = parseSidebarModulesAdmin(
+  const storedAdminConfig = parseSidebarModulesAdmin(
     status?.SidebarModulesAdmin as string | null | undefined
   )
+  // Modified by Essera, 2026-11: no switches for what a managed gateway never shows.
+  const adminConfig =
+    status?.essera_managed === true
+      ? applyManagedSidebarModules(storedAdminConfig)
+      : storedAdminConfig
   const visibleSectionDefs = status
     ? sectionDefs.flatMap((section) => {
         const adminSection = adminConfig[section.key]

@@ -135,7 +135,8 @@ export function AppHeader({
           {showSearch && (
             <Search className='w-8 flex-none [&>span]:hidden sm:[&>span]:inline' />
           )}
-          {showNotifications && (
+          {/* Modified by Essera, 2026-11: no notifications bell on a managed gateway. */}
+          {showNotifications && notifications.available && (
             <NotificationPopover
               open={notifications.popoverOpen}
               onOpenChange={notifications.setPopoverOpen}

@@ -162,7 +162,10 @@ export function Footer(props: FooterProps) {
 
   const displayLogo = systemLogo || props.logo || '/logo.png'
   const displayName = systemName || props.name || 'New API'
-  const isDemoSiteMode = Boolean(demoSiteEnabled)
+  const { status } = useStatus()
+  // Modified by Essera, 2026-11: a managed gateway shows no links to new-api's docs site.
+  const isDemoSiteMode =
+    Boolean(demoSiteEnabled) && status?.essera_managed !== true
   const currentYear = new Date().getFullYear()
 
   const fallbackColumns = useMemo<FooterColumnProps[]>(

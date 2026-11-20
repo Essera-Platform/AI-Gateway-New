@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway links to neither new-api's docs, its About page nor its rankings.
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -59,6 +60,7 @@ export function useTopNavLinks(): TopNavLink[] {
   const docsLink: string | undefined = status?.docs_link as string | undefined
 
   const isAuthed = !!auth?.user
+  const managed = status?.essera_managed === true
 
   const links: TopNavLink[] = []
 
@@ -81,13 +83,18 @@ export function useTopNavLinks(): TopNavLink[] {
 
   // Rankings
   const rankings = modules?.rankings
-  if (rankings && typeof rankings === 'object' && rankings.enabled) {
+  if (
+    !managed &&
+    rankings &&
+    typeof rankings === 'object' &&
+    rankings.enabled
+  ) {
     const requiresAuth = rankings.requireAuth && !isAuthed
     links.push({ title: t('Rankings'), href: '/rankings', requiresAuth })
   }
 
   // Docs (supports external links)
-  if (modules?.docs !== false) {
+  if (!managed && modules?.docs !== false) {
     if (docsLink) {
       links.push({ title: t('Docs'), href: docsLink, external: true })
     } else {
@@ -96,7 +103,7 @@ export function useTopNavLinks(): TopNavLink[] {
   }
 
   // About
-  if (modules?.about !== false) {
+  if (!managed && modules?.about !== false) {
     links.push({ title: t('About'), href: '/about' })
   }
 

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway has no notice or announcements; its server closes /api/notice.
 import { useQuery } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
 
@@ -69,6 +70,9 @@ export function useNotifications() {
     'notice'
   )
 
+  const { status, loading: statusLoading } = useStatus()
+  const managed = status?.essera_managed === true
+
   // Fetch Notice from API
   const {
     data: noticeResponse,
@@ -78,10 +82,10 @@ export function useNotifications() {
     queryKey: ['notice'],
     queryFn: async () => requireServerSuccess(await getNotice()),
     staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: Boolean(status) && !managed,
   })
 
   // Fetch Announcements from status
-  const { status, loading: statusLoading } = useStatus()
   const announcementsEnabled = status?.announcements_enabled ?? false
   const announcements = useMemo<Record<string, unknown>[]>(() => {
     if (!announcementsEnabled) return []
@@ -167,6 +171,8 @@ export function useNotifications() {
   }
 
   return {
+    available: !managed,
+
     // Data
     notice: noticeContent,
     announcements,

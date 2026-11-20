@@ -31,6 +31,7 @@ import {
   getAdminPlans,
   getSelfSubscriptionFull,
 } from '@/features/subscriptions/api'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { createServerError } from '@/lib/server-error-message'
@@ -98,9 +99,11 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const isMobile = useMediaQuery('(max-width: 640px)')
   const searchParams = route.useSearch()
   const userId = useAuthStore((state) => state.auth.user?.id)
+  const { managed } = useEsseraManaged()
   const { data: showBillingSource = false } = useQuery({
     queryKey: ['usage-log-billing-source', isAdmin, userId],
-    enabled: logCategory === 'common' && userId != null,
+    // Modified by Essera, 2026-11: a managed gateway has no subscriptions; their API is closed.
+    enabled: logCategory === 'common' && userId != null && !managed,
     queryFn: async () => {
       if (isAdmin) {
         const plansResult = await getAdminPlans()

@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/essera/managed"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
@@ -64,6 +65,10 @@ func authHelper(c *gin.Context, minRole int) {
 	}
 	if user.Role < minRole {
 		abortWithWebMessage(c, http.StatusForbidden, "AUTH_INSUFFICIENT_PRIVILEGE", common.NewMessage("Unauthorized, insufficient privileges"))
+		return
+	}
+	// Modified by Essera, 2026-11: a person's account settings that Cognito or the Console own are closed.
+	if managed.PersonRouteRefused(c, user.Role) {
 		return
 	}
 	var lookup *accessTokenLookup
