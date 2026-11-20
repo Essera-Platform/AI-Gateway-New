@@ -111,11 +111,15 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function renderPage(path = '/security') {
+async function renderPage(
+  path = '/security',
+  statusOverrides: Record<string, unknown> = {}
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   client.setQueryData(['status'], {
+    ...statusOverrides,
     checkin_enabled: false,
     wechat_login: true,
     github_oauth: true,
@@ -274,5 +278,72 @@ describe('security page migration', () => {
     expect(
       await screen.findByRole('button', { name: 'Delete Account' })
     ).toBeVisible()
+  })
+})
+
+// Modified by Essera, 2026-11: a managed gateway's people keep only their login sessions.
+describe('security page of a person on a managed gateway', () => {
+  it('shows only the login sessions and requests nothing else', async () => {
+    await renderPage('/security', { essera_managed: true })
+    const access = await screen.findByRole('region', {
+      name: 'Sessions & Access',
+    })
+    expect(
+      await within(access).findByText('No active login sessions')
+    ).toBeVisible()
+    expect(
+      screen
+        .getAllByRole('region')
+        .map((region) => within(region).getAllByRole('heading')[0].textContent)
+    ).toEqual(['Sessions & Access'])
+    for (const label of ['Change Password', 'Delete Account']) {
+      expect(
+        screen.queryByRole('button', { name: label })
+      ).not.toBeInTheDocument()
+    }
+    expect(screen.queryByText('Account Bindings')).not.toBeInTheDocument()
+    expect(screen.queryByText('Access tokens')).not.toBeInTheDocument()
+    expect(screen.queryByText('Passkey Login')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Two-Factor Authentication')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('switch', { name: 'Record IP Address' })
+    ).not.toBeInTheDocument()
+    for (const url of [
+      '/api/user/passkey',
+      '/api/user/2fa/status',
+      '/api/user/access_tokens',
+      '/api/user/access_tokens/catalog',
+    ]) {
+      expect(api.get).not.toHaveBeenCalledWith(url, expect.anything())
+      expect(api.get).not.toHaveBeenCalledWith(url)
+    }
+  })
+
+  it('an operator (root) keeps every section', async () => {
+    useAuthStore.getState().auth.setUser({
+      ...profile,
+      role: 100,
+      permissions: { sidebar_settings: false },
+    })
+    await renderPage('/security', { essera_managed: true })
+    expect(
+      await screen.findByRole('button', { name: 'Change Password' })
+    ).toBeVisible()
+    expect(screen.getByText('Access tokens')).toBeVisible()
+    expect(
+      screen.getByRole('switch', { name: 'Record IP Address' })
+    ).toBeVisible()
+  })
+
+  it('the profile of a person shows no notification or unpriced-model settings', async () => {
+    await renderPage('/profile', { essera_managed: true })
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/user/self'))
+    expect(
+      screen.queryByRole('button', { name: 'Save Settings' })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Accept Unpriced Models')).not.toBeInTheDocument()
+    expect(screen.queryByText('Notification Method')).not.toBeInTheDocument()
   })
 })

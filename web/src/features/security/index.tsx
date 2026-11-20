@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway's people keep only their login sessions; Cognito and the Console own the rest.
 import { Link2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -30,6 +31,7 @@ import {
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TitledCard } from '@/components/ui/titled-card'
+import { useEsseraPerson } from '@/features/essera/use-essera-managed'
 import { useProfile } from '@/features/profile/hooks/use-profile'
 
 import { AccessTokensCard } from './components/access-tokens-card'
@@ -43,6 +45,7 @@ import { TwoFACard } from './components/two-fa-card'
 export function Security() {
   const { t } = useTranslation()
   const { profile, loading, refreshProfile, fetchProfile } = useProfile()
+  const esseraPerson = useEsseraPerson()
 
   let content: ReactNode
   if (loading) {
@@ -70,6 +73,20 @@ export function Security() {
           {t('Retry')}
         </Button>
       </Empty>
+    )
+  } else if (esseraPerson) {
+    content = (
+      <div className='grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
+        <section
+          aria-labelledby='security-access'
+          className='min-w-0 space-y-4'
+        >
+          <h3 id='security-access' className='text-sm font-semibold'>
+            {t('Sessions & Access')}
+          </h3>
+          <LoginSessionsCard />
+        </section>
+      </div>
     )
   } else {
     content = (

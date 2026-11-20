@@ -84,6 +84,7 @@ export function UserAuthForm({
   const loginFailedMessage = t('Login failed')
 
   const { status } = useStatus()
+  const managed = status?.essera_managed === true
   const passkeyLoginEnabled = Boolean(
     status?.passkey_login ?? status?.data?.passkey_login
   )
@@ -385,12 +386,15 @@ export function UserAuthForm({
                     />
                   </FormControl>
                   <FormMessage />
-                  <Link
-                    to='/forgot-password'
-                    className='text-muted-foreground absolute end-0 -top-0.5 z-10 text-sm font-medium hover:opacity-75'
-                  >
-                    {t('Forgot password?')}
-                  </Link>
+                  {/* Modified by Essera, 2026-11: a managed gateway has no password reset. */}
+                  {!managed && (
+                    <Link
+                      to='/forgot-password'
+                      className='text-muted-foreground absolute end-0 -top-0.5 z-10 text-sm font-medium hover:opacity-75'
+                    >
+                      {t('Forgot password?')}
+                    </Link>
+                  )}
                 </FormItem>
               )}
             />

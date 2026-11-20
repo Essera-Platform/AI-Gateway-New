@@ -368,8 +368,9 @@ describe('managed gateway sidebar', () => {
     return [...list.querySelectorAll('li')].map((item) => item.textContent)
   }
 
-  it('hides wallet, task logs, redemption codes and subscriptions even when the stored setting shows them', async () => {
+  it('hides the chat clients, wallet, task logs, redemption codes and subscriptions even when the stored setting shows them', async () => {
     const allOn = JSON.stringify({
+      chat: { enabled: true, playground: true, chat: true },
       console: { enabled: true, task: true, midjourney: true, log: true },
       personal: { enabled: true, topup: true, personal: true },
       admin: {
@@ -382,6 +383,8 @@ describe('managed gateway sidebar', () => {
 
     const titles = await renderManagedSidebar(ROLE.SUPER_ADMIN, null, allOn)
 
+    expect(titles).not.toContain('Chat')
+    expect(titles).toContain('Playground')
     expect(titles).not.toContain('Wallet')
     expect(titles).not.toContain('Task Logs')
     expect(titles).not.toContain('Redemption Codes')

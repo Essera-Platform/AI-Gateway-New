@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: no Search button on a managed gateway; it is a stub, and Bedrock has no web search.
 import { GlobeIcon, PaperclipIcon, Trash2Icon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -37,6 +38,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 
 import {
   ATTACHMENT_ACTIONS,
@@ -73,6 +75,7 @@ export function PlaygroundInputTools({
 }: PlaygroundInputToolsProps) {
   const { t } = useTranslation()
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+  const { managed } = useEsseraManaged()
 
   const handleFileAction = (action: string) => {
     const notice = getAttachmentActionNotice(action)
@@ -130,24 +133,26 @@ export function PlaygroundInputTools({
           </DropdownMenu>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <PromptInputButton
-                aria-label={t('Search')}
-                className='text-muted-foreground hover:text-foreground hover:bg-muted/70 font-medium'
-                disabled={disabled}
-                onClick={handleSearchAction}
-                variant='ghost'
-              >
-                <GlobeIcon size={16} />
-              </PromptInputButton>
-            }
-          />
-          <TooltipContent>
-            <p>{t('Search')}</p>
-          </TooltipContent>
-        </Tooltip>
+        {!managed && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <PromptInputButton
+                  aria-label={t('Search')}
+                  className='text-muted-foreground hover:text-foreground hover:bg-muted/70 font-medium'
+                  disabled={disabled}
+                  onClick={handleSearchAction}
+                  variant='ghost'
+                >
+                  <GlobeIcon size={16} />
+                </PromptInputButton>
+              }
+            />
+            <TooltipContent>
+              <p>{t('Search')}</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
 
         <PlaygroundParameterPanel
           config={config}

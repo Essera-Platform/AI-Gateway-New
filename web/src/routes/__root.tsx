@@ -31,6 +31,7 @@ import { NavigationProgress } from '@/components/navigation-progress'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { saveAffiliateCode } from '@/features/auth/lib/storage'
+import { isManagedClosedPublicPath } from '@/features/essera/menu'
 import { GeneralError } from '@/features/errors/general-error'
 import { NotFoundError } from '@/features/errors/not-found-error'
 import { getSetupStatus } from '@/features/setup/api'
@@ -42,6 +43,7 @@ import {
 } from '@/lib/auth-session'
 import { subscribeAuthSessionEvents } from '@/lib/auth-session-sync'
 import { resolveLegacyRoute } from '@/lib/legacy-route'
+import { statusQueryOptions } from '@/lib/status-query'
 import { useAuthStore } from '@/stores/auth-store'
 
 function RootComponent() {
@@ -114,10 +116,20 @@ export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
   // 应用初始化与路由解析前统一校验会话
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     const legacyTarget = resolveLegacyRoute(location.href)
     if (legacyTarget) {
       throw redirect({ href: legacyTarget, replace: true })
+    }
+
+    // Modified by Essera, 2026-11: public pages a managed gateway does not serve.
+    if (isManagedClosedPublicPath(location.pathname)) {
+      const status = await context.queryClient
+        .fetchQuery(statusQueryOptions)
+        .catch(() => null)
+      if (status?.essera_managed === true) {
+        throw redirect({ to: '/', replace: true })
+      }
     }
 
     const pathname = location?.pathname || ''
