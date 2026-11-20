@@ -2,7 +2,7 @@ import type { TFunction } from 'i18next'
 
 import { formatCompactNumber } from '@/lib/format'
 
-import { formatSpend, type EsseraAccount } from './account'
+import { formatBalance, type EsseraAccount } from './account'
 
 export type EsseraAccountStat = {
   key: 'spend' | 'limit' | 'requests'
@@ -44,19 +44,19 @@ export function esseraAccountStats(
     ]
   }
   const limit = account.spend_limit
-    ? formatSpend(account.spend_limit, account.currency)
+    ? formatBalance(account.spend_limit, account.currency)
     : t('No limit')
   let limitDescription = t('Monthly spend limit')
   if (account.spend_limit && account.spend_left != null) {
     limitDescription = t('{{amount}} left this month', {
-      amount: formatSpend(account.spend_left, account.currency),
+      amount: formatBalance(account.spend_left, account.currency),
     })
   }
   return [
     {
       key: 'spend',
       label: t('Spend this month'),
-      value: formatSpend(account.spend, account.currency),
+      value: formatBalance(account.spend, account.currency),
       description: t('{{count}} tokens this month', {
         count: formatCompactNumber(account.tokens, locale),
       }),

@@ -45,3 +45,19 @@ export function isEsseraAdmin(
 export function formatSpend(amount: string, currency: string): string {
   return currency ? `${amount} ${currency}` : amount
 }
+
+// The balance cards show cents, and up to four places so a small spend is not shown as $0.00.
+export function formatBalance(amount: string, currency: string): string {
+  const value = Number(amount)
+  if (!currency || !Number.isFinite(value)) return formatSpend(amount, currency)
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    }).format(value)
+  } catch {
+    return formatSpend(amount, currency)
+  }
+}
