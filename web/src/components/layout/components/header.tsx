@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the top bar is a surface with a bottom border, as in the Essera designs.
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 
@@ -25,13 +26,16 @@ export function Header({ className, children, ...props }: HeaderProps) {
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 h-[var(--app-header-height,3rem)] w-full shrink-0 bg-transparent',
+        'bg-card sticky top-0 z-40 h-[var(--app-header-height,3.5rem)] w-full shrink-0 border-b shadow-[0_1px_2px_rgb(0_0_0/0.03)]',
         className
       )}
       {...props}
     >
-      <div className='flex h-full items-center gap-1.5 px-2 sm:gap-2 sm:px-3'>
-        <SidebarTrigger variant='ghost' className='size-8' />
+      <div className='flex h-full items-center gap-1.5 px-2 sm:gap-2 sm:px-3 lg:px-4'>
+        <SidebarTrigger
+          variant='ghost'
+          className='text-muted-foreground hover:text-foreground size-8'
+        />
         {children}
       </div>
     </header>

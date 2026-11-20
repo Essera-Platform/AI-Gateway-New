@@ -642,6 +642,23 @@ func TestAPersonCannotTakeAUsernameOrSetAGatewayPassword(t *testing.T) {
 	assert.Equal(t, "User One", after.DisplayName, "the display name stays theirs")
 }
 
+func TestNobodySetsAnInterfaceLanguageOnAManagedGateway(t *testing.T) {
+	esseraSignInSetup(t, "email_otp")
+	var person model.User
+	require.NoError(t, model.DB.Where("oidc_id = ?", snapshottest.UserSub).First(&person).Error)
+	engine := gin.New()
+	engine.PUT("/api/user/self", func(c *gin.Context) { c.Set("id", person.Id); c.Set("username", person.Username) }, UpdateSelf)
+	recorder := httptest.NewRecorder()
+
+	engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodPut, "/api/user/self", strings.NewReader(`{"language":"zhCN"}`)))
+
+	assert.Equal(t, http.StatusNotFound, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "essera_not_available")
+	var after model.User
+	require.NoError(t, model.DB.First(&after, person.Id).Error)
+	assert.Empty(t, after.GetSetting().Language, "the saved language is unchanged")
+}
+
 func TestAPersonSeesOnlyTheModelsRelayLetsThemCall(t *testing.T) {
 	esseraSignInSetup(t, "email_otp")
 	limited := snapshottest.Sample()

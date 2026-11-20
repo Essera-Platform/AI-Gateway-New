@@ -11,6 +11,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/settings"
+	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/gin-gonic/gin"
 )
 
@@ -152,4 +153,15 @@ func TrimStatus(data map[string]any) {
 	}
 	delete(data, "announcements")
 	delete(data, "custom_oauth_providers")
+}
+
+// AddCatalog gives a managed gateway's status the live count of the models a guest sees in the
+// Model Square and of their families, which the public landing page shows. It names no account.
+func AddCatalog(data map[string]any) {
+	if !settings.Managed() {
+		return
+	}
+	if view := snapshot.Current(); view != nil {
+		data["essera_catalog"] = view.Catalog()
+	}
 }

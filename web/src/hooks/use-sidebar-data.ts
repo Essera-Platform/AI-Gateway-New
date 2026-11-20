@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: on a managed gateway, which has no chat clients, the Playground's section is "Explore".
 import {
   Activity,
   BookOpen,
@@ -67,7 +68,7 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
     navGroups: [
       {
         id: 'chat',
-        title: t('Chat'),
+        title: managed ? t('Explore') : t('Chat'),
         items: [
           {
             title: t('Playground'),

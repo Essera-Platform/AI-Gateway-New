@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: Light is the default theme and there is no System choice; a managed gateway applies no saved customization.
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -84,13 +86,19 @@ function ThemeControls() {
   )
 }
 
-function ThemeFixture() {
+function ThemeFixture(props: { status?: Record<string, unknown> }) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+  client.setQueryData(['status'], props.status ?? {})
   return (
-    <ThemeProvider>
-      <ThemeCustomizationProvider>
-        <ThemeControls />
-      </ThemeCustomizationProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={client}>
+      <ThemeProvider>
+        <ThemeCustomizationProvider>
+          <ThemeControls />
+        </ThemeCustomizationProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   )
 }
 
@@ -123,7 +131,7 @@ describe('theme preference persistence', () => {
 
     render(<ThemeFixture />)
 
-    expect(screen.getByLabelText('Theme mode')).toHaveTextContent('system')
+    expect(screen.getByLabelText('Theme mode')).toHaveTextContent('light')
     expect(document.documentElement).toHaveClass('light')
     expect(document.body).not.toHaveAttribute('data-theme-preset')
     expect(document.body).toHaveAttribute('data-theme-font', 'system')
@@ -169,7 +177,7 @@ describe('theme preference persistence', () => {
     first.unmount()
     render(<ThemeFixture />)
 
-    expect(screen.getByLabelText('Theme mode')).toHaveTextContent('system')
+    expect(screen.getByLabelText('Theme mode')).toHaveTextContent('light')
     expect(document.documentElement).toHaveClass('light')
     expect(document.body).not.toHaveAttribute('data-theme-preset')
     expect(document.body).toHaveAttribute('data-theme-font', 'system')
@@ -192,7 +200,7 @@ describe('theme preference persistence', () => {
 
       render(<ThemeFixture />)
 
-      expect(screen.getByLabelText('Theme mode')).toHaveTextContent('system')
+      expect(screen.getByLabelText('Theme mode')).toHaveTextContent('light')
       expect(document.body).not.toHaveAttribute('data-theme-preset')
       expect(document.body).toHaveAttribute('data-theme-font', 'system')
       expect(document.body).not.toHaveAttribute('data-theme-radius')
@@ -208,7 +216,7 @@ describe('theme preference persistence', () => {
 
     render(<ThemeFixture />)
 
-    expect(screen.getByLabelText('Theme mode')).toHaveTextContent('system')
+    expect(screen.getByLabelText('Theme mode')).toHaveTextContent('light')
     expect(document.body).not.toHaveAttribute('data-theme-preset')
   })
 
@@ -229,7 +237,7 @@ describe('theme preference persistence', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reset' }))
 
-    expect(screen.getByLabelText('Theme mode')).toHaveTextContent('system')
+    expect(screen.getByLabelText('Theme mode')).toHaveTextContent('light')
     expect(document.body).not.toHaveAttribute('data-theme-preset')
   })
 
@@ -297,5 +305,31 @@ describe('theme font selection', () => {
 
     expect(document.body).toHaveAttribute('data-theme-font', 'system')
     expect(localStorage.getItem('newapi:theme:v1:font')).toBeNull()
+  })
+})
+
+describe('managed gateway appearance', () => {
+  it('applies none of the saved customization on a managed gateway but keeps the saved theme', () => {
+    for (const [key, value] of Object.entries(savedPreferences)) {
+      localStorage.setItem(key, value)
+    }
+
+    render(<ThemeFixture status={{ essera_managed: true }} />)
+
+    expect(screen.getByLabelText('Theme mode')).toHaveTextContent('dark')
+    expect(document.body).not.toHaveAttribute('data-theme-preset')
+    expect(document.body).not.toHaveAttribute('data-theme-radius')
+    expect(document.body).not.toHaveAttribute('data-theme-scale')
+    expect(document.body).toHaveAttribute('data-theme-font', 'system')
+    expect(document.body).toHaveAttribute('data-theme-content-layout', 'full')
+  })
+
+  it('reads a saved System theme as Light', () => {
+    localStorage.setItem('newapi:theme:v1:mode', 'system')
+
+    render(<ThemeFixture />)
+
+    expect(screen.getByLabelText('Theme mode')).toHaveTextContent('light')
+    expect(document.documentElement).toHaveClass('light')
   })
 })

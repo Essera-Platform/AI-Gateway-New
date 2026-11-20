@@ -29,6 +29,7 @@ import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { useEsseraAccount } from '@/features/essera/account'
 import { esseraAccountStats } from '@/features/essera/account-summary'
+import { NumberValue } from '@/features/essera/brand/number-value'
 import { EsseraSummaryPanel } from '@/features/essera/summary-panel'
 import { useStatus } from '@/hooks/use-status'
 import { toIntlLocale } from '@/i18n/languages'
@@ -324,8 +325,9 @@ export function SummaryCards() {
                 </span>
               </div>
 
-              <div className='font-mono text-xl font-semibold tracking-tight sm:text-2xl'>
-                {formatQuota(remainQuota)}
+              {/* Modified by Essera, 2026-11: the Essera number style. */}
+              <div className='text-xl font-bold sm:text-2xl'>
+                <NumberValue value={formatQuota(remainQuota)} />
               </div>
 
               <div className='grid grid-cols-2 gap-2'>

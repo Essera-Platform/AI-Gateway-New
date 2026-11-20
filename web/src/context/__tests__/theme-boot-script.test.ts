@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: Light unless Dark was chosen; the system preference is not followed.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -76,20 +77,24 @@ describe('index.html theme boot script', () => {
     expect(document.documentElement).not.toHaveClass('dark')
   })
 
-  it('follows the system dark mode when no preference is saved', () => {
+  it('uses Light when no preference is saved, even when the system is dark', () => {
     mockSystemDarkMode(true)
 
     runBootScript()
 
-    expect(document.documentElement).toHaveClass('dark')
+    expect(document.documentElement).toHaveClass('light')
+    expect(document.documentElement).not.toHaveClass('dark')
   })
 
-  it('follows the system light mode when the saved value is invalid', () => {
-    mockSystemDarkMode(false)
-    localStorage.setItem(THEME_STORAGE_KEYS.mode, 'sepia')
+  it('uses Light when the saved value is System or invalid', () => {
+    mockSystemDarkMode(true)
+    for (const saved of ['system', 'sepia']) {
+      document.documentElement.classList.remove('light', 'dark')
+      localStorage.setItem(THEME_STORAGE_KEYS.mode, saved)
 
-    runBootScript()
+      runBootScript()
 
-    expect(document.documentElement).toHaveClass('light')
+      expect(document.documentElement).toHaveClass('light')
+    }
   })
 })

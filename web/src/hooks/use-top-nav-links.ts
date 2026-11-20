@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: a managed gateway links to neither new-api's docs, its About page nor its rankings.
+// Modified by Essera, 2026-11: a managed gateway links to neither new-api's docs, its About page nor its rankings, and its Home is the Overview for someone signed in.
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -66,7 +66,8 @@ export function useTopNavLinks(): TopNavLink[] {
 
   // Home
   if (modules?.home !== false) {
-    links.push({ title: t('Home'), href: '/' })
+    const home = managed && isAuthed ? '/dashboard/overview' : '/'
+    links.push({ title: t('Home'), href: home })
   }
 
   // Console -> /dashboard (new console path)

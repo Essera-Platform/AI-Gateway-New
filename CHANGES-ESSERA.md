@@ -114,6 +114,10 @@ One deny-list in `essera/managed` closes what the Gateway does not use when the 
 | `web/src/features/auth/sign-in/components/user-auth-form.tsx`, `web/src/features/usage-logs/components/usage-logs-table.tsx`, `web/src/features/users/components/data-table-row-actions.tsx` | No password reset link, subscription lookup or subscription action in managed mode |
 | `go.mod`, `go.sum`, `THIRD-PARTY-LICENSES.md` | AWS SDK modules for S3, SQS, Secrets Manager and shared configuration, and go-jose for the customer pool's signing keys (Apache-2.0) |
 
+| `controller/misc.go`, `essera/managed/managed.go`, `essera/snapshot/view.go` | On a managed gateway, `/api/status` gives the landing page the live count of the catalog's active models and of their families (`essera_catalog`); it names no account |
+| `controller/essera.go` | On a managed gateway nobody saves an interface language (`PUT /api/user/self` with `language`, 404 `essera_not_available`): the gateway is English only |
+| `web/src/styles/*.css`, `web/index.html`, `web/src/context/*`, `web/src/components/theme-*.tsx`, `web/src/components/config-drawer.tsx`, `web/src/components/command-menu.tsx`, `web/src/components/language-switcher.tsx`, `web/src/components/ui/sidebar.tsx`, `web/src/components/layout/components/*`, `web/src/hooks/use-sidebar-data.ts`, `web/src/hooks/use-top-nav-links.ts`, `web/src/i18n/config.ts`, `web/src/lib/status-query.ts`, `web/src/main.tsx`, `web/src/features/auth/*`, `web/src/features/home/index.tsx`, `web/src/features/profile/index.tsx`, `web/src/features/dashboard/components/*` | The Essera design (below) |
+
 ### Settings
 
 | Variable | Meaning |
@@ -191,3 +195,18 @@ The playground's Attach menu attaches files to a message instead of saying the f
 | `web/src/routeTree.gen.ts` | The generated `/docs` route |
 | `web/package.json`, `web/bun.lock`, `THIRD-PARTY-LICENSES.md` | `@scalar/api-reference-react` 0.9.88 (MIT) |
 | `.github/workflows/backend-pr-validation.yml` | Lints the OpenAPI document |
+## 2026-11 — The Essera design (phase A: foundation, shell and landing)
+
+The web UI takes the look of the Essera designs. Pages are restyled one by one in later changes; this one sets what every page inherits.
+
+- **Tokens:** the emerald-on-slate palette in Light and Dark replaces new-api's in the default theme (`web/src/styles/theme.css`), with the designs' radius scale (4, 6, 8, 12, 16 and 24px). Plus Jakarta Sans is the interface font and JetBrains Mono the font of figures, prices, IDs and code, both self-hosted (`@fontsource-variable`, OFL-1.1).
+- **Figures:** the `num` utility (mono, tabular, slashed zero, tight) and `NumberValue` (`web/src/features/essera/brand/`), which sets a figure's unit in the emerald accent; the dashboard's stat cards use it.
+- **Theme:** Light or Dark, Light by default, for everyone; there is no System choice, and a saved System reads as Light. The top bar has a Light/Dark switch.
+- **Managed gateway:**
+  - the Essera logo (`EsseraLogo`, an emerald tile with a white "E" and the wordmark "ESSERA / AI Gateway", the Essera Operations Console's mark) in the top bar, the sign-in, the landing and the footer, and `public/essera-favicon.svg` as the favicon, unless `ESSERA_LOGO` names one;
+  - the footer shows no new-api tagline; the AGPLv3 §7(b) attribution from `NOTICE` and its link to the new-api repository stay, introduced as one line "Includes open-source software (AGPL-3.0)";
+  - no Theme Settings panel (presets, font, radius, density, sidebar style, layout, content width): the design's defaults apply, whatever a browser saved;
+  - English only: no language switcher in the top bar, the public header, the setup wizard or the profile; the interface is put in English whatever the browser or a saved preference says, and only the English locale is loaded once the browser knows the gateway is managed;
+  - the top bar and sidebar of the designs (56px bar with the managed pill, 240px bordered sidebar, section labels, the emerald active entry); Home is the Overview for someone signed in; the Playground's section is "Explore";
+  - the home page is the Essera landing (`web/src/features/essera/landing/`): the hero ("One gateway for every model your teams use") with a sample request in each API format the gateway serves, the figures section (models available and model families counted live from the snapshot, 2 API formats, per-account controls), how it works, and the Console callout. It shows no latency, uptime, volume or region figure, and no third-party chat clients.
+- **Translations:** from this change on, new interface strings are added in English only (`web/src/i18n/locales/en.json`). The other locale files stay for upstream merges; a managed gateway does not load them, and elsewhere a missing string falls back to English. `bun run i18n:sync` would copy English into them, so it is not run for Essera strings.

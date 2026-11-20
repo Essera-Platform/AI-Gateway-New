@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link } from '@tanstack/react-router'
+// Modified by Essera, 2026-11: the current page's link is emerald and underlined.
+import { Link, useLocation } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
 import { useMemo } from 'react'
 
@@ -29,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
-import { type TopNavLink } from '../types'
+import type { TopNavLink } from '../types'
 
 type TopNavProps = React.HTMLAttributes<HTMLElement> & {
   links: TopNavLink[]
@@ -40,17 +41,23 @@ type TopNavProps = React.HTMLAttributes<HTMLElement> & {
  * 在大屏幕显示水平导航，在小屏幕显示下拉菜单
  */
 export function TopNav({ className, links, ...props }: TopNavProps) {
+  const pathname = useLocation({ select: (location) => location.pathname })
   // 规范化链接，确保所有可选属性都有默认值
-  const normalizedLinks = useMemo(
-    () =>
-      links.map((link) => ({
-        isActive: false,
-        disabled: false,
-        external: false,
-        ...link,
-      })),
-    [links]
-  )
+  const normalizedLinks = useMemo(() => {
+    const matches = (href: string) =>
+      href === '/'
+        ? pathname === '/'
+        : pathname === href || pathname.startsWith(`${href}/`)
+    const current = links
+      .filter((link) => !link.external && matches(link.href))
+      .sort((a, b) => b.href.length - a.href.length)[0]
+    return links.map((link) => ({
+      disabled: false,
+      external: false,
+      ...link,
+      isActive: link === current,
+    }))
+  }, [links, pathname])
 
   return (
     <>
@@ -97,7 +104,7 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
       {/* 桌面端水平导航 */}
       <nav
         className={cn(
-          'hidden items-center space-x-4 lg:flex lg:space-x-4 xl:space-x-6',
+          'hidden items-center space-x-5 lg:flex xl:space-x-6',
           className
         )}
         {...props}
@@ -109,7 +116,7 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
               href={href}
               target='_blank'
               rel='noopener noreferrer'
-              className={`hover:text-primary text-sm font-medium transition-colors ${isActive ? '' : 'text-muted-foreground'}`}
+              className={navLinkClass(isActive)}
             >
               {title}
             </a>
@@ -118,7 +125,8 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
               key={`${title}-${href}`}
               to={href}
               disabled={disabled}
-              className={`hover:text-primary text-sm font-medium transition-colors ${isActive ? '' : 'text-muted-foreground'}`}
+              aria-current={isActive ? 'page' : undefined}
+              className={navLinkClass(isActive)}
             >
               {title}
             </Link>
@@ -126,5 +134,14 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
         )}
       </nav>
     </>
+  )
+}
+
+function navLinkClass(isActive: boolean): string {
+  return cn(
+    'hover:text-primary relative text-sm font-medium whitespace-nowrap transition-colors',
+    isActive
+      ? 'text-primary after:bg-primary after:absolute after:inset-x-0 after:-bottom-1.5 after:h-0.5 after:rounded-full'
+      : 'text-muted-foreground'
   )
 }

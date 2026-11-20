@@ -32,6 +32,7 @@ import type {
   QuotaDataItem,
   DashboardFilters,
 } from '@/features/dashboard/types'
+import { NumberValue } from '@/features/essera/brand/number-value'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
@@ -170,11 +171,12 @@ export function LogStatCards(props: LogStatCardsProps) {
           } else {
             valueContent = (
               <>
+                {/* Modified by Essera, 2026-11: the Essera number style. */}
                 <div
-                  className='text-foreground mt-1 max-w-full truncate font-mono text-base leading-tight font-bold tracking-tight tabular-nums sm:mt-2 sm:text-2xl sm:leading-normal'
+                  className='text-foreground mt-1 max-w-full truncate text-base leading-tight font-bold sm:mt-2 sm:text-2xl sm:leading-normal'
                   title={it.fullValue}
                 >
-                  {it.value}
+                  <NumberValue value={it.value} />
                 </div>
                 <div className='text-muted-foreground/60 mt-1 hidden text-xs md:block'>
                   {it.desc}

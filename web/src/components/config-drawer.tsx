@@ -31,7 +31,6 @@ import { IconSidebarInset } from '@/assets/custom/icon-sidebar-inset'
 import { IconSidebarSidebar } from '@/assets/custom/icon-sidebar-sidebar'
 import { IconThemeDark } from '@/assets/custom/icon-theme-dark'
 import { IconThemeLight } from '@/assets/custom/icon-theme-light'
-import { IconThemeSystem } from '@/assets/custom/icon-theme-system'
 import {
   sideDrawerContentClassName,
   sideDrawerFooterClassName,
@@ -52,6 +51,7 @@ import { useDirection } from '@/context/direction-provider'
 import { type Collapsible, useLayout } from '@/context/layout-provider'
 import { useThemeCustomization } from '@/context/theme-customization-provider'
 import { useTheme } from '@/context/theme-provider'
+import { useStatus } from '@/hooks/use-status'
 import {
   type ContentLayout,
   resolveThemeFont,
@@ -67,7 +67,14 @@ import { useSidebar } from './ui/sidebar'
 
 const Item = RadioPrimitive.Root
 
+/** Modified by Essera, 2026-11: a managed gateway has no theme settings; its only appearance choice is Light or Dark. */
 export function ConfigDrawer() {
+  const { status } = useStatus()
+  if (status?.essera_managed === true) return null
+  return <ConfigDrawerPanel />
+}
+
+function ConfigDrawerPanel() {
   const { t } = useTranslation()
   const { setOpen } = useSidebar()
   const { resetDir } = useDirection()
@@ -229,8 +236,8 @@ function ThemeConfig() {
         aria-label={t('Select theme preference')}
         aria-describedby='theme-description'
       >
+        {/* Modified by Essera, 2026-11: Light and Dark only. */}
         {[
-          { value: 'system', label: t('System'), icon: IconThemeSystem },
           { value: 'light', label: t('Light'), icon: IconThemeLight },
           { value: 'dark', label: t('Dark'), icon: IconThemeDark },
         ].map((item) => (
@@ -238,7 +245,7 @@ function ThemeConfig() {
         ))}
       </Radio>
       <div id='theme-description' className='sr-only'>
-        {t('Choose between system preference, light mode, or dark mode')}
+        {t('Choose light or dark mode')}
       </div>
     </div>
   )
