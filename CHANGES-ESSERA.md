@@ -276,3 +276,9 @@ A side-by-side pass against the client's Stitch screens fixed what still differe
 - **Profile:** a 64px avatar, the role as a square tag and the user ID as a link-coloured label; the sidebar settings are the design's tinted panels with plain switch lists.
 - **Model Square:** someone signed in on a managed gateway sees it in the console shell, with the console's 20px title and the line "AWS Bedrock models on this Gateway. Prices in USD per 1M tokens."
 - **Landing:** the links sit in the middle of the floating bar, the hero text is slate-600, and "Three steps to get started" has its subtitle.
+
+## 2026-11 — Panels that said nothing
+
+- **Dashboard:** the Flow tab appears only once there are records to draw, since it reads the same usage as the model charts and otherwise stands empty.
+- **API Keys:** the page carries no description; it repeated the title.
+- **Security & Access:** the sessions card no longer sits under a heading repeating the page title.

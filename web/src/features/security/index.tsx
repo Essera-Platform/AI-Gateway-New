@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 // Modified by Essera, 2026-11: a managed gateway's people keep only their login sessions; Cognito and the Console own the rest.
-// Modified by Essera, 2026-11: there the sessions card takes the page's width under a page description, as in the security design.
+// Modified by Essera, 2026-11: there the sessions card takes the page's width under the page description, with no heading of its own repeating it.
 import { Link2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -77,10 +77,7 @@ export function Security() {
     )
   } else if (esseraPerson) {
     content = (
-      <section aria-labelledby='security-access' className='min-w-0 space-y-3'>
-        <h3 id='security-access' className='text-base font-bold tracking-tight'>
-          {t('Sessions & Access')}
-        </h3>
+      <section aria-label={t('Sessions & Access')} className='min-w-0'>
         <LoginSessionsCard />
       </section>
     )
