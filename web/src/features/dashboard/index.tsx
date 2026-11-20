@@ -334,7 +334,7 @@ export function Dashboard() {
                     <TabsTrigger
                       key={section}
                       value={section}
-                      className='data-active:border-primary/40 data-active:bg-card data-active:text-primary dark:data-active:border-primary/40 dark:data-active:bg-card dark:data-active:text-primary h-8 px-3.5 data-active:font-semibold'
+                      className='data-active:border-primary/40 data-active:bg-card data-active:text-primary dark:data-active:border-primary/40 dark:data-active:bg-card dark:data-active:text-primary h-7 px-3 text-xs data-active:font-semibold'
                     >
                       {t(SECTION_META[section].titleKey)}
                     </TabsTrigger>

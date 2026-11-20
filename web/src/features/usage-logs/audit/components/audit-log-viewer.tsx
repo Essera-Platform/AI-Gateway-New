@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the Audit Logs design's 12px rows and 11px uppercase headers.
 import { useQuery } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { useEffect, useState } from 'react'
@@ -123,7 +124,7 @@ export function AuditLogViewer(props: {
         className='h-auto min-h-0 flex-1'
         applyHeaderSize
         getColumnClassName={() => 'py-2'}
-        tableClassName='[&_[data-slot=table]]:text-[13px] [&_[data-slot=table]_td]:text-[13px] [&_[data-slot=table]_td_*]:text-[13px] [&_[data-slot=table]_th]:text-[13px] [&_[data-slot=table]_th_*]:text-[13px]'
+        tableClassName='[&_[data-slot=table]]:text-xs [&_[data-slot=table]_td]:text-xs [&_[data-slot=table]_th]:text-[11px] [&_[data-slot=table]_th]:tracking-wide [&_[data-slot=table]_th]:uppercase'
         toolbar={
           <div className='shrink-0 space-y-2'>
             <AuditLogFilterBar

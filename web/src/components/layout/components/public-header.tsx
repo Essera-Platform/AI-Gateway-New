@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the floating rounded bar of the Essera landing, with the Essera logo on a managed gateway.
+// Modified by Essera, 2026-11: the floating rounded bar of the Essera landing (logo, centred links, actions on the right), with the Essera logo on a managed gateway.
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -291,13 +291,9 @@ export function PublicHeader(props: PublicHeaderProps) {
                   </Link>
                 )
               })}
+            </div>
 
-              {(showLanguageSwitcher ||
-                showThemeSwitch ||
-                notificationsShown) && (
-                <div className='bg-border/40 mx-2 h-4 w-px' />
-              )}
-
+            <div className='hidden min-w-0 flex-1 items-center justify-end gap-2 lg:flex'>
               {showLanguageSwitcher && <LanguageSwitcher />}
               {showThemeSwitch && <ThemeSwitch />}
               {notificationsShown && (
@@ -313,12 +309,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                 />
               )}
 
-              {showAuthButtons && (
-                <>
-                  <div className='bg-border/40 mx-1 h-4 w-px' />
-                  {authContent}
-                </>
-              )}
+              {showAuthButtons && authContent}
             </div>
 
             {/* Mobile: compact actions + hamburger */}

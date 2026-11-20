@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: model IDs are set in mono, as in the designs.
+// Modified by Essera, 2026-11: model IDs are plain mono text after a small framed provider icon, as in the designs.
 import { AlertTriangle, Route } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -56,7 +56,7 @@ function ModelBadgeContent(props: ModelBadgeProps & { copyable: boolean }) {
       showDot={!provider?.icon}
       autoColor={provider?.icon ? undefined : props.modelName}
       className={cn(
-        'border-border/60 bg-muted/30 h-6 max-w-none gap-1.5 rounded-md border px-2 text-xs! font-medium font-mono',
+        'h-6 max-w-none gap-2 rounded-none border-0 bg-transparent px-0 font-mono text-xs! font-medium',
         provider?.icon && 'text-foreground',
         props.wrapText && 'h-auto min-h-6 max-w-full py-px whitespace-normal',
         props.className
@@ -70,11 +70,11 @@ function ModelBadgeContent(props: ModelBadgeProps & { copyable: boolean }) {
       >
         {provider?.icon && (
           <span
-            className='flex h-[18px] w-[18px] shrink-0 items-center justify-center'
+            className='bg-card flex size-5 shrink-0 items-center justify-center rounded border'
             title={provider.label ?? provider.name}
             aria-label={provider.label ?? provider.name}
           >
-            {getLobeIcon(provider.icon, 18)}
+            {getLobeIcon(provider.icon, 12)}
           </span>
         )}
         <span

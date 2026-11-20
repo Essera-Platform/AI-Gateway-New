@@ -373,7 +373,7 @@ export function ApiKeysTable() {
             aria-label={t('Filter by API key...')}
             value={tokenFilterInput}
             onChange={(e) => setTokenFilterInput(e.target.value)}
-            className='w-full sm:w-50 lg:w-60'
+            className='h-[30px] w-full text-xs sm:w-48 md:text-xs'
           />
         ),
         filters: [

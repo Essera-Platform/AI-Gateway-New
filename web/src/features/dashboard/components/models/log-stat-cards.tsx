@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the analytics design: one card per figure, the last one highlighted in emerald.
+// Modified by Essera, 2026-11: the analytics design: one card per figure with a tinted icon tile, the last one highlighted in emerald.
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -194,7 +194,7 @@ export function LogStatCards(props: LogStatCardsProps) {
               aria-label={it.title}
               aria-busy={loading}
               className={cn(
-                'bg-card shadow-card min-w-0 rounded-xl border px-3 py-2.5 transition-colors sm:px-4 sm:py-4',
+                'bg-card shadow-card min-w-0 rounded-xl border px-3 py-2.5 transition-colors sm:p-3.5',
                 highlighted
                   ? 'border-primary/30 bg-primary/5 dark:bg-primary/10'
                   : 'hover:border-primary/30',
@@ -204,15 +204,13 @@ export function LogStatCards(props: LogStatCardsProps) {
               )}
             >
               <div className='flex min-w-0 items-center gap-1.5 sm:h-6 sm:gap-2'>
-                {highlighted && (
-                  <IconBadge
-                    tone='success'
-                    size='stat'
-                    className='size-4 shrink-0 rounded-sm sm:size-6 sm:rounded-md [&>svg]:size-2.5 sm:[&>svg]:size-3.5'
-                  >
-                    <Icon />
-                  </IconBadge>
-                )}
+                <IconBadge
+                  tone={highlighted ? 'success' : it.iconTone}
+                  size='stat'
+                  className='size-4 shrink-0 rounded-sm sm:size-5 sm:rounded-md [&>svg]:size-2.5 sm:[&>svg]:size-3'
+                >
+                  <Icon />
+                </IconBadge>
                 <div
                   className={cn(
                     'truncate text-[11px] leading-4 font-bold tracking-wider uppercase',

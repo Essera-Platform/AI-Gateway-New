@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the value in the Essera number style, its unit in the emerald accent.
+// Modified by Essera, 2026-11: the value in the Essera number style, its unit in the emerald accent; a smooth glowing sparkline, as in the designs.
 import type { LucideIcon } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 
@@ -132,8 +132,14 @@ function buildLineSparkline(values?: number[]) {
     return { x, y }
   })
 
+  // Horizontal-tangent cubic segments: smooth like the designs, never overshooting a point.
   const linePath = points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
+    .map((point, index) => {
+      if (index === 0) return `M ${point.x} ${point.y}`
+      const previous = points[index - 1]
+      const midX = (previous.x + point.x) / 2
+      return `C ${midX} ${previous.y} ${midX} ${point.y} ${point.x} ${point.y}`
+    })
     .join(' ')
   const firstPoint = points.at(0)
   const lastPoint = points.at(-1)
@@ -155,16 +161,13 @@ function LineSparkline(props: { values?: number[]; tone: StatCardTone }) {
 
   return (
     <div
-      className={cn(
-        'relative h-8 overflow-hidden rounded-lg',
-        LINE_TONE_CLASSES[props.tone]
-      )}
+      className={cn('relative h-8', LINE_TONE_CLASSES[props.tone])}
       aria-hidden='true'
     >
       <svg
         viewBox='0 0 160 36'
         preserveAspectRatio='none'
-        className='size-full'
+        className='size-full overflow-visible [filter:drop-shadow(0_3px_5px_color-mix(in_srgb,currentColor_35%,transparent))]'
       >
         <defs>
           <linearGradient id={gradientId} x1='0' x2='0' y1='0' y2='1'>
@@ -179,7 +182,7 @@ function LineSparkline(props: { values?: number[]; tone: StatCardTone }) {
           stroke='currentColor'
           strokeLinecap='round'
           strokeLinejoin='round'
-          strokeWidth='2.25'
+          strokeWidth='2'
           vectorEffect='non-scaling-stroke'
         />
       </svg>

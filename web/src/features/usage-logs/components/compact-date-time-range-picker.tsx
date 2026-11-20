@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a chosen range is set in 12px mono, as in the Usage Logs design.
 import { CalendarDays } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -129,8 +130,8 @@ export function CompactDateTimeRangePicker({
             variant='outline'
             aria-label={label}
             className={cn(
-              'w-full justify-start gap-2 px-2.5 text-sm leading-5 font-normal tabular-nums',
-              !start && !end && 'text-muted-foreground',
+              'w-full justify-start gap-2 px-2.5 text-xs leading-5 font-normal tabular-nums',
+              start || end ? 'font-mono' : 'text-muted-foreground',
               className
             )}
           />

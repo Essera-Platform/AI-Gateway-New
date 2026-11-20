@@ -41,7 +41,7 @@ function Hero(props: { isAuthenticated: boolean }) {
               {t('every model your teams use')}
             </span>
           </h1>
-          <p className='text-muted-foreground mb-8 max-w-xl text-base leading-relaxed sm:text-lg'>
+          <p className='text-sidebar-foreground mb-8 max-w-xl text-base leading-relaxed sm:text-lg'>
             {t(
               'Call AWS Bedrock models through one OpenAI- and Anthropic-compatible API, with your organisation’s limits, models and countries enforced on every request.'
             )}
@@ -109,6 +109,9 @@ function HowItWorks() {
         <h2 className='text-foreground mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl'>
           {t('Three steps to get started')}
         </h2>
+        <p className='text-muted-foreground mt-3 text-sm sm:text-base'>
+          {t('Start calling models in minutes, without changing your code.')}
+        </p>
       </div>
       <ol className='grid grid-cols-1 gap-8 md:grid-cols-3'>
         {steps.map((step, index) => (

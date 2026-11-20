@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the designs' 12px filters and 30px buttons; a toolbar without stats keeps its actions on the filter row.
 import type { Table } from '@tanstack/react-table'
 import { ChevronDown, Loader2 } from 'lucide-react'
 import { useState, type ComponentProps, type ReactNode } from 'react'
@@ -58,6 +59,7 @@ interface LogsFilterToolbarProps<TData> {
   onReset: () => void
   onSearch: () => void
   className?: string
+  inlineActions?: boolean
 }
 
 interface LogsFilterFieldProps {
@@ -70,7 +72,7 @@ export function LogsFilterField(props: LogsFilterFieldProps) {
   return (
     <div
       className={cn(
-        'min-w-0 [&_[data-slot=select-trigger]]:w-full [&_[data-slot=select-trigger]]:text-sm [&_[data-slot=select-value]]:leading-5',
+        'min-w-0 text-xs [&_button]:text-xs [&_input]:text-xs md:[&_input]:text-xs [&_[data-slot=select-trigger]]:w-full [&_[data-slot=select-trigger]]:text-xs [&_[data-slot=select-value]]:leading-5',
         props.wide && 'sm:col-span-2',
         props.className
       )}
@@ -85,7 +87,10 @@ export function LogsFilterInput(props: ComponentProps<typeof Input>) {
     <Input
       {...props}
       autoComplete='off'
-      className={cn('h-8 min-w-0 text-sm leading-5', props.className)}
+      className={cn(
+        'h-8 min-w-0 text-xs leading-5 md:text-xs',
+        props.className
+      )}
     />
   )
 }
@@ -117,8 +122,9 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
       variant='ghost'
       onClick={() => setAdvancedOpen((open) => !open)}
       aria-expanded={advancedOpen}
+      size='sm'
       className={cn(
-        'text-muted-foreground hover:text-foreground gap-1 px-2',
+        'text-muted-foreground hover:text-foreground h-[30px] gap-1 px-2 text-xs',
         props.hasAdvancedActiveFilters &&
           !advancedOpen &&
           'text-primary hover:text-primary'
@@ -242,6 +248,59 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
     )
   }
 
+  const actions = (
+    <div className='ms-auto flex flex-wrap items-center justify-end gap-1.5 sm:gap-2'>
+      {props.actionStart}
+      <Button
+        type='button'
+        variant='outline'
+        size='sm'
+        className='h-[30px] px-3 text-xs'
+        onClick={props.onReset}
+        disabled={!props.hasActiveFilters}
+      >
+        {t('Reset')}
+      </Button>
+      <Button
+        type='button'
+        size='sm'
+        className='h-[30px] px-3 text-xs'
+        onClick={props.onSearch}
+        disabled={props.searchLoading}
+      >
+        {props.searchLoading && <Loader2 className='animate-spin' />}
+        {t('Search')}
+      </Button>
+      {props.actionEnd}
+      <DataTableViewOptions table={props.table} />
+    </div>
+  )
+
+  if (props.inlineActions) {
+    return (
+      <div
+        className={cn(
+          'bg-card/50 rounded-lg border p-2.5 sm:p-3',
+          props.className
+        )}
+      >
+        <div className='flex flex-wrap items-center gap-2'>
+          <div className='grid min-w-0 grid-cols-1 gap-2 max-sm:w-full sm:flex sm:flex-wrap sm:items-center sm:[&>*]:w-36 sm:[&>*:first-child]:w-52'>
+            {props.primaryFilters}
+          </div>
+          {advancedToggle}
+          {actions}
+        </div>
+
+        {advancedOpen && props.advancedFilters && (
+          <div className='mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))]'>
+            {props.advancedFilters}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div
       className={cn(
@@ -268,27 +327,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
 
       <div className='mt-2 flex flex-wrap items-center gap-2'>
         {props.stats}
-        <div className='ms-auto flex flex-wrap items-center justify-end gap-1.5 sm:gap-2'>
-          {props.actionStart}
-          <Button
-            type='button'
-            variant='outline'
-            onClick={props.onReset}
-            disabled={!props.hasActiveFilters}
-          >
-            {t('Reset')}
-          </Button>
-          <Button
-            type='button'
-            onClick={props.onSearch}
-            disabled={props.searchLoading}
-          >
-            {props.searchLoading && <Loader2 className='animate-spin' />}
-            {t('Search')}
-          </Button>
-          {props.actionEnd}
-          <DataTableViewOptions table={props.table} />
-        </div>
+        {actions}
       </div>
     </div>
   )

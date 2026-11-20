@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: "View" is the designs' quiet text button.
 import { type Table } from '@tanstack/react-table'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
@@ -55,8 +56,9 @@ export function DataTableViewOptions<TData>({
       <DropdownMenuTrigger
         render={
           <Button
-            variant='outline'
-            className='shrink-0'
+            variant='ghost'
+            size='sm'
+            className='text-muted-foreground hover:text-foreground h-7 shrink-0 px-2.5 text-xs'
             aria-label={t('View')}
           />
         }

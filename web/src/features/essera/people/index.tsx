@@ -201,13 +201,8 @@ export function EsseraPeople() {
     <>
       <SectionPageLayout fixedContent>
         <SectionPageLayout.Title>{t('Users')}</SectionPageLayout.Title>
-        <SectionPageLayout.Description>
-          {t(
-            'The people of your organisation who may use the Gateway. Limits and roles are set in the Essera Operations Console.'
-          )}
-        </SectionPageLayout.Description>
         <SectionPageLayout.Actions>
-          <Button size='sm' onClick={() => setAddOpen(true)}>
+          <Button className='h-9 px-4' onClick={() => setAddOpen(true)}>
             <Plus className='h-4 w-4' />
             {t('Add User')}
           </Button>
