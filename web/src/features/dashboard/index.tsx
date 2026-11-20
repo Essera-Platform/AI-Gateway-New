@@ -16,13 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the analytics design's section tabs (the active one white with an emerald edge) and card placeholders; the flow tab appears only once there are records to draw.
+// Modified by Essera, 2026-11: the analytics design's section tabs (the active one white with an emerald edge) and card placeholders; a managed gateway has no flow tab, as it keeps no flow data.
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { Eye, EyeOff } from 'lucide-react'
 import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { FadeIn } from '@/components/page-transition'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -245,9 +246,10 @@ export function Dashboard() {
 
   const meta = SECTION_META[activeSection] ?? SECTION_META.overview
   const isAdmin = Boolean(userRole && userRole >= ROLE.ADMIN)
-  // The flow view draws the same records as the model charts, so without them it has nothing
-  // to show; its tab waits until there are.
-  const hasFlowData = modelData.length > 0
+  // A managed gateway keeps no new-api flow data (the Console rates usage), so its flow view
+  // would always stand empty.
+  const { managed } = useEsseraManaged()
+  const hasFlowData = !managed
   const visibleSections = useMemo(
     () =>
       DASHBOARD_SECTION_IDS.filter(
