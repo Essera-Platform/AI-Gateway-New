@@ -7848,6 +7848,9 @@
     "Status temporarily unavailable": "状态暂时不可用",
     "Service status": "服务状态",
     "Provider health over the last hour": "过去一小时的提供商状态",
-    "Providers": "提供商"
+    "Providers": "提供商",
+    "API Docs": "API 文档",
+    "Loading API documentation...": "正在加载 API 文档...",
+    "The API documentation could not be loaded.": "无法加载 API 文档。"
   }
 }

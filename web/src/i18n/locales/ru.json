@@ -7848,6 +7848,9 @@
     "Status temporarily unavailable": "Статус временно недоступен",
     "Service status": "Состояние сервиса",
     "Provider health over the last hour": "Состояние провайдеров за последний час",
-    "Providers": "Провайдеры"
+    "Providers": "Провайдеры",
+    "API Docs": "Документация API",
+    "Loading API documentation...": "Загрузка документации API...",
+    "The API documentation could not be loaded.": "Не удалось загрузить документацию API."
   }
 }

@@ -7848,6 +7848,9 @@
     "Status temporarily unavailable": "Status temporarily unavailable",
     "Service status": "Service status",
     "Provider health over the last hour": "Provider health over the last hour",
-    "Providers": "Providers"
+    "Providers": "Providers",
+    "API Docs": "API Docs",
+    "Loading API documentation...": "Loading API documentation...",
+    "The API documentation could not be loaded.": "The API documentation could not be loaded."
   }
 }

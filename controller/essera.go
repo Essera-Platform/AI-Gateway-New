@@ -1,5 +1,6 @@
 // Essera fork: connects new-api's channel test to the Console's connection tests (M02-C07),
-// and new-api's sign-in and token handlers to the Console's people and keys.
+// and new-api's sign-in and token handlers to the Console's people and keys; serves the API's
+// OpenAPI document.
 package controller
 
 import (
@@ -12,6 +13,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/essera/apidocs"
 	"github.com/QuantumNous/new-api/essera/bootstrap"
 	"github.com/QuantumNous/new-api/essera/bridge"
 	"github.com/QuantumNous/new-api/essera/identity"
@@ -21,6 +23,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 )
 
@@ -194,6 +197,13 @@ func esseraPersonModels(c *gin.Context) (handled bool) {
 	if !isPerson {
 		return false
 	}
+	common.ApiSuccess(c, esseraAvailableModels(userID))
+	return true
+}
+
+// esseraAvailableModels are the models relay lets a person call (policy.Available), sorted;
+// none while they are not active or for anyone who is not a person.
+func esseraAvailableModels(userID int) []string {
 	models := []string{}
 	view := snapshot.Current()
 	if person, err := identity.ActivePerson(userID, view); err == nil {
@@ -201,8 +211,27 @@ func esseraPersonModels(c *gin.Context) (handled bool) {
 			models = slices.Sorted(maps.Keys(policy.Available(caller)))
 		}
 	}
-	common.ApiSuccess(c, models)
-	return true
+	return models
+}
+
+// EsseraOpenAPI serves the OpenAPI document of the customer API to a signed-in user: the
+// address people call the Gateway at, and examples with models the reader may call.
+func EsseraOpenAPI(c *gin.Context) {
+	address := settings.ServerAddress(system_setting.ServerAddress)
+	if address == "" {
+		address = "https://" + c.Request.Host
+	}
+	var available []string
+	if settings.Managed() {
+		available = esseraAvailableModels(c.GetInt("id"))
+	}
+	spec, err := apidocs.Spec(address, available)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.Header("Cache-Control", "private, no-store")
+	c.Data(http.StatusOK, "application/json; charset=utf-8", spec)
 }
 
 // addEsseraKey creates a person's key on a managed gateway. The key is in this answer and

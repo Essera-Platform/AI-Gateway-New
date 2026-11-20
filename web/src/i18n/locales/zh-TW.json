@@ -7848,6 +7848,9 @@
     "Status temporarily unavailable": "狀態暫時無法取得",
     "Service status": "服務狀態",
     "Provider health over the last hour": "過去一小時的供應商狀態",
-    "Providers": "供應商"
+    "Providers": "供應商",
+    "API Docs": "API 文件",
+    "Loading API documentation...": "正在載入 API 文件...",
+    "The API documentation could not be loaded.": "無法載入 API 文件。"
   }
 }

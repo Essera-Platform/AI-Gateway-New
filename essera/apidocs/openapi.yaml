@@ -1,0 +1,1509 @@
+openapi: 3.1.0
+info:
+  title: Essera AI Gateway API
+  version: "1.0"
+  summary: One API for the AI models of your Essera account.
+  description: |
+    The Essera AI Gateway serves the AI models of your Essera account through one API. Every model runs on
+    **Amazon Bedrock in the EU (Ireland) region, eu-west-1**: your requests and their answers are processed there.
+
+    The API follows the OpenAI and Anthropic request formats, so their SDKs and the tools built on them work with
+    the Gateway. They are only clients of the Gateway: they send every request to the address below, never to
+    OpenAI or Anthropic, and you need no OpenAI or Anthropic account.
+
+    ## Base URL
+
+    ```
+    https://ai-gateway.example.com
+    ```
+
+    - OpenAI-format clients use `https://ai-gateway.example.com/v1` as their base URL.
+    - The Anthropic SDK uses `https://ai-gateway.example.com` (it adds `/v1/messages` itself).
+
+    ## Authentication
+
+    Every request carries an API key of yours:
+
+    ```
+    Authorization: Bearer sk-…
+    ```
+
+    - Create keys on the **API Keys** page of the Gateway. A key is shown **once**, when you create it: copy it then.
+    - A key works for at most **90 days**; you may choose a shorter time. Delete a key on the same page and it stops
+      working at once.
+    - A key is `sk-` followed by 56 letters and digits. It acts as you: the models, limits and usage of your account
+      apply to every request made with it.
+    - `/v1/messages` and `/v1/models` also accept the key in the `x-api-key` header, as the Anthropic SDK sends it.
+    - Keep keys on your servers. Do not put them in web pages or mobile apps.
+
+    ## Models
+
+    A model is named by its catalog id, as the **Model Square** and `GET /v1/models` show it, for example
+    `anthropic.claude-sonnet-4-6`, `amazon.nova-lite-v1:0`, `eu.amazon.nova-lite-v1:0` or
+    `amazon.titan-embed-text-v2:0`. You see and may call only the models your account is allowed to use; any other
+    model is refused with 403.
+
+    Use the catalog id even when Bedrock serves a model through an EU inference profile: the Gateway calls the
+    profile for you, and your usage keeps the catalog id. Requests stay in the EU geography.
+
+    Text models answer on `/v1/chat/completions`, `/v1/responses` and `/v1/messages`, whatever their vendor: the
+    Gateway converts between the formats. Embedding models (Titan Text Embeddings v2, Titan Multimodal Embeddings,
+    Cohere Embed) answer on `/v1/embeddings`. Images, audio generation, speech, rerank, realtime sessions, files and
+    fine-tuning are not offered.
+
+    ## Limits and billing
+
+    - **Monthly limits** on requests, tokens and spend are set by Essera for your account, and may be set for each
+      user and key as well. A request past a limit is refused with 429 `essera_quota_exceeded` until the next month
+      of your billing cycle starts.
+    - A request is counted when the Gateway takes it, and given back if it reaches no model. Its tokens are counted
+      when it ends. Cached prompt tokens, read or written, count as prompt tokens.
+    - **Prices** per model are on the **Model Square**. Your **Usage Logs** and **Dashboard** show every request, its
+      tokens and its cost, and the account summary shows what is left of each limit.
+    - Each model on Bedrock also has a request rate per minute. Past it, the Gateway answers 429; wait a minute and
+      retry.
+
+    ## Errors
+
+    Errors use the OpenAI format, `{"error": {"message", "type", "code"}}`. On `/v1/messages`, errors from the model
+    use the Anthropic format, `{"type": "error", "error": {"type", "message"}}`; errors from the Gateway's checks
+    before the model (authentication, account, country, limits) use the OpenAI format there too. Each message ends
+    with `(request id: …)`; quote it when you contact support.
+
+    | Status | `error.code` | Meaning |
+    | --- | --- | --- |
+    | 400 | `invalid_request` | The request is not valid for the model, for example a missing field, an unsupported image type or more than 256 embedding inputs. Bedrock's own validation errors are passed on with this code. |
+    | 400 | (type `invalid_request_error`) | Nova 2 at high reasoning effort does not accept `max_tokens`: remove `max_tokens` or use medium reasoning effort. |
+    | 400 | (type `invalid_request_error`) | More than 20 images or 5 documents in one request, an image over 3.75 MB or a document over 4.5 MB. |
+    | 401 | `essera_unauthenticated` | The API key is missing, not valid, expired or deleted, or its owner is no longer active. |
+    | 403 | (none) | `This token has no access to model …`: your account may not use this model. |
+    | 403 | `essera_account_inactive` | Your account, its partner account or the end user is suspended or closed. |
+    | 403 | `essera_country_denied` | Requests from your country are not served for this account. |
+    | 403 | `essera_country_unknown` | Your account is limited to some countries and the country of the request could not be told. |
+    | 404 | `essera_not_available` | The endpoint is not offered on the Essera Gateway. |
+    | 413 | `read_request_body_failed` | The request body is larger than the Gateway accepts. |
+    | 429 | `essera_quota_exceeded` | Your account has reached its monthly requests, tokens or spend limit. |
+    | 429 | `essera_provider_rate_limited` | The model's request rate per minute is reached; retry in a minute. |
+    | 429 | `rate_limit_exceeded`, `quota_exceeded` | Bedrock throttled the request; retry later. |
+    | 503 | `essera_maintenance` | The Gateway is in maintenance. `Retry-After` says when to retry, when the end is known. |
+    | 503 | `essera_unavailable` | The Gateway cannot check your key or limits right now; retry shortly. |
+    | 503 | (none) | No provider can serve the model right now. |
+    | 500, 502, 504 | `model_error`, `model_timeout`, `internal_server_error` | The model failed or did not answer in time; retry. |
+
+    When maintenance is planned, successful answers carry
+    `X-Essera-Maintenance: scheduled; start=…; end=…` beforehand.
+
+    ## Integrations
+
+    Any SDK or tool that lets you set the base URL of the OpenAI or the Anthropic API works with the Gateway.
+    Set three values: the **base URL**, your **API key** and a **model id** from the Model Square.
+
+    The SDKs and frameworks below were verified against the Gateway on 2026-11-20 (chat, streaming, responses,
+    messages and embeddings, as shown).
+
+    ### OpenAI SDK (Python)
+
+    ```python
+    # pip install openai
+    from openai import OpenAI
+
+    client = OpenAI(base_url="https://ai-gateway.example.com/v1", api_key="sk-…")
+    reply = client.chat.completions.create(
+        model="anthropic.claude-sonnet-4-6",
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+    print(reply.choices[0].message.content)
+    ```
+
+    ### OpenAI SDK (JavaScript)
+
+    ```javascript
+    // npm install openai
+    import OpenAI from "openai";
+
+    const client = new OpenAI({ baseURL: "https://ai-gateway.example.com/v1", apiKey: process.env.ESSERA_API_KEY });
+    const reply = await client.chat.completions.create({
+      model: "anthropic.claude-sonnet-4-6",
+      messages: [{ role: "user", content: "Hello" }],
+    });
+    console.log(reply.choices[0].message.content);
+    ```
+
+    ### Anthropic SDK (Python)
+
+    ```python
+    # pip install anthropic
+    from anthropic import Anthropic
+
+    client = Anthropic(base_url="https://ai-gateway.example.com", api_key="sk-…")
+    message = client.messages.create(
+        model="anthropic.claude-sonnet-4-6",
+        max_tokens=256,
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+    print(message.content[0].text)
+    ```
+
+    ### LangChain
+
+    ```python
+    # pip install langchain-openai langchain-anthropic
+    from langchain_anthropic import ChatAnthropic
+    from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+
+    chat = ChatOpenAI(base_url="https://ai-gateway.example.com/v1", api_key="sk-…", model="anthropic.claude-sonnet-4-6")
+    print(chat.invoke("Hello").content)
+
+    embeddings = OpenAIEmbeddings(
+        base_url="https://ai-gateway.example.com/v1",
+        api_key="sk-…",
+        model="amazon.titan-embed-text-v2:0",
+        check_embedding_ctx_length=False,  # send text, not OpenAI token ids
+    )
+    vector = embeddings.embed_query("Hello")
+
+    claude = ChatAnthropic(base_url="https://ai-gateway.example.com", api_key="sk-…", model="anthropic.claude-sonnet-4-6")
+    print(claude.invoke("Hello").content)
+    ```
+
+    ### LlamaIndex
+
+    ```python
+    # pip install llama-index-llms-openai-like
+    from llama_index.core.llms import ChatMessage
+    from llama_index.llms.openai_like import OpenAILike
+
+    llm = OpenAILike(
+        api_base="https://ai-gateway.example.com/v1",
+        api_key="sk-…",
+        model="anthropic.claude-sonnet-4-6",
+        is_chat_model=True,
+        context_window=200000,
+    )
+    print(llm.chat([ChatMessage(role="user", content="Hello")]).message.content)
+    ```
+
+    ### Tools with an OpenAI-compatible endpoint
+
+    Editors and chat apps that accept an "OpenAI-compatible" provider, such as Continue, Open WebUI and LibreChat,
+    need the same three values: base URL `https://ai-gateway.example.com/v1`, your API key, and the model id.
+servers:
+  - url: https://ai-gateway.example.com
+    description: Essera AI Gateway
+security:
+  - bearerAuth: []
+tags:
+  - name: Models
+    description: The models your account may call.
+  - name: Chat
+    description: Text generation in the OpenAI and Anthropic formats.
+  - name: Embeddings
+    description: Vectors for search and retrieval.
+paths:
+  /v1/models:
+    get:
+      operationId: listModels
+      tags: [Models]
+      summary: List models
+      description: |
+        Lists the models your account may call, by catalog id. With both `x-api-key` and `anthropic-version`
+        headers, the list comes in the Anthropic format instead.
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      responses:
+        "200":
+          description: The models your account may call.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelList"
+              example:
+                object: list
+                success: true
+                data:
+                  - id: anthropic.claude-sonnet-4-6
+                    object: model
+                    created: 1626777600
+                    owned_by: custom
+                    supported_endpoint_types: [openai, anthropic, openai-response]
+                  - id: amazon.titan-embed-text-v2:0
+                    object: model
+                    created: 1626777600
+                    owned_by: custom
+                    supported_endpoint_types: [embeddings]
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+      x-codeSamples:
+        - lang: Shell
+          label: curl
+          source: |
+            curl https://ai-gateway.example.com/v1/models \
+              -H "Authorization: Bearer $ESSERA_API_KEY"
+        - lang: Python
+          label: Python (OpenAI SDK)
+          source: |
+            import os
+            from openai import OpenAI
+
+            client = OpenAI(base_url="https://ai-gateway.example.com/v1", api_key=os.environ["ESSERA_API_KEY"])
+            for model in client.models.list():
+                print(model.id)
+        - lang: JavaScript
+          label: JavaScript (OpenAI SDK)
+          source: |
+            import OpenAI from "openai";
+
+            const client = new OpenAI({ baseURL: "https://ai-gateway.example.com/v1", apiKey: process.env.ESSERA_API_KEY });
+            for await (const model of client.models.list()) {
+              console.log(model.id);
+            }
+
+  /v1/chat/completions:
+    post:
+      operationId: createChatCompletion
+      tags: [Chat]
+      summary: Create a chat completion
+      description: |
+        Generates the next message of a conversation, in the OpenAI Chat Completions format, with any text model of
+        your account.
+
+        - **Streaming:** with `"stream": true` the answer comes as server-sent events, one `chat.completion.chunk`
+          per `data:` line, ending with `data: [DONE]`. Add `"stream_options": {"include_usage": true}` to get a last
+          chunk with the token usage.
+        - **Images:** send them in a user message as `image_url` parts with a base64 data URL
+          (`data:image/png;base64,…`); PNG, JPEG, GIF and WebP are accepted by models that read images. A request
+          may carry up to 20 images of up to 3.75 MB each, and up to 5 documents of up to 4.5 MB each.
+        - **Tools:** describe functions in `tools`; the model answers with `tool_calls`, and you send each result
+          back in a `tool` message.
+        - **Reasoning:** `reasoning_effort` sets how much the model thinks, on models that support it (GPT-oss,
+          Nova 2). Its reasoning comes back in `reasoning_content`. Nova 2 at `high` effort does not accept
+          `max_tokens` or `max_completion_tokens`: leave them out, or use `medium`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+            examples:
+              simple:
+                summary: A simple request
+                value:
+                  model: anthropic.claude-sonnet-4-6
+                  messages:
+                    - role: system
+                      content: You answer in one sentence.
+                    - role: user
+                      content: What is the capital of Ireland?
+                  max_tokens: 256
+              stream:
+                summary: Streaming with usage
+                value:
+                  model: anthropic.claude-sonnet-4-6
+                  messages:
+                    - role: user
+                      content: Write a haiku about the sea.
+                  stream: true
+                  stream_options:
+                    include_usage: true
+              image:
+                summary: An image as a data URL
+                value:
+                  model: anthropic.claude-sonnet-4-6
+                  messages:
+                    - role: user
+                      content:
+                        - type: text
+                          text: What is in this picture?
+                        - type: image_url
+                          image_url:
+                            url: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==
+              tools:
+                summary: Tools
+                value:
+                  model: anthropic.claude-sonnet-4-6
+                  messages:
+                    - role: user
+                      content: What is the weather in Dublin?
+                  tools:
+                    - type: function
+                      function:
+                        name: get_weather
+                        description: The current weather in a city.
+                        parameters:
+                          type: object
+                          properties:
+                            city:
+                              type: string
+                          required: [city]
+                  tool_choice: auto
+              reasoning:
+                summary: Reasoning effort
+                value:
+                  model: amazon.nova-2-lite-v1:0
+                  messages:
+                    - role: user
+                      content: How many prime numbers are there below 100?
+                  reasoning_effort: medium
+      responses:
+        "200":
+          description: |
+            The completion. With `"stream": true`, a stream of server-sent events instead, each `data:` line holding
+            a `chat.completion.chunk`, then `data: [DONE]`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletion"
+              example:
+                id: chatcmpl-8d2f0c3e
+                object: chat.completion
+                created: 1763640000
+                model: anthropic.claude-sonnet-4-6
+                choices:
+                  - index: 0
+                    message:
+                      role: assistant
+                      content: The capital of Ireland is Dublin.
+                    finish_reason: stop
+                usage:
+                  prompt_tokens: 24
+                  completion_tokens: 9
+                  total_tokens: 33
+            text/event-stream:
+              schema:
+                type: string
+                description: 'Server-sent events, each `data:` line a `chat.completion.chunk`, ending with `data: [DONE]`.'
+              example: |
+                data: {"id":"chatcmpl-8d2f0c3e","object":"chat.completion.chunk","created":1763640000,"model":"anthropic.claude-sonnet-4-6","choices":[{"index":0,"delta":{"role":"assistant","content":"Waves"}}]}
+
+                data: {"id":"chatcmpl-8d2f0c3e","object":"chat.completion.chunk","created":1763640000,"model":"anthropic.claude-sonnet-4-6","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+                data: {"id":"chatcmpl-8d2f0c3e","object":"chat.completion.chunk","created":1763640000,"model":"anthropic.claude-sonnet-4-6","choices":[],"usage":{"prompt_tokens":14,"completion_tokens":19,"total_tokens":33}}
+
+                data: [DONE]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+      x-codeSamples:
+        - lang: Shell
+          label: curl
+          source: |
+            curl https://ai-gateway.example.com/v1/chat/completions \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $ESSERA_API_KEY" \
+              -d '{
+                "model": "anthropic.claude-sonnet-4-6",
+                "messages": [{"role": "user", "content": "What is the capital of Ireland?"}],
+                "max_tokens": 256
+              }'
+        - lang: Python
+          label: Python (OpenAI SDK)
+          source: |
+            import os
+            from openai import OpenAI
+
+            client = OpenAI(base_url="https://ai-gateway.example.com/v1", api_key=os.environ["ESSERA_API_KEY"])
+
+            reply = client.chat.completions.create(
+                model="anthropic.claude-sonnet-4-6",
+                messages=[{"role": "user", "content": "What is the capital of Ireland?"}],
+                max_tokens=256,
+            )
+            print(reply.choices[0].message.content)
+
+            # Streaming, with the token usage in the last chunk
+            stream = client.chat.completions.create(
+                model="anthropic.claude-sonnet-4-6",
+                messages=[{"role": "user", "content": "Write a haiku about the sea."}],
+                stream=True,
+                stream_options={"include_usage": True},
+            )
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    print(chunk.choices[0].delta.content, end="", flush=True)
+                if chunk.usage:
+                    print("\n", chunk.usage)
+        - lang: JavaScript
+          label: JavaScript (OpenAI SDK)
+          source: |
+            import OpenAI from "openai";
+
+            const client = new OpenAI({ baseURL: "https://ai-gateway.example.com/v1", apiKey: process.env.ESSERA_API_KEY });
+
+            const stream = await client.chat.completions.create({
+              model: "anthropic.claude-sonnet-4-6",
+              messages: [{ role: "user", content: "Write a haiku about the sea." }],
+              stream: true,
+              stream_options: { include_usage: true },
+            });
+            for await (const chunk of stream) {
+              process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
+              if (chunk.usage) console.log("\n", chunk.usage);
+            }
+
+  /v1/responses:
+    post:
+      operationId: createResponse
+      tags: [Chat]
+      summary: Create a response
+      description: |
+        Generates a response in the OpenAI Responses format, with any text model of your account. The Gateway does
+        not store responses: send the whole conversation in `input` each time. With `"stream": true` the answer comes
+        as server-sent Responses events (`response.output_text.delta`, …, `response.completed`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResponseRequest"
+            example:
+              model: anthropic.claude-sonnet-4-6
+              instructions: You answer in one sentence.
+              input: What is the capital of Ireland?
+              max_output_tokens: 256
+      responses:
+        "200":
+          description: 'The response. With `"stream": true`, a stream of server-sent Responses events instead.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response"
+              example:
+                id: resp_6a1f2b
+                object: response
+                created_at: 1763640000
+                status: completed
+                model: anthropic.claude-sonnet-4-6
+                output:
+                  - type: message
+                    id: msg_6a1f2b
+                    role: assistant
+                    status: completed
+                    content:
+                      - type: output_text
+                        text: The capital of Ireland is Dublin.
+                        annotations: []
+                usage:
+                  input_tokens: 24
+                  output_tokens: 9
+                  total_tokens: 33
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent Responses events, ending with `response.completed`.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+      x-codeSamples:
+        - lang: Shell
+          label: curl
+          source: |
+            curl https://ai-gateway.example.com/v1/responses \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $ESSERA_API_KEY" \
+              -d '{
+                "model": "anthropic.claude-sonnet-4-6",
+                "input": "What is the capital of Ireland?",
+                "max_output_tokens": 256
+              }'
+        - lang: Python
+          label: Python (OpenAI SDK)
+          source: |
+            import os
+            from openai import OpenAI
+
+            client = OpenAI(base_url="https://ai-gateway.example.com/v1", api_key=os.environ["ESSERA_API_KEY"])
+            response = client.responses.create(
+                model="anthropic.claude-sonnet-4-6",
+                input="What is the capital of Ireland?",
+                max_output_tokens=256,
+            )
+            print(response.output_text)
+        - lang: JavaScript
+          label: JavaScript (OpenAI SDK)
+          source: |
+            import OpenAI from "openai";
+
+            const client = new OpenAI({ baseURL: "https://ai-gateway.example.com/v1", apiKey: process.env.ESSERA_API_KEY });
+            const response = await client.responses.create({
+              model: "anthropic.claude-sonnet-4-6",
+              input: "What is the capital of Ireland?",
+              max_output_tokens: 256,
+            });
+            console.log(response.output_text);
+
+  /v1/messages:
+    post:
+      operationId: createMessage
+      tags: [Chat]
+      summary: Create a message (Anthropic format)
+      description: |
+        Generates the next message in the Anthropic Messages format, with any text model of your account, Claude or
+        not. The key may come as `x-api-key`, as the Anthropic SDK sends it, or as `Authorization: Bearer`.
+        `max_tokens` is required by this format; Nova 2 at high reasoning effort does not accept it, so use medium
+        effort with Nova 2 here, or `/v1/chat/completions` without a token cap.
+
+        With `"stream": true` the answer comes as Anthropic server-sent events (`message_start`,
+        `content_block_delta`, …, `message_stop`).
+      security:
+        - apiKeyHeader: []
+        - bearerAuth: []
+      parameters:
+        - name: anthropic-version
+          in: header
+          required: false
+          description: The Anthropic API version your client speaks. The Anthropic SDKs send it; the Gateway accepts it.
+          schema:
+            type: string
+            examples: ["2023-06-01"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageRequest"
+            example:
+              model: anthropic.claude-sonnet-4-6
+              max_tokens: 256
+              system: You answer in one sentence.
+              messages:
+                - role: user
+                  content: What is the capital of Ireland?
+      responses:
+        "200":
+          description: 'The message. With `"stream": true`, a stream of Anthropic server-sent events instead.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                id: msg_01XFDUDYJgAACzvnptvVoYEL
+                type: message
+                role: assistant
+                model: anthropic.claude-sonnet-4-6
+                content:
+                  - type: text
+                    text: The capital of Ireland is Dublin.
+                stop_reason: end_turn
+                stop_sequence: null
+                usage:
+                  input_tokens: 24
+                  output_tokens: 9
+            text/event-stream:
+              schema:
+                type: string
+                description: Anthropic server-sent events, ending with `message_stop`.
+        "400":
+          $ref: "#/components/responses/AnthropicBadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+      x-codeSamples:
+        - lang: Shell
+          label: curl
+          source: |
+            curl https://ai-gateway.example.com/v1/messages \
+              -H "Content-Type: application/json" \
+              -H "x-api-key: $ESSERA_API_KEY" \
+              -H "anthropic-version: 2023-06-01" \
+              -d '{
+                "model": "anthropic.claude-sonnet-4-6",
+                "max_tokens": 256,
+                "messages": [{"role": "user", "content": "What is the capital of Ireland?"}]
+              }'
+        - lang: Python
+          label: Python (Anthropic SDK)
+          source: |
+            import os
+            from anthropic import Anthropic
+
+            client = Anthropic(base_url="https://ai-gateway.example.com", api_key=os.environ["ESSERA_API_KEY"])
+            message = client.messages.create(
+                model="anthropic.claude-sonnet-4-6",
+                max_tokens=256,
+                messages=[{"role": "user", "content": "What is the capital of Ireland?"}],
+            )
+            print(message.content[0].text)
+
+            # Streaming
+            with client.messages.stream(
+                model="anthropic.claude-sonnet-4-6",
+                max_tokens=256,
+                messages=[{"role": "user", "content": "Write a haiku about the sea."}],
+            ) as stream:
+                for text in stream.text_stream:
+                    print(text, end="", flush=True)
+
+  /v1/embeddings:
+    post:
+      operationId: createEmbedding
+      tags: [Embeddings]
+      summary: Create embeddings
+      description: |
+        Turns text into vectors with an embedding model of your account: Titan Text Embeddings v2, Titan Multimodal
+        Embeddings, or Cohere Embed v3 and v4. `input` takes one string or up to 256. On Titan Multimodal Embeddings
+        and Cohere Embed, an input may also be an image as a base64 data URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingRequest"
+            example:
+              model: amazon.titan-embed-text-v2:0
+              input:
+                - The capital of Ireland is Dublin.
+                - Dublin lies on the river Liffey.
+              dimensions: 512
+      responses:
+        "200":
+          description: One embedding per input, in the order of the inputs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingList"
+              example:
+                object: list
+                model: amazon.titan-embed-text-v2:0
+                data:
+                  - object: embedding
+                    index: 0
+                    embedding: [0.0123, -0.0456, 0.0789]
+                  - object: embedding
+                    index: 1
+                    embedding: [0.0212, -0.0335, 0.0641]
+                usage:
+                  prompt_tokens: 16
+                  total_tokens: 16
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+      x-codeSamples:
+        - lang: Shell
+          label: curl
+          source: |
+            curl https://ai-gateway.example.com/v1/embeddings \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $ESSERA_API_KEY" \
+              -d '{"model": "amazon.titan-embed-text-v2:0", "input": "The capital of Ireland is Dublin."}'
+        - lang: Python
+          label: Python (OpenAI SDK)
+          source: |
+            import os
+            from openai import OpenAI
+
+            client = OpenAI(base_url="https://ai-gateway.example.com/v1", api_key=os.environ["ESSERA_API_KEY"])
+            result = client.embeddings.create(
+                model="amazon.titan-embed-text-v2:0",
+                input=["The capital of Ireland is Dublin.", "Dublin lies on the river Liffey."],
+            )
+            print(len(result.data[0].embedding))
+        - lang: JavaScript
+          label: JavaScript (OpenAI SDK)
+          source: |
+            import OpenAI from "openai";
+
+            const client = new OpenAI({ baseURL: "https://ai-gateway.example.com/v1", apiKey: process.env.ESSERA_API_KEY });
+            const result = await client.embeddings.create({
+              model: "amazon.titan-embed-text-v2:0",
+              input: "The capital of Ireland is Dublin.",
+            });
+            console.log(result.data[0].embedding.length);
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API key
+      description: 'An API key from the API Keys page, as `Authorization: Bearer sk-…`.'
+    apiKeyHeader:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: The same API key in the `x-api-key` header, as the Anthropic SDK sends it. Accepted on `/v1/messages` and `/v1/models`.
+
+  responses:
+    BadRequest:
+      description: The request is not valid for the model.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            invalid:
+              summary: A request Bedrock refuses
+              value:
+                error:
+                  message: "image type \"image/bmp\" is not supported; use PNG, JPEG, GIF or WebP (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: invalid_request
+            novaHighEffort:
+              summary: Nova 2 at high effort with max_tokens
+              value:
+                error:
+                  message: "Nova 2 at high reasoning effort does not accept max_tokens: remove max_tokens or use medium reasoning effort. (request id: 20261120093015123456789abcdef)"
+                  type: invalid_request_error
+                  code: null
+    AnthropicBadRequest:
+      description: The request is not valid for the model, in the Anthropic error format.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AnthropicError"
+          example:
+            type: error
+            error:
+              type: invalid_request_error
+              message: "Nova 2 at high reasoning effort does not accept max_tokens: remove max_tokens or use medium reasoning effort. (request id: 20261120093015123456789abcdef)"
+    Unauthenticated:
+      description: The API key is missing, not valid, expired or deleted.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            invalid:
+              summary: Not a valid key
+              value:
+                error:
+                  message: "The API key is not valid. (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: essera_unauthenticated
+            expired:
+              summary: An expired key
+              value:
+                error:
+                  message: "This API key has expired. (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: essera_unauthenticated
+    Forbidden:
+      description: The account may not make this request.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            model:
+              summary: A model the account may not use
+              value:
+                error:
+                  message: "This token has no access to model anthropic.claude-opus-5 (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: ""
+            inactive:
+              summary: A suspended account
+              value:
+                error:
+                  message: "This account is not active. (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: essera_account_inactive
+            countryDenied:
+              summary: A country the account is not served in
+              value:
+                error:
+                  message: "Requests from this country are not served for this account. (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: essera_country_denied
+            countryUnknown:
+              summary: A country that could not be told
+              value:
+                error:
+                  message: "Requests from this country are not served for this account. (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: essera_country_unknown
+    TooLarge:
+      description: The request body is larger than the Gateway accepts.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              message: "request body too large (request id: 20261120093015123456789abcdef)"
+              type: new_api_error
+              code: read_request_body_failed
+    TooManyRequests:
+      description: A monthly limit of the account is reached, or the model's rate per minute.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            quota:
+              summary: A monthly limit
+              value:
+                error:
+                  message: "This account has reached its monthly tokens limit. (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: essera_quota_exceeded
+            rate:
+              summary: The model's rate per minute
+              value:
+                error:
+                  message: "The provider's request rate limit is reached; retry in a minute. (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: essera_provider_rate_limited
+    Unavailable:
+      description: The Gateway is in maintenance or cannot serve the request right now.
+      headers:
+        Retry-After:
+          description: Seconds until the end of the maintenance, when it is known.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            maintenance:
+              summary: Maintenance
+              value:
+                error:
+                  message: "The gateway is in maintenance. (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: essera_maintenance
+            unavailable:
+              summary: The Gateway cannot check the request
+              value:
+                error:
+                  message: "The gateway cannot check this account's limits right now. (request id: 20261120093015123456789abcdef)"
+                  type: new_api_error
+                  code: essera_unavailable
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [message]
+          properties:
+            message:
+              type: string
+              description: What went wrong, ending with the request id.
+            type:
+              type: string
+              examples: [new_api_error, invalid_request_error]
+            code:
+              type: [string, "null"]
+              description: A stable code to act on; see Errors in the introduction.
+              examples: [essera_quota_exceeded]
+            param:
+              type: [string, "null"]
+    AnthropicError:
+      type: object
+      required: [type, error]
+      properties:
+        type:
+          type: string
+          const: error
+        error:
+          type: object
+          required: [type, message]
+          properties:
+            type:
+              type: string
+              examples: [invalid_request_error]
+            message:
+              type: string
+
+    Model:
+      type: object
+      required: [id, object]
+      properties:
+        id:
+          type: string
+          description: The catalog id to send as `model`.
+          examples: [anthropic.claude-sonnet-4-6]
+        object:
+          type: string
+          const: model
+        created:
+          type: integer
+        owned_by:
+          type: string
+        supported_endpoint_types:
+          type: array
+          description: The request formats the model is listed for.
+          items:
+            type: string
+    ModelList:
+      type: object
+      required: [object, data]
+      properties:
+        object:
+          type: string
+          const: list
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Model"
+
+    TextPart:
+      type: object
+      required: [type, text]
+      properties:
+        type:
+          type: string
+          const: text
+        text:
+          type: string
+    ImagePart:
+      type: object
+      required: [type, image_url]
+      properties:
+        type:
+          type: string
+          const: image_url
+        image_url:
+          type: object
+          required: [url]
+          properties:
+            url:
+              type: string
+              description: The image as a base64 data URL, `data:image/png;base64,…` (PNG, JPEG, GIF or WebP).
+    FilePart:
+      type: object
+      required: [type, file]
+      description: A document, on models that read documents.
+      properties:
+        type:
+          type: string
+          const: file
+        file:
+          type: object
+          properties:
+            filename:
+              type: string
+            file_data:
+              type: string
+              description: The document as a base64 data URL (PDF, CSV, TXT, MD, HTML, DOC, DOCX, XLS, XLSX).
+    AudioPart:
+      type: object
+      required: [type, input_audio]
+      description: Audio to understand, on models that hear (Voxtral).
+      properties:
+        type:
+          type: string
+          const: input_audio
+        input_audio:
+          type: object
+          required: [data, format]
+          properties:
+            data:
+              type: string
+              description: Base64 audio.
+            format:
+              type: string
+              examples: [wav, mp3]
+    ContentPart:
+      oneOf:
+        - $ref: "#/components/schemas/TextPart"
+        - $ref: "#/components/schemas/ImagePart"
+        - $ref: "#/components/schemas/FilePart"
+        - $ref: "#/components/schemas/AudioPart"
+      discriminator:
+        propertyName: type
+        mapping:
+          text: "#/components/schemas/TextPart"
+          image_url: "#/components/schemas/ImagePart"
+          file: "#/components/schemas/FilePart"
+          input_audio: "#/components/schemas/AudioPart"
+    ToolCall:
+      type: object
+      required: [id, type, function]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          const: function
+        function:
+          type: object
+          required: [name, arguments]
+          properties:
+            name:
+              type: string
+            arguments:
+              type: string
+              description: The arguments as a JSON string.
+    ChatMessage:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [system, developer, user, assistant, tool]
+        content:
+          description: Text, or for a user message a list of parts. May be null on an assistant message with tool calls.
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                $ref: "#/components/schemas/ContentPart"
+            - type: "null"
+        tool_calls:
+          type: array
+          description: On an assistant message, the tool calls it made.
+          items:
+            $ref: "#/components/schemas/ToolCall"
+        tool_call_id:
+          type: string
+          description: On a tool message, the id of the call it answers.
+    Tool:
+      type: object
+      required: [type, function]
+      properties:
+        type:
+          type: string
+          const: function
+        function:
+          type: object
+          required: [name]
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            parameters:
+              type: object
+              description: A JSON Schema of the arguments.
+    ToolChoice:
+      oneOf:
+        - type: string
+          enum: [none, auto, required]
+        - type: object
+          required: [type, function]
+          properties:
+            type:
+              type: string
+              const: function
+            function:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+    ChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+          description: A catalog id from the Model Square or `GET /v1/models`.
+          examples: [anthropic.claude-sonnet-4-6]
+        messages:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        max_tokens:
+          type: integer
+          minimum: 1
+          description: The most tokens to generate.
+        max_completion_tokens:
+          type: integer
+          minimum: 1
+          description: The same as `max_tokens`.
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+        stop:
+          description: Up to four sequences that end the answer.
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        stream:
+          type: boolean
+          default: false
+          description: Send the answer as server-sent events.
+        stream_options:
+          type: object
+          properties:
+            include_usage:
+              type: boolean
+              description: Add a last chunk with the token usage.
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tool"
+        tool_choice:
+          $ref: "#/components/schemas/ToolChoice"
+        reasoning_effort:
+          type: string
+          enum: [low, medium, high]
+          description: How much a reasoning model thinks (GPT-oss, Nova 2). Nova 2 at `high` refuses `max_tokens` and ignores `temperature` and `top_p`.
+    Usage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+          description: Prompt tokens, cached ones included.
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+        prompt_tokens_details:
+          type: object
+          properties:
+            cached_tokens:
+              type: integer
+    ChatCompletion:
+      type: object
+      required: [id, object, created, model, choices]
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          const: chat.completion
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              message:
+                type: object
+                properties:
+                  role:
+                    type: string
+                    const: assistant
+                  content:
+                    type: [string, "null"]
+                  reasoning_content:
+                    type: string
+                    description: The model's reasoning, on reasoning models.
+                  tool_calls:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ToolCall"
+              finish_reason:
+                type: string
+                enum: [stop, length, tool_calls, content_filter]
+        usage:
+          $ref: "#/components/schemas/Usage"
+    ResponseRequest:
+      type: object
+      required: [model, input]
+      properties:
+        model:
+          type: string
+          examples: [anthropic.claude-sonnet-4-6]
+        input:
+          description: Text, or a list of input messages and items, the whole conversation each time.
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+        instructions:
+          type: string
+          description: A system message.
+        max_output_tokens:
+          type: integer
+          minimum: 1
+        temperature:
+          type: number
+        top_p:
+          type: number
+        tools:
+          type: array
+          items:
+            type: object
+        tool_choice:
+          oneOf:
+            - type: string
+            - type: object
+        reasoning:
+          type: object
+          properties:
+            effort:
+              type: string
+              enum: [low, medium, high]
+        stream:
+          type: boolean
+          default: false
+    Response:
+      type: object
+      required: [id, object, status, model, output]
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          const: response
+        created_at:
+          type: integer
+        status:
+          type: string
+          examples: [completed, incomplete]
+        model:
+          type: string
+        output:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                examples: [message, function_call, reasoning]
+              id:
+                type: string
+              role:
+                type: string
+              status:
+                type: string
+              content:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      examples: [output_text]
+                    text:
+                      type: string
+                    annotations:
+                      type: array
+                      items:
+                        type: object
+        usage:
+          type: object
+          properties:
+            input_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+
+    MessageRequest:
+      type: object
+      required: [model, max_tokens, messages]
+      properties:
+        model:
+          type: string
+          examples: [anthropic.claude-sonnet-4-6]
+        max_tokens:
+          type: integer
+          minimum: 1
+        system:
+          description: The system prompt.
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+        messages:
+          type: array
+          items:
+            type: object
+            required: [role, content]
+            properties:
+              role:
+                type: string
+                enum: [user, assistant]
+              content:
+                description: Text, or a list of content blocks (`text`, `image`, `tool_use`, `tool_result`).
+                oneOf:
+                  - type: string
+                  - type: array
+                    items:
+                      type: object
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 1
+        top_p:
+          type: number
+        top_k:
+          type: integer
+        stop_sequences:
+          type: array
+          items:
+            type: string
+        stream:
+          type: boolean
+          default: false
+        tools:
+          type: array
+          items:
+            type: object
+            required: [name, input_schema]
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              input_schema:
+                type: object
+        tool_choice:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [auto, any, tool, none]
+            name:
+              type: string
+        thinking:
+          type: object
+          description: Extended thinking, on Claude models that support it.
+          properties:
+            type:
+              type: string
+              enum: [enabled, disabled]
+            budget_tokens:
+              type: integer
+    Message:
+      type: object
+      required: [id, type, role, content, model]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          const: message
+        role:
+          type: string
+          const: assistant
+        model:
+          type: string
+        content:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                examples: [text, tool_use, thinking]
+              text:
+                type: string
+        stop_reason:
+          type: [string, "null"]
+          examples: [end_turn, max_tokens, tool_use, stop_sequence]
+        stop_sequence:
+          type: [string, "null"]
+        usage:
+          type: object
+          properties:
+            input_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+            cache_read_input_tokens:
+              type: integer
+            cache_creation_input_tokens:
+              type: integer
+
+    EmbeddingRequest:
+      type: object
+      required: [model, input]
+      properties:
+        model:
+          type: string
+          examples: [amazon.titan-embed-text-v2:0]
+        input:
+          description: One text or up to 256. On multimodal models, an item may be an image as a base64 data URL.
+          oneOf:
+            - type: string
+            - type: array
+              minItems: 1
+              maxItems: 256
+              items:
+                type: string
+        dimensions:
+          type: integer
+          description: The vector size, on models that offer a choice (Titan Text Embeddings v2 256, 512 or 1024; Titan Multimodal Embeddings; Cohere Embed v4).
+        encoding_format:
+          type: string
+          enum: [float, base64]
+          default: float
+    EmbeddingList:
+      type: object
+      required: [object, data, model]
+      properties:
+        object:
+          type: string
+          const: list
+        model:
+          type: string
+        data:
+          type: array
+          items:
+            type: object
+            required: [object, index, embedding]
+            properties:
+              object:
+                type: string
+                const: embedding
+              index:
+                type: integer
+              embedding:
+                description: Floats, or with `encoding_format` `base64` the little-endian float32 bytes in base64.
+                oneOf:
+                  - type: array
+                    items:
+                      type: number
+                  - type: string
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: integer
+            total_tokens:
+              type: integer

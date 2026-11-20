@@ -175,3 +175,19 @@ The playground's Attach menu attaches files to a message instead of saying the f
 | `web/src/features/playground/components/message/playground-message-content.tsx` | A message shows the files it carried |
 | `web/src/features/playground/lib/storage/storage.ts`, `storage-schema.ts`, `__tests__/storage.test.ts` | Saved messages keep attachment names, not data |
 | `web/src/i18n/locales/*.json` | The attachment messages |
+
+## 2026-11 — API documentation
+
+- **`essera/apidocs`:** the OpenAPI 3.1 document of the customer API, written by hand in `openapi.yaml`: the five routes an API key may call on a managed gateway (`GET /v1/models`, `POST /v1/chat/completions`, `/v1/responses`, `/v1/messages`, `/v1/embeddings`), authentication, models, limits and billing, every error code, integrations and code samples. It is served as JSON, in the order it is written, at `GET /api/essera/openapi.json` to a signed-in browser session (no access tokens), with the Gateway's public address (`server_address` of `/api/status`) in place of the placeholder and, for one of the Console's people, models they may call in the examples. CI lints it with Redocly (`essera/apidocs/redocly.yaml`).
+- **API Docs page:** on a managed gateway, the console sidebar lists API Docs after Audit Logs (`/docs`, signed-in only). The page renders the document with Scalar's API reference, loaded only on that page, in the app's light or dark theme. "Test request" calls the Gateway itself: no Scalar proxy, agent, MCP link, telemetry or remote fonts, and the key typed in is not stored.
+- **`scripts/essera/verify_integrations.py`:** makes one tiny request through each integration the page lists (OpenAI Python and JavaScript, Anthropic Python, LangChain, LlamaIndex) against a running gateway and prints PASS or FAIL; clients pinned in `requirements-integrations.txt`. All 12 checks passed against Dev on 2026-11-20.
+
+| File | Change |
+| --- | --- |
+| `controller/essera.go` | Serves the OpenAPI document |
+| `pkg/jsplugin/routing.go` | `/docs` is a console page plugins may not claim |
+| `router/api-router.go`, `middleware/access_token_routes.go` | The `/api/essera/openapi.json` route, browser sessions only |
+| `web/src/hooks/use-sidebar-data.ts` | The API Docs entry on a managed gateway |
+| `web/src/routeTree.gen.ts` | The generated `/docs` route |
+| `web/package.json`, `web/bun.lock`, `THIRD-PARTY-LICENSES.md` | `@scalar/api-reference-react` 0.9.88 (MIT) |
+| `.github/workflows/backend-pr-validation.yml` | Lints the OpenAPI document |
