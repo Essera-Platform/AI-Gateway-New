@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the Playground asks for text models only, so it offers no embedding model it cannot chat with.
 import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
@@ -46,7 +47,7 @@ export async function sendChatCompletion(
  */
 export async function getUserModels(group: string): Promise<ModelOption[]> {
   const res = await api.get(API_ENDPOINTS.USER_MODELS, {
-    params: { group },
+    params: { group, modality: 'text' },
   })
   const { data } = res
   requireServerSuccess(data)

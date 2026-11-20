@@ -205,8 +205,34 @@ func esseraPersonModels(c *gin.Context) (handled bool) {
 	if !isPerson {
 		return false
 	}
-	common.ApiSuccess(c, esseraAvailableModels(userID))
+	models := esseraAvailableModels(userID)
+	if modality := c.Query("modality"); modality != "" {
+		models = esseraModelsOfModality(models, modality)
+	}
+	common.ApiSuccess(c, models)
 	return true
+}
+
+// esseraModelsOfModality keeps the models the catalog lists with the given modality, so the
+// Playground, a chat, offers no embedding model it could not talk to.
+func esseraModelsOfModality(models []string, modality string) []string {
+	view := snapshot.Current()
+	if view == nil {
+		return models
+	}
+	of := map[string]string{}
+	for _, provider := range view.Providers() {
+		for _, model := range provider.Models {
+			of[model.Key] = model.Modality
+		}
+	}
+	kept := []string{}
+	for _, model := range models {
+		if of[model] == modality {
+			kept = append(kept, model)
+		}
+	}
+	return kept
 }
 
 // esseraAvailableModels are the models relay lets a person call (policy.Available), sorted;
