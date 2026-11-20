@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/essera/configsync"
 	"github.com/QuantumNous/new-api/essera/limits"
+	"github.com/QuantumNous/new-api/essera/metering"
 	"github.com/QuantumNous/new-api/essera/policy"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/stats"
@@ -45,8 +46,12 @@ type Event struct {
 	Model                string    `json:"model"`
 	Modality             string    `json:"modality"`
 	InputUnits           int64     `json:"input_units"`
+	CacheReadUnits       int64     `json:"cache_read_units"`
+	CacheWriteUnits      int64     `json:"cache_write_units"`
+	CacheWrite1hUnits    int64     `json:"cache_write_1h_units"`
 	OutputUnits          int64     `json:"output_units"`
 	GeneratedUnits       int64     `json:"generated_units"`
+	InputImageUnits      int64     `json:"input_image_units"`
 	Status               string    `json:"status"`
 	ProviderRef          *string   `json:"provider_ref,omitempty"`
 	CorrelationID        *string   `json:"correlation_id,omitempty"`
@@ -82,7 +87,7 @@ func Finished(c *gin.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIE
 	if err := enqueue(event); err != nil {
 		common.SysError(common.LogText("essera: queueing usage event %s: %s", event.EventID, err.Error()))
 	}
-	if err := limits.Add(request.Subjects, request.Month, now, event.InputUnits+event.OutputUnits); err != nil {
+	if err := limits.Add(request.Subjects, request.Month, now, event.tokens()); err != nil {
 		common.SysError(common.LogText("essera: counting usage of %s: %s", request.Caller.CredentialRef, err.Error()))
 	}
 }
@@ -125,7 +130,11 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 		category := string(apiErr.GetErrorCode())
 		event.ErrorCategory = &category
 	}
-	if consumed, ok := common.GetContextKey(c, constant.ContextKeyConsumeLog); ok {
+	if units, ok := metering.Recorded(c); ok {
+		event.InputUnits, event.OutputUnits = units.Input, units.Output
+		event.CacheReadUnits, event.CacheWriteUnits, event.CacheWrite1hUnits = units.CacheRead, units.CacheWrite, units.CacheWrite1h
+		event.InputImageUnits = units.InputImages
+	} else if consumed, ok := common.GetContextKey(c, constant.ContextKeyConsumeLog); ok {
 		if params, ok := consumed.(*model.RecordConsumeLogParams); ok {
 			event.InputUnits = int64(params.PromptTokens)
 			event.OutputUnits = int64(params.CompletionTokens)
@@ -135,6 +144,11 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 		measureGenerated(&event, info)
 	}
 	return event
+}
+
+// tokens is every token of the request, cached or not, as the monthly token limit counts them.
+func (e Event) tokens() int64 {
+	return e.InputUnits + e.CacheReadUnits + e.CacheWriteUnits + e.CacheWrite1hUnits + e.OutputUnits
 }
 
 // unknownProvider names a channel that cannot be looked up, so its event still reaches the
@@ -188,6 +202,7 @@ func measureGenerated(event *Event, info *relaycommon.RelayInfo) {
 		}
 		event.GeneratedUnits = (measured + audioTokensPerMinute - 1) / audioTokensPerMinute
 		event.InputUnits, event.OutputUnits = 0, 0
+		event.CacheReadUnits, event.CacheWriteUnits, event.CacheWrite1hUnits = 0, 0, 0
 	}
 }
 

@@ -7857,6 +7857,18 @@
     "Requests that succeeded, leaving out those the caller caused": "成功したリクエストの割合（呼び出し側が原因のエラーを除く）",
     "Checked just now": "たった今確認",
     "Checked {{minutes}} min ago": "{{minutes}} 分前に確認",
-    "Checked {{hours}} h ago": "{{hours}} 時間前に確認"
+    "Checked {{hours}} h ago": "{{hours}} 時間前に確認",
+    "Cache read": "キャッシュ読み取り",
+    "Cache write (5 min)": "キャッシュ書き込み（5 分）",
+    "Cache write (1 h)": "キャッシュ書き込み（1 時間）",
+    "Long context input": "ロングコンテキスト入力",
+    "Long context cache read": "ロングコンテキストのキャッシュ読み取り",
+    "Long context cache write (5 min)": "ロングコンテキストのキャッシュ書き込み（5 分）",
+    "Long context cache write (1 h)": "ロングコンテキストのキャッシュ書き込み（1 時間）",
+    "Long context output": "ロングコンテキスト出力",
+    "Input image": "入力画像",
+    "Charges": "料金明細",
+    "Not priced yet": "未設定の価格",
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "プロンプトがモデルのロングコンテキストの長さを超えるリクエストでは、すべてのトークンにロングコンテキスト価格が適用されます。"
   }
 }

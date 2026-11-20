@@ -7857,6 +7857,18 @@
     "Requests that succeeded, leaving out those the caller caused": "Tỷ lệ yêu cầu thành công, không tính lỗi do bên gọi gây ra",
     "Checked just now": "Vừa kiểm tra",
     "Checked {{minutes}} min ago": "Kiểm tra {{minutes}} phút trước",
-    "Checked {{hours}} h ago": "Kiểm tra {{hours}} giờ trước"
+    "Checked {{hours}} h ago": "Kiểm tra {{hours}} giờ trước",
+    "Cache read": "Đọc bộ nhớ đệm",
+    "Cache write (5 min)": "Ghi bộ nhớ đệm (5 phút)",
+    "Cache write (1 h)": "Ghi bộ nhớ đệm (1 giờ)",
+    "Long context input": "Đầu vào ngữ cảnh dài",
+    "Long context cache read": "Đọc bộ nhớ đệm ngữ cảnh dài",
+    "Long context cache write (5 min)": "Ghi bộ nhớ đệm ngữ cảnh dài (5 phút)",
+    "Long context cache write (1 h)": "Ghi bộ nhớ đệm ngữ cảnh dài (1 giờ)",
+    "Long context output": "Đầu ra ngữ cảnh dài",
+    "Input image": "Hình ảnh đầu vào",
+    "Charges": "Chi phí",
+    "Not priced yet": "Chưa có giá",
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Giá ngữ cảnh dài áp dụng cho mọi token của yêu cầu có lời nhắc dài hơn ngưỡng ngữ cảnh dài của mô hình."
   }
 }

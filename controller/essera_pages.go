@@ -213,6 +213,12 @@ func consoleLog(id int, row consoleapi.UsageRow, keyNames, people map[string]str
 		}
 	}
 	details := map[string]any{"provider": row.Provider, "modality": row.Modality, "status": row.Status, "generated_units": row.GeneratedUnits}
+	if row.InputImageUnits > 0 {
+		details["input_image_units"] = row.InputImageUnits
+	}
+	if len(row.Charges) > 0 {
+		details["charges"] = row.Charges
+	}
 	if row.BillableAmount != nil {
 		details["billable_amount"] = *row.BillableAmount
 		log.Quota = quotaOf(*row.BillableAmount)
@@ -223,8 +229,19 @@ func consoleLog(id int, row consoleapi.UsageRow, keyNames, people map[string]str
 	if row.LatencyMS != nil {
 		details["latency_ms"] = *row.LatencyMS
 	}
-	other, _ := common.Marshal(map[string]any{"essera": details})
-	log.Other = string(other)
+	other := map[string]any{"essera": details}
+	// new-api's log views read cache tokens from these fields; the prompt tokens exclude them.
+	if row.CacheReadUnits > 0 {
+		other["cache_tokens"] = row.CacheReadUnits
+	}
+	if written := row.Written(); written > 0 {
+		other["cache_creation_tokens"] = written
+		other["cache_write_tokens"] = written
+		other["cache_creation_tokens_5m"] = row.CacheWriteUnits
+		other["cache_creation_tokens_1h"] = row.CacheWrite1hUnits
+	}
+	encoded, _ := common.Marshal(other)
+	log.Other = string(encoded)
 	return log
 }
 
@@ -255,7 +272,7 @@ func esseraQuotaDates(c *gin.Context, person *snapshot.Person) {
 	for _, row := range series.Rows {
 		dates = append(dates, &model.QuotaData{
 			ModelName: row.Model, CreatedAt: row.TS.Unix(),
-			Count: int(row.Requests), TokenUsed: int(row.InputUnits + row.OutputUnits), Quota: quotaOf(spendIn(row.Spend, currency)),
+			Count: int(row.Requests), TokenUsed: int(row.Tokens(row.InputUnits, row.OutputUnits)), Quota: quotaOf(spendIn(row.Spend, currency)),
 		})
 	}
 	common.ApiSuccess(c, dates)
@@ -337,7 +354,7 @@ func esseraAccount(c *gin.Context, person *snapshot.Person) gin.H {
 		"spend_left":    me.Remaining.Spend,
 		"requests":      me.Month.Requests,
 		"request_quota": me.Limits.MonthlyRequestQuota,
-		"tokens":        me.Month.InputUnits + me.Month.OutputUnits,
+		"tokens":        me.Month.Tokens(me.Month.InputUnits, me.Month.OutputUnits),
 		"token_quota":   me.Limits.MonthlyTokenQuota,
 	}
 }

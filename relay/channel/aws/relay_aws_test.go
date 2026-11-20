@@ -20,6 +20,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/essera/metering"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	relaytypes "github.com/QuantumNous/new-api/relaykit/types"
@@ -494,6 +495,60 @@ func TestAwsStreamHandlerUsesFinalUpstreamUsage(t *testing.T) {
 	assert.Contains(t, recorder.Body.String(), "[DONE]")
 }
 
+func TestClaudeInvokeModelRecordsTheUnitsBedrockBilled(t *testing.T) {
+	originalRelayTimeout := common.RelayTimeout
+	common.RelayTimeout = 0
+	t.Cleanup(func() { common.RelayTimeout = originalRelayTimeout })
+	tests := []struct {
+		name, usage string
+		stream      bool
+		want        metering.Units
+	}{
+		{name: "writes split by TTL", usage: `{"input_tokens":100,"output_tokens":23,"cache_read_input_tokens":1000,"cache_creation_input_tokens":50,"cache_creation":{"ephemeral_5m_input_tokens":20,"ephemeral_1h_input_tokens":30}}`,
+			want: metering.Units{Input: 100, CacheRead: 1000, CacheWrite: 20, CacheWrite1h: 30, Output: 23}},
+		{name: "writes without a TTL are 5-minute writes", usage: `{"input_tokens":100,"output_tokens":23,"cache_read_input_tokens":1000,"cache_creation_input_tokens":50}`,
+			want: metering.Units{Input: 100, CacheRead: 1000, CacheWrite: 50, Output: 23}},
+		{name: "stream", stream: true, usage: `{"input_tokens":100,"output_tokens":1,"cache_read_input_tokens":1000,"cache_creation_input_tokens":50,"cache_creation":{"ephemeral_5m_input_tokens":20,"ephemeral_1h_input_tokens":30}}`,
+			want: metering.Units{Input: 100, CacheRead: 1000, CacheWrite: 20, CacheWrite1h: 30, Output: 23}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := newAwsTestClient(awsHTTPClientFunc(func(request *http.Request) (*http.Response, error) {
+				if !test.stream {
+					body := `{"id":"msg_test","type":"message","role":"assistant","model":"claude-test","content":[{"type":"text","text":"hello"}],"stop_reason":"end_turn","usage":` + test.usage + `}`
+					return &http.Response{StatusCode: http.StatusOK, Status: "200 OK", Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
+				}
+				var body bytes.Buffer
+				for _, event := range []string{
+					`{"type":"message_start","message":{"id":"msg_test","type":"message","role":"assistant","model":"claude-test","content":[],"usage":` + test.usage + `}}`,
+					`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}`,
+					`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":23}}`,
+					`{"type":"message_stop"}`,
+				} {
+					if err := writeAwsStreamEvent(&body, event); err != nil {
+						return nil, err
+					}
+				}
+				return newAwsStreamResponse(request, io.NopCloser(bytes.NewReader(body.Bytes()))), nil
+			}))
+			adaptor := &Adaptor{AwsClient: client, AwsReq: newAwsInvokeModelInput()}
+			if test.stream {
+				adaptor.AwsReq = newAwsStreamInput()
+			}
+			info := newAwsTestRelayInfo()
+			info.IsStream = test.stream
+			c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+
+			_, apiErr := adaptor.DoResponse(c, nil, info)
+			require.Nil(t, apiErr)
+
+			units, ok := metering.Recorded(c)
+			require.True(t, ok)
+			assert.Equal(t, test.want, units)
+		})
+	}
+}
+
 func TestAwsStreamHandlerStopsAtClientCancellation(t *testing.T) {
 	originalRelayTimeout := common.RelayTimeout
 	common.RelayTimeout = 0
@@ -747,6 +802,9 @@ func TestMantleHTTPResponsesPreserveCacheUsage(t *testing.T) {
 				assert.Equal(t, 50, claudeUsage.CacheCreationInputTokens)
 				assert.Equal(t, 20, claudeUsage.GetCacheCreation5mTokens())
 				assert.Equal(t, 30, claudeUsage.GetCacheCreation1hTokens())
+				units, ok := metering.Recorded(c)
+				require.True(t, ok)
+				assert.Equal(t, metering.Units{Input: 100, CacheRead: 1000, CacheWrite: 20, CacheWrite1h: 30, Output: 23}, units)
 				assert.Contains(t, recorder.Body.String(), "hello")
 				if stream && format == relaytypes.RelayFormatOpenAI {
 					assert.Contains(t, recorder.Body.String(), "[DONE]")

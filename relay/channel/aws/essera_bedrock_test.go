@@ -20,6 +20,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/essera/metering"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
@@ -565,6 +566,93 @@ func TestConverseStreamPerClientProtocol(t *testing.T) {
 	}
 }
 
+func TestConverseRecordsTheUnitsBedrockBilled(t *testing.T) {
+	originalTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = originalTimeout })
+	const byTTL = `{"inputTokens":10,"outputTokens":3,"totalTokens":163,"cacheReadInputTokens":100,"cacheWriteInputTokens":50,"cacheDetails":[{"inputTokens":30,"ttl":"1h"},{"inputTokens":20,"ttl":"5m"}]}`
+	const noTTL = `{"inputTokens":10,"outputTokens":3,"totalTokens":133,"cacheReadInputTokens":100,"cacheWriteInputTokens":20}`
+	reply := func(usage string) bedrockReplyFixture {
+		return jsonFixture(`{"output":{"message":{"role":"assistant","content":[{"text":"Hello"}]}},"stopReason":"end_turn","usage":` + usage + `}`)
+	}
+	streamed := func(usage string) func(*testing.T) bedrockReplyFixture {
+		return func(t *testing.T) bedrockReplyFixture {
+			return converseStreamFixture(t,
+				[2]string{"messageStart", `{"role":"assistant"}`},
+				[2]string{"contentBlockDelta", `{"contentBlockIndex":0,"delta":{"text":"Hello"}}`},
+				[2]string{"messageStop", `{"stopReason":"end_turn"}`},
+				[2]string{"metadata", `{"usage":` + usage + `}`},
+			)
+		}
+	}
+	chat := func(a *Adaptor, c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+		return a.ConvertOpenAIRequest(c, info, &dto.GeneralOpenAIRequest{Messages: []dto.Message{{Role: "user", Content: "Hi"}}})
+	}
+	messages := func(a *Adaptor, c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+		var request dto.ClaudeRequest
+		require.NoError(t, common.Unmarshal([]byte(`{"model":"qwen.qwen3-32b-v1:0","max_tokens":64,"messages":[{"role":"user","content":"Hi"}]}`), &request))
+		return a.ConvertClaudeRequest(c, info, &request)
+	}
+	responses := func(a *Adaptor, c *gin.Context, info *relaycommon.RelayInfo) (any, error) {
+		var request dto.OpenAIResponsesRequest
+		require.NoError(t, common.Unmarshal([]byte(`{"model":"eu.anthropic.claude-sonnet-4-6","input":"Hi"}`), &request))
+		return a.ConvertOpenAIResponsesRequest(c, info, request)
+	}
+	split := metering.Units{Input: 10, CacheRead: 100, CacheWrite: 20, CacheWrite1h: 30, Output: 3}
+	tests := []struct {
+		name    string
+		mode    int
+		format  relaytypes.RelayFormat
+		model   string
+		stream  bool
+		fixture func(*testing.T) bedrockReplyFixture
+		convert func(*Adaptor, *gin.Context, *relaycommon.RelayInfo) (any, error)
+		want    metering.Units
+	}{
+		{name: "chat, writes split by TTL", mode: relayconstant.RelayModeChatCompletions, format: relaytypes.RelayFormatOpenAI, model: "eu.amazon.nova-lite-v1:0",
+			fixture: func(*testing.T) bedrockReplyFixture { return reply(byTTL) }, convert: chat, want: split},
+		{name: "chat, writes without a TTL are 5-minute writes", mode: relayconstant.RelayModeChatCompletions, format: relaytypes.RelayFormatOpenAI, model: "eu.amazon.nova-lite-v1:0",
+			fixture: func(*testing.T) bedrockReplyFixture { return reply(noTTL) }, convert: chat,
+			want: metering.Units{Input: 10, CacheRead: 100, CacheWrite: 20, Output: 3}},
+		{name: "chat stream", mode: relayconstant.RelayModeChatCompletions, format: relaytypes.RelayFormatOpenAI, model: "eu.amazon.nova-lite-v1:0", stream: true,
+			fixture: streamed(byTTL), convert: chat, want: split},
+		{name: "Anthropic Messages for a model other than Claude", mode: relayconstant.RelayModeUnknown, format: relaytypes.RelayFormatClaude, model: "qwen.qwen3-32b-v1:0",
+			fixture: func(*testing.T) bedrockReplyFixture { return reply(byTTL) }, convert: messages, want: split},
+		{name: "Responses", mode: relayconstant.RelayModeResponses, format: relaytypes.RelayFormatOpenAIResponses, model: "eu.anthropic.claude-sonnet-4-6",
+			fixture: func(*testing.T) bedrockReplyFixture { return reply(byTTL) }, convert: responses, want: split},
+		{name: "Responses stream", mode: relayconstant.RelayModeResponses, format: relaytypes.RelayFormatOpenAIResponses, model: "eu.anthropic.claude-sonnet-4-6", stream: true,
+			fixture: streamed(byTTL), convert: responses, want: split},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server, _ := startBedrockStub(t, test.fixture(t))
+			c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+			info := newBedrockTestInfo(server, test.mode, test.format, test.model, test.stream)
+			metering.Record(c, metering.Units{Input: 999})
+
+			_, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return test.convert(a, c, info) })
+			require.Nil(t, apiErr)
+
+			units, ok := metering.Recorded(c)
+			require.True(t, ok)
+			assert.Equal(t, test.want, units)
+		})
+	}
+
+	t.Run("an attempt that fails leaves nothing recorded", func(t *testing.T) {
+		server, _ := startBedrockStub(t, bedrockReplyFixture{status: 400, header: map[string]string{"X-Amzn-ErrorType": "ValidationException"}, body: []byte(`{"message":"bad"}`)})
+		c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+		info := newBedrockTestInfo(server, relayconstant.RelayModeChatCompletions, relaytypes.RelayFormatOpenAI, "eu.amazon.nova-lite-v1:0", false)
+		metering.Record(c, split)
+
+		_, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return chat(a, c, info) })
+		require.NotNil(t, apiErr)
+
+		_, ok := metering.Recorded(c)
+		assert.False(t, ok)
+	})
+}
+
 func TestBedrockErrorsKeepTheirMeaning(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -641,6 +729,8 @@ func TestBedrockEmbeddings(t *testing.T) {
 		wantFirst []float64
 		wantCount int
 		wantUsage int
+		// Images Bedrock prices per image: Titan Multimodal's and Cohere v3's, not Cohere v4's.
+		wantImages int64
 	}{
 		{
 			family: "Titan Text v2: one call per input, dimensions", model: "amazon.titan-embed-text-v2:0", request: `{"input":["a","b"],"dimensions":256}`,
@@ -652,7 +742,23 @@ func TestBedrockEmbeddings(t *testing.T) {
 			family: "Titan Multimodal: an image data URL", model: "amazon.titan-embed-image-v1", request: `{"input":"data:image/png;base64,aW1n","dimensions":384}`,
 			replies:  []bedrockReplyFixture{{header: tokens, body: []byte(`{"embedding":[0.5],"inputTextTokenCount":0}`)}},
 			wantPath: "/model/amazon.titan-embed-image-v1/invoke", wantBody: []string{`{"inputImage":"aW1n","embeddingConfig":{"outputEmbeddingLength":384}}`},
-			wantFirst: []float64{0.5}, wantCount: 1, wantUsage: 4,
+			wantFirst: []float64{0.5}, wantCount: 1, wantUsage: 4, wantImages: 1,
+		},
+		{
+			family: "Cohere Embed v3: an image and a text", model: "cohere.embed-english-v3", request: `{"input":["data:image/png;base64,aW1n","a"]}`,
+			replies: []bedrockReplyFixture{
+				{header: tokens, body: []byte(`{"id":"x","response_type":"embeddings_by_type","embeddings":{"float":[[3,3]]}}`)},
+				{header: tokens, body: []byte(`{"id":"y","response_type":"embeddings_by_type","embeddings":{"float":[[1,1]]},"texts":["a"]}`)},
+			},
+			wantPath:  "/model/cohere.embed-english-v3/invoke",
+			wantBody:  []string{`{"images":["data:image/png;base64,aW1n"],"input_type":"image","embedding_types":["float"]}`, `{"texts":["a"],"input_type":"search_document","embedding_types":["float"]}`},
+			wantFirst: []float64{3, 3}, wantCount: 2, wantUsage: 8, wantImages: 1,
+		},
+		{
+			family: "Cohere Embed v4: an image is priced by its tokens", model: "eu.cohere.embed-v4:0", request: `{"input":"data:image/png;base64,aW1n"}`,
+			replies:  []bedrockReplyFixture{{header: tokens, body: []byte(`{"id":"x","response_type":"embeddings_floats","embeddings":[[5,6]]}`)}},
+			wantPath: "/model/eu.cohere.embed-v4%3A0/invoke", wantBody: []string{`{"images":["data:image/png;base64,aW1n"],"input_type":"image","embedding_types":["float"]}`},
+			wantFirst: []float64{5, 6}, wantCount: 1, wantUsage: 4,
 		},
 		{
 			family: "Cohere Embed v3: one batched call", model: "cohere.embed-multilingual-v3", request: `{"input":["a","b"]}`,
@@ -695,6 +801,9 @@ func TestBedrockEmbeddings(t *testing.T) {
 			}
 			assert.Equal(t, test.wantUsage, usage.PromptTokens)
 			assert.EqualValues(t, test.wantUsage, response.Usage.PromptTokens)
+			units, ok := metering.Recorded(c)
+			require.True(t, ok)
+			assert.Equal(t, metering.Units{Input: int64(test.wantUsage), InputImages: test.wantImages}, units)
 		})
 	}
 

@@ -7933,6 +7933,18 @@
     "Requests that succeeded, leaving out those the caller caused": "Requests that succeeded, leaving out those the caller caused",
     "Checked just now": "Checked just now",
     "Checked {{minutes}} min ago": "Checked {{minutes}} min ago",
-    "Checked {{hours}} h ago": "Checked {{hours}} h ago"
+    "Checked {{hours}} h ago": "Checked {{hours}} h ago",
+    "Cache read": "Cache read",
+    "Cache write (5 min)": "Cache write (5 min)",
+    "Cache write (1 h)": "Cache write (1 h)",
+    "Long context input": "Long context input",
+    "Long context cache read": "Long context cache read",
+    "Long context cache write (5 min)": "Long context cache write (5 min)",
+    "Long context cache write (1 h)": "Long context cache write (1 h)",
+    "Long context output": "Long context output",
+    "Input image": "Input image",
+    "Charges": "Charges",
+    "Not priced yet": "Not priced yet",
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size."
   }
 }

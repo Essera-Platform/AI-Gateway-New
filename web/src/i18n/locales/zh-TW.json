@@ -7857,6 +7857,18 @@
     "Requests that succeeded, leaving out those the caller caused": "成功請求的比例，不計呼叫方自身導致的錯誤",
     "Checked just now": "剛剛檢查",
     "Checked {{minutes}} min ago": "{{minutes}} 分鐘前檢查",
-    "Checked {{hours}} h ago": "{{hours}} 小時前檢查"
+    "Checked {{hours}} h ago": "{{hours}} 小時前檢查",
+    "Cache read": "快取讀取",
+    "Cache write (5 min)": "快取寫入（5 分鐘）",
+    "Cache write (1 h)": "快取寫入（1 小時）",
+    "Long context input": "長上下文輸入",
+    "Long context cache read": "長上下文快取讀取",
+    "Long context cache write (5 min)": "長上下文快取寫入（5 分鐘）",
+    "Long context cache write (1 h)": "長上下文快取寫入（1 小時）",
+    "Long context output": "長上下文輸出",
+    "Input image": "輸入圖片",
+    "Charges": "費用明細",
+    "Not priced yet": "尚未定價",
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "當請求的提示超過模型的長上下文長度時，長上下文價格適用於該請求的所有 token。"
   }
 }

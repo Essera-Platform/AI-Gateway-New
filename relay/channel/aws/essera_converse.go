@@ -116,10 +116,17 @@ type converseToolSpec struct {
 }
 
 type converseUsage struct {
-	InputTokens           int `json:"inputTokens"`
-	OutputTokens          int `json:"outputTokens"`
-	CacheReadInputTokens  int `json:"cacheReadInputTokens"`
-	CacheWriteInputTokens int `json:"cacheWriteInputTokens"`
+	InputTokens           int                   `json:"inputTokens"`
+	OutputTokens          int                   `json:"outputTokens"`
+	CacheReadInputTokens  int                   `json:"cacheReadInputTokens"`
+	CacheWriteInputTokens int                   `json:"cacheWriteInputTokens"`
+	CacheDetails          []converseCacheDetail `json:"cacheDetails"`
+}
+
+// converseCacheDetail is the part of the cache writes made with one TTL, "5m" or "1h".
+type converseCacheDetail struct {
+	InputTokens int    `json:"inputTokens"`
+	TTL         string `json:"ttl"`
 }
 
 type converseResponse struct {
@@ -544,7 +551,8 @@ func converseFinishReason(stopReason string) string {
 }
 
 // openAIUsageFromConverse counts the cache reads and writes, which Converse
-// reports apart from inputTokens, as prompt tokens.
+// reports apart from inputTokens, as prompt tokens, and keeps the writes'
+// split by TTL, which Bedrock prices apart.
 func openAIUsageFromConverse(usage *converseUsage) dto.Usage {
 	if usage == nil {
 		return dto.Usage{}
@@ -552,10 +560,22 @@ func openAIUsageFromConverse(usage *converseUsage) dto.Usage {
 	bounded := func(n int) int { return min(max(n, 0), maxBedrockTokenCount) }
 	input, output := bounded(usage.InputTokens), bounded(usage.OutputTokens)
 	cacheRead, cacheWrite := bounded(usage.CacheReadInputTokens), bounded(usage.CacheWriteInputTokens)
+	var written5m, written1h int
+	for _, detail := range usage.CacheDetails {
+		switch detail.TTL {
+		case "5m":
+			written5m = bounded(written5m + bounded(detail.InputTokens))
+		case "1h":
+			written1h = bounded(written1h + bounded(detail.InputTokens))
+		}
+	}
+	cacheWrite = max(cacheWrite, written5m+written1h)
 	prompt := input + cacheRead + cacheWrite
 	result := dto.Usage{PromptTokens: prompt, CompletionTokens: output, TotalTokens: prompt + output}
 	result.PromptTokensDetails.CachedTokens = cacheRead
 	result.PromptTokensDetails.CacheWriteTokens = cacheWrite
+	result.ClaudeCacheCreation1hTokens = written1h
+	result.ClaudeCacheCreation5mTokens = cacheWrite - written1h
 	return result
 }
 

@@ -57,6 +57,7 @@ import { Dialog } from '@/components/dialog'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { EsseraCharges } from '@/features/essera/charges'
 import { DynamicPricingBreakdown } from '@/features/pricing/components/dynamic-pricing-breakdown'
 import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
 import { BILLING_PRICING_VARS } from '@/features/pricing/lib/billing-expr'
@@ -1221,8 +1222,17 @@ export function DetailsDialog(props: DetailsDialogProps) {
           <TokenBreakdown log={props.log} other={other} />
         )}
 
+        {/* Modified by Essera, 2026-11: the Console's charges, unit by unit. */}
+        {isConsume && other?.essera?.charges && (
+          <EsseraCharges
+            charges={other.essera.charges}
+            total={other.essera.billable_amount}
+            currency={other.essera.currency}
+          />
+        )}
+
         {/* Billing breakdown (consume type) */}
-        {isConsume && other && !isViolation && (
+        {isConsume && other && !isViolation && !other.essera && (
           <BillingBreakdown
             log={props.log}
             other={other}

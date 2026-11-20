@@ -53,6 +53,7 @@ func embeddingFamilyOf(modelID string) embeddingFamily {
 type embeddingCall struct {
 	Inputs []int           `json:"inputs"`
 	Body   json.RawMessage `json:"body"`
+	Image  bool            `json:"image,omitempty"`
 }
 
 // embeddingPlan is the request the embedding relay forwards to DoRequest.
@@ -106,6 +107,7 @@ func convertEmbeddingRequest(modelID string, request dto.EmbeddingRequest) (*emb
 				if err := addCall([]int{i}, body); err != nil {
 					return nil, err
 				}
+				plan.Calls[len(plan.Calls)-1].Image = true
 				continue
 			}
 			texts = append(texts, i)
@@ -152,8 +154,25 @@ func convertEmbeddingRequest(modelID string, request dto.EmbeddingRequest) (*emb
 		if err := addCall([]int{i}, body); err != nil {
 			return nil, err
 		}
+		plan.Calls[len(plan.Calls)-1].Image = isImage
 	}
 	return plan, nil
+}
+
+// imagesPricedApart counts the images of the plan Bedrock prices per image:
+// Titan Multimodal's and Cohere Embed v3's. Cohere Embed v4 prices an image
+// by its tokens.
+func imagesPricedApart(family embeddingFamily, plan *embeddingPlan) int64 {
+	if plan == nil || (family != embeddingTitanMultimodal && family != embeddingCohere) {
+		return 0
+	}
+	var images int64
+	for _, call := range plan.Calls {
+		if call.Image {
+			images += int64(len(call.Inputs))
+		}
+	}
+	return images
 }
 
 // embeddingVectors reads the vectors of one native embedding answer, in the

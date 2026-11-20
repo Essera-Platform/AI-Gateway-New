@@ -135,6 +135,81 @@ describe('Model Square on a managed gateway', () => {
     expect(screen.queryByText('Sign in to see prices')).not.toBeInTheDocument()
   })
 
+  it('lists cache and long-context prices in bill order, with what long context means', async () => {
+    const perMillion = (unit: string, amount: string) => ({
+      unit,
+      amount,
+      per_quantity: 1_000_000,
+      currency: 'USD',
+    })
+    const model = await managedModel(true, {
+      ...claude,
+      vendor_id: 1,
+      essera_prices: [
+        perMillion('output_tokens_long', '2.75'),
+        perMillion('output_tokens', '0.55'),
+        perMillion('cache_write_1h_tokens', '0.22'),
+        perMillion('input_tokens_long', '0.55'),
+        perMillion('cache_read_tokens', '0.011'),
+        perMillion('input_tokens', '0.11'),
+        perMillion('cache_write_tokens', '0.1375'),
+      ],
+    })
+
+    render(<ModelCard model={model} onClick={vi.fn()} />)
+
+    const labels = [
+      'Input',
+      'Cache read',
+      'Cache write (5 min)',
+      'Cache write (1 h)',
+      'Output',
+      'Long context input',
+      'Long context output',
+    ]
+    const shown = labels.map((label) => screen.getByText(label))
+    for (let i = 1; i < shown.length; i++) {
+      expect(
+        shown[i - 1].compareDocumentPosition(shown[i]) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
+    }
+    expect(screen.getByText('Cache read').parentElement).toHaveTextContent(
+      '0.011 USD / 1M tokens'
+    )
+    expect(
+      screen.getByText('Long context input').parentElement
+    ).toHaveTextContent('0.55 USD / 1M tokens')
+    expect(
+      screen.getByText(/Long context prices apply to every token/)
+    ).toBeVisible()
+  })
+
+  it('prices an embedding model per input image', async () => {
+    const model = await managedModel(true, {
+      ...claude,
+      model_type: 'embedding',
+      vendor_id: 1,
+      essera_prices: [
+        {
+          unit: 'input_images',
+          amount: '0.0001',
+          per_quantity: 1,
+          currency: 'USD',
+        },
+      ],
+    })
+
+    render(<ModelCard model={model} onClick={vi.fn()} />)
+
+    expect(screen.getByText('Input image').parentElement).toHaveTextContent(
+      '0.0001 USD / image'
+    )
+    expect(
+      screen.queryByText(/Long context prices apply/)
+    ).not.toBeInTheDocument()
+  })
+
   it('says when the Console cannot give a signed-in person their prices', async () => {
     const model = await managedModel(true, { ...claude, vendor_id: 1 }, false)
 
