@@ -185,6 +185,14 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 	// Modified by Essera, 2026-11: Converse and embeddings use the Bedrock
 	// Runtime REST API; Claude keeps InvokeModel through the SDK, or Mantle.
 	a.route = selectBedrockRoute(info)
+	// Modified by Essera, 2026-11: no prompt caching on a managed Gateway.
+	if promptCachingOff() && (a.route == routeMantle || a.route == routeClaudeInvoke) {
+		stripped, err := withoutPromptCaching(requestBody)
+		if err != nil {
+			return nil, err
+		}
+		requestBody = stripped
+	}
 	switch a.route {
 	case routeMantle:
 		req, err := a.newMantleRequest(c, info, requestBody)
