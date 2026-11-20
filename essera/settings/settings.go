@@ -83,3 +83,21 @@ func SystemName() string {
 func Logo() string {
 	return strings.TrimSpace(common.GetEnvOrDefaultString("ESSERA_LOGO", ""))
 }
+
+// ServerAddress is the address the web UI shows people to call the Gateway at. A managed
+// gateway takes it from ESSERA_PUBLIC_URL, else from the first SESSION_COOKIE_TRUSTED_URL,
+// because the Console locks the options where new-api keeps it; otherwise it is configured.
+func ServerAddress(configured string) string {
+	if !Managed() {
+		return configured
+	}
+	public := strings.TrimSpace(common.GetEnvOrDefaultString("ESSERA_PUBLIC_URL", ""))
+	if public == "" {
+		public, _, _ = strings.Cut(common.GetEnvOrDefaultString("SESSION_COOKIE_TRUSTED_URL", ""), ",")
+		public = strings.TrimSpace(public)
+	}
+	if public == "" {
+		return configured
+	}
+	return strings.TrimRight(public, "/")
+}

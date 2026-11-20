@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway's first request copies with a key placeholder.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   createMemoryHistory,
@@ -28,14 +29,20 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
+import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import { OverviewDashboard } from '../overview-dashboard'
 
+vi.mock('@/lib/copy-to-clipboard', () => ({
+  copyToClipboard: vi.fn(async () => true),
+}))
+
 const storageKey = 'dashboard_overview_setup_guide_expanded'
 let client: QueryClient
 let keyLookupError: Error | null
+let statusExtra: Record<string, unknown>
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -52,6 +59,7 @@ beforeEach(() => {
     defaultOptions: { queries: { retry: false } },
   })
   keyLookupError = null
+  statusExtra = {}
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
     switch (url) {
       case '/api/token/?p=1&size=10':
@@ -72,6 +80,7 @@ beforeEach(() => {
               announcements_enabled: false,
               faq_enabled: false,
               uptime_kuma_enabled: false,
+              ...statusExtra,
             },
           },
         }
@@ -237,5 +246,35 @@ describe('overview setup guide', () => {
     expect(
       screen.queryByRole('button', { name: 'Setup guide' })
     ).not.toBeInTheDocument()
+  })
+
+  it('copies a managed gateway\'s first request with its public address and a key placeholder', async () => {
+    const user = userEvent.setup()
+    const keyRead = vi.spyOn(api, 'post')
+    statusExtra = {
+      essera_managed: true,
+      server_address: 'https://gateway.example.com',
+    }
+    window.localStorage.setItem(storageKey, 'expanded')
+    await renderOverview()
+
+    const expected = [
+      'curl https://gateway.example.com/v1/chat/completions \\',
+      '  -H "Content-Type: application/json" \\',
+      '  -H "Authorization: Bearer $ESSERA_API_KEY" \\',
+      `  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Say hello in one sentence."}]}'`,
+    ].join('\n')
+    expect(
+      await screen.findByText(
+        '  -H "Authorization: Bearer $ESSERA_API_KEY" \\',
+        { normalizer: (text) => text }
+      )
+    ).toBeInTheDocument()
+    await user.click(
+      await screen.findByRole('button', { name: 'Copy ready-to-run curl' })
+    )
+
+    await waitFor(() => expect(copyToClipboard).toHaveBeenCalledWith(expected))
+    expect(keyRead).not.toHaveBeenCalled()
   })
 })

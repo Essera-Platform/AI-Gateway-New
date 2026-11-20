@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
@@ -5,6 +6,13 @@ import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 
 import type { EsseraCreatedKey } from './api'
+import {
+  FALLBACK_EXAMPLE_MODEL,
+  buildCurlCommand,
+  chatCompletionsEndpoint,
+  useServerAddress,
+  userModelsQueryOptions,
+} from './example-request'
 
 type KeyCreatedDialogProps = {
   created: EsseraCreatedKey | null
@@ -13,6 +21,18 @@ type KeyCreatedDialogProps = {
 
 export function KeyCreatedDialog(props: KeyCreatedDialogProps) {
   const { t } = useTranslation()
+  const serverAddress = useServerAddress()
+  const modelsQuery = useQuery({
+    ...userModelsQueryOptions,
+    enabled: props.created !== null,
+  })
+  const exampleRequest = props.created
+    ? buildCurlCommand({
+        endpoint: chatCompletionsEndpoint(serverAddress),
+        apiKey: props.created.key,
+        model: modelsQuery.data?.[0] ?? FALLBACK_EXAMPLE_MODEL,
+      })
+    : ''
 
   return (
     <Dialog
@@ -43,6 +63,15 @@ export function KeyCreatedDialog(props: KeyCreatedDialogProps) {
               tooltip={t('Copy API key')}
             />
           </div>
+          <CopyButton
+            value={exampleRequest}
+            variant='outline'
+            size='sm'
+            className='justify-self-start'
+            aria-label={t('Copy example request')}
+          >
+            {t('Copy example request')}
+          </CopyButton>
         </div>
       )}
     </Dialog>

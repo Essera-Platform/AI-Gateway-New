@@ -43,7 +43,7 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 - **Playground:** runs as the signed-in person, through the same policy, limits and usage as their API calls; anyone else is refused.
 - **Model lists:** a person's model list (`/api/user/models`, used by the playground) holds only what relay lets them call (`policy.Available`, the rules `policy.Evaluate` applies): active models of active providers within the customer's entitlements and, for a user, their own limits; nothing while they are not active.
 - **Groups:** everyone is in group `essera`; group choices are hidden, and the Model Square, its model details and the usage logs show no group.
-- **`web/src/features/essera`:** in managed mode, the Essera sign-in (email, then the emailed code with resend and expiry, or the password and a first new password), without a link to the operators' sign-in, which only `/sign-in?operator=1` opens; creating a key with only a name and an expiry and showing it once; and a badge in the admin header says the Console administers the gateway, and its tooltip says what is changed there.
+- **`web/src/features/essera`:** in managed mode, the Essera sign-in (email, then the emailed code with resend and expiry, or the password and a first new password), without a link to the operators' sign-in, which only `/sign-in?operator=1` opens; creating a key with only a name and an expiry and showing it once, with a ready-to-run example request; and a badge in the admin header says the Console administers the gateway, and its tooltip says what is changed there.
 
 ### Upstream files changed
 
@@ -68,6 +68,8 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | `controller/user.go` | Only operators sign in with new-api's password or Passkey; a person cannot change their username or set a password; a person's model list is what relay lets them call |
 | `controller/token.go` | Creating and deleting a key is a person's Console credential |
 | `controller/misc.go` | `/api/status` says how people sign in (`essera_sign_in`) |
+| `controller/misc.go` | On a managed gateway, `/api/status` gives the public address (`ESSERA_PUBLIC_URL`) as `server_address` |
+| `web/src/features/dashboard/components/overview/overview-dashboard.tsx` | In managed mode, the first request names the public address and `$ESSERA_API_KEY`, and Copy does not read the key back |
 | `router/api-router.go`, `router/access_token_scope_test.go` | The anonymous `/api/essera/sign-in` routes |
 | `router/relay-router.go` | The playground runs through the Essera policy |
 | `service/group.go` | A managed gateway offers only the `essera` group |
@@ -98,6 +100,7 @@ When `ESSERA_MANAGED=true`, the Gateway is administered by the Essera Operations
 | `CONSOLE_INTERNAL_URL` | The Console's internal API inside the cluster, e.g. `http://essera-backend:8000` |
 | `ESSERA_SYSTEM_NAME`, `ESSERA_LOGO` | The name the web UI shows (default `Essera AI Gateway`) and, optionally, the address of its logo; set at start in managed mode, where the options are locked. The new-api attribution in the footer stays |
 | `ESSERA_SIGN_IN` | `email_otp` (default; the pool must send email through SES) or `password` |
+| `ESSERA_PUBLIC_URL` | Optional: the address people call the Gateway at, shown in the web UI and its example requests. Without it, the first `SESSION_COOKIE_TRUSTED_URL`; without either, new-api's `ServerAddress` |
 | `ESSERA_AWS_ENDPOINT`, `ESSERA_JWKS_URL`, `ESSERA_PROVIDER_BASE_URLS` | Development only: local stand-ins for AWS, Cognito and providers |
 
 ### Database
