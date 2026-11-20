@@ -1,4 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, renderHook, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -45,6 +52,18 @@ function wrapperWithStatus(status: Record<string, unknown>) {
       </QueryClientProvider>
     )
   }
+}
+
+// The page links to API Keys, so it renders inside a router.
+function inRouter(node: ReactNode) {
+  const root = createRootRoute({ component: () => node })
+  const router = createRouter({
+    routeTree: root.addChildren([
+      createRoute({ getParentRoute: () => root, path: '/keys' }),
+    ]),
+    history: createMemoryHistory({ initialEntries: ['/docs'] }),
+  })
+  return <RouterProvider router={router} />
 }
 
 function generalItems(status: Record<string, unknown>) {
@@ -97,7 +116,7 @@ describe('API Docs page', () => {
     render(
       <Wrapper>
         <ThemeProvider defaultTheme='dark'>
-          <ApiDocs />
+          {inRouter(<ApiDocs />)}
         </ThemeProvider>
       </Wrapper>
     )
@@ -106,6 +125,9 @@ describe('API Docs page', () => {
       await screen.findByRole('heading', { name: 'Essera AI Gateway API' })
     ).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'API Docs' })).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'View API Keys' }).getAttribute('href')
+    ).toBe('/keys')
     expect(get).toHaveBeenCalledWith(OPENAPI_DOCUMENT_URL)
     const configuration = viewer.configurations.at(-1)
     expect(configuration).toMatchObject({
@@ -123,11 +145,7 @@ describe('API Docs page', () => {
     vi.spyOn(api, 'get').mockRejectedValue(new Error('offline'))
     const Wrapper = wrapperWithStatus({ essera_managed: true })
 
-    render(
-      <Wrapper>
-        <ApiDocs />
-      </Wrapper>
-    )
+    render(<Wrapper>{inRouter(<ApiDocs />)}</Wrapper>)
 
     expect(
       await screen.findByText('The API documentation could not be loaded.')

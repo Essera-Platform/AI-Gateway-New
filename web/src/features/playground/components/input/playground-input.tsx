@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 // Modified by Essera, 2026-11: files can be attached to a message.
+// Modified by Essera, 2026-11: the design's composer card and its keyboard hint.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -102,11 +103,11 @@ export function PlaygroundInput({
   }
 
   return (
-    <div className='grid shrink-0 gap-4 px-1 md:pb-4'>
+    <div className='grid shrink-0 gap-2 px-1'>
       <PromptInput
         className='relative'
         filterFiles={filterAttachments}
-        groupClassName='bg-background/95 dark:bg-background/80 border-border/70 shadow-[0_18px_60px_-32px_rgba(0,0,0,0.65)] ring-1 ring-foreground/5 rounded-xl overflow-hidden transition-all duration-200 focus-within:border-primary/45 focus-within:ring-primary/15 focus-within:shadow-[0_22px_70px_-34px_rgba(0,0,0,0.75)]'
+        groupClassName='bg-card dark:bg-card has-disabled:bg-card dark:has-disabled:bg-card has-disabled:opacity-100 border-border shadow-[0_12px_30px_-10px_rgba(15,23,42,0.10)] dark:shadow-none rounded-xl overflow-hidden transition-all duration-200 focus-within:border-primary/60 focus-within:ring-3 focus-within:ring-primary/15'
         onSubmit={handleSubmit}
       >
         <PendingAttachments />
@@ -115,14 +116,14 @@ export function PlaygroundInput({
           autoCorrect='off'
           autoCapitalize='off'
           spellCheck={false}
-          className='min-h-20 px-5 pt-4 pb-3 leading-7 md:min-h-24 md:text-base'
+          className='placeholder:text-muted-foreground/80 min-h-20 px-5 pt-4 pb-3 text-[15px] leading-7 md:min-h-24'
           disabled={disabled}
           onChange={(event) => setText(event.target.value)}
           placeholder={t('Ask anything')}
           value={text}
         />
 
-        <PromptInputFooter className='border-border/60 bg-muted/20 dark:bg-muted/10 border-t px-3 py-2.5 backdrop-blur'>
+        <PromptInputFooter className='border-border/70 border-t px-3 py-2.5'>
           <PlaygroundInputControls
             disabled={disabled}
             groups={groups}
@@ -149,6 +150,9 @@ export function PlaygroundInput({
           />
         </PromptInputFooter>
       </PromptInput>
+      <p className='text-muted-foreground hidden justify-end font-mono text-[11px] md:flex'>
+        {t('Enter to send · Shift + Enter for a new line')}
+      </p>
     </div>
   )
 }

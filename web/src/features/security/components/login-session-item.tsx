@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the security design's session row: bordered device tile, Current pill, mono IP and method, an outlined danger Revoke.
 import { LaptopIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
@@ -44,12 +45,12 @@ export function LoginSessionItem({ session, onRevoke }: LoginSessionItemProps) {
 
   return (
     <div className='flex flex-col gap-3 py-4 sm:flex-row sm:items-center'>
-      <div className='bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg'>
+      <div className='bg-muted/60 text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-lg border'>
         <HugeiconsIcon icon={LaptopIcon} className='size-5' strokeWidth={2} />
       </div>
       <div className='min-w-0 flex-1'>
         <div className='flex flex-wrap items-center gap-2'>
-          <p className='font-medium'>
+          <p className='text-sm font-semibold'>
             {sessionDevice(
               session.user_agent,
               t('Unknown device'),
@@ -57,9 +58,16 @@ export function LoginSessionItem({ session, onRevoke }: LoginSessionItemProps) {
               maxTouchPoints
             )}
           </p>
-          {session.current && <Badge variant='secondary'>{t('Current')}</Badge>}
+          {session.current && (
+            <Badge
+              variant='outline'
+              className='border-primary/30 bg-primary/10 text-primary rounded-full text-[11px] font-semibold'
+            >
+              {t('Current')}
+            </Badge>
+          )}
         </div>
-        <p className='text-muted-foreground mt-1 text-xs'>
+        <p className='text-muted-foreground mt-1 font-mono text-xs'>
           {t('IP: {{ip}} · Method: {{method}}', {
             ip: session.ip || t('Unknown'),
             method: loginMethodLabel(session.login_method, t),
@@ -78,8 +86,13 @@ export function LoginSessionItem({ session, onRevoke }: LoginSessionItemProps) {
       </div>
       <Button
         type='button'
-        variant={session.current ? 'outline' : 'ghost'}
+        variant='outline'
         size='sm'
+        className={
+          session.current
+            ? undefined
+            : 'border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10 hover:text-destructive'
+        }
         onClick={() => onRevoke(session)}
       >
         {session.current ? t('Sign out') : t('Revoke')}

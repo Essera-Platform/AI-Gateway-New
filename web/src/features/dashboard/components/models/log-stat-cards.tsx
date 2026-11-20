@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the analytics design: one card per figure, the last one highlighted in emerald.
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -145,10 +146,11 @@ export function LogStatCards(props: LogStatCardsProps) {
   })
 
   return (
-    <div className='overflow-hidden rounded-lg border'>
-      <div className='divide-border/60 grid min-w-0 grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-7'>
+    <div>
+      <div className='grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-7'>
         {items.map((it, idx) => {
           const Icon = it.icon
+          const highlighted = idx === items.length - 1
           let valueContent
           if (loading) {
             valueContent = (
@@ -178,7 +180,7 @@ export function LogStatCards(props: LogStatCardsProps) {
                 >
                   <NumberValue value={it.value} />
                 </div>
-                <div className='text-muted-foreground/60 mt-1 hidden text-xs md:block'>
+                <div className='text-muted-foreground mt-1 hidden truncate text-xs md:block'>
                   {it.desc}
                 </div>
               </>
@@ -192,22 +194,30 @@ export function LogStatCards(props: LogStatCardsProps) {
               aria-label={it.title}
               aria-busy={loading}
               className={cn(
-                'min-w-0 px-2.5 py-1.5 sm:px-3 sm:py-4 xl:px-4',
+                'bg-card shadow-card min-w-0 rounded-xl border px-3 py-2.5 transition-colors sm:px-4 sm:py-4',
+                highlighted
+                  ? 'border-primary/30 bg-primary/5 dark:bg-primary/10'
+                  : 'hover:border-primary/30',
                 idx === items.length - 1 &&
                   items.length % 2 !== 0 &&
                   'col-span-2 sm:col-span-1'
               )}
             >
-              <div className='flex min-w-0 items-center gap-1.5 sm:gap-2'>
-                <IconBadge
-                  tone={it.iconTone}
-                  size='stat'
-                  className='size-4 rounded-sm sm:size-7 sm:rounded-md [&>svg]:size-2.5 sm:[&>svg]:size-3.5'
-                >
-                  <Icon />
-                </IconBadge>
+              <div className='flex min-w-0 items-center gap-1.5 sm:h-6 sm:gap-2'>
+                {highlighted && (
+                  <IconBadge
+                    tone='success'
+                    size='stat'
+                    className='size-4 shrink-0 rounded-sm sm:size-6 sm:rounded-md [&>svg]:size-2.5 sm:[&>svg]:size-3.5'
+                  >
+                    <Icon />
+                  </IconBadge>
+                )}
                 <div
-                  className='text-muted-foreground truncate text-[11px] leading-4 font-medium tracking-wide uppercase sm:text-xs sm:tracking-wider'
+                  className={cn(
+                    'truncate text-[11px] leading-4 font-bold tracking-wider uppercase',
+                    highlighted ? 'text-primary' : 'text-muted-foreground'
+                  )}
                   title={it.title}
                 >
                   {it.title}

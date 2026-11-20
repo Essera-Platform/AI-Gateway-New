@@ -50,4 +50,18 @@ describe('footer on a managed gateway', () => {
       screen.queryByText('Powerful API Management Platform')
     ).not.toBeInTheDocument()
   })
+
+  it('puts the logo and the copyright on the left of one bar and the notice in its own small line', async () => {
+    await renderFooter({ essera_managed: true })
+
+    expect(await screen.findByRole('link', { name: 'Home' })).toHaveAttribute(
+      'href',
+      '/'
+    )
+    const year = new Date().getFullYear()
+    expect(screen.getAllByText(new RegExp(`© ${year} `))[0].tagName).toBe('SPAN')
+    expect(
+      screen.getByText(/Includes open-source software/).closest('p')
+    ).toHaveClass('text-[11px]')
+  })
 })

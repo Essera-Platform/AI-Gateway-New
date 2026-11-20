@@ -52,7 +52,7 @@ type SectionDef = {
   modules: { key: string; title: string; description: string }[]
 }
 
-export function SidebarModulesCard() {
+export function SidebarModulesCard(props: { wide?: boolean }) {
   const { t } = useTranslation()
   const { status } = useStatus()
   const [loading, setLoading] = useState(false)
@@ -250,7 +250,15 @@ export function SidebarModulesCard() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className='space-y-4 p-3 sm:space-y-5 sm:p-5'>
+      <CardContent className='space-y-4 p-3 sm:space-y-5 sm:p-6'>
+        {/* Modified by Essera, 2026-11: on a page of its own the sections sit side by side. */}
+        <div
+          className={
+            props.wide
+              ? 'gap-5 lg:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid sm:[&>*]:mb-5'
+              : 'space-y-4 sm:space-y-5'
+          }
+        >
         {visibleSectionDefs.map((section) => {
           const sectionEnabled = config[section.key]?.enabled !== false
           return (
@@ -270,7 +278,13 @@ export function SidebarModulesCard() {
                   onCheckedChange={(v) => toggleSection(section.key, v)}
                 />
               </div>
-              <div className='mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1'>
+              <div
+                className={
+                  props.wide
+                    ? 'mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1'
+                    : 'mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-1'
+                }
+              >
                 {section.modules.map((mod) => (
                   <div
                     key={mod.key}
@@ -299,6 +313,7 @@ export function SidebarModulesCard() {
             </div>
           )
         })}
+        </div>
 
         <div className='flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end'>
           <Button variant='outline' onClick={handleReset}>

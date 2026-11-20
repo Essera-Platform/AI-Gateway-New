@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the total sits on the left and the pager on the right, as in the designs.
 import type { Table } from '@tanstack/react-table'
 import {
   ChevronLeft as ChevronLeftIcon,
@@ -104,17 +105,17 @@ export function DataTablePagination<TData>({
   return (
     <div
       className={cn(
-        '@container/pagination flex min-w-0 items-center justify-end overflow-clip'
+        '@container/pagination flex min-w-0 items-center justify-between gap-2 overflow-clip'
       )}
       style={{ overflowClipMargin: 1 }}
     >
+      <div className='flex shrink-0 items-baseline gap-1.5 text-xs font-medium whitespace-nowrap sm:text-[13px]'>
+        <span className='text-muted-foreground'>{t('Total:')}</span>
+        <span className='num text-foreground font-semibold'>
+          {totalRows.toLocaleString()}
+        </span>
+      </div>
       <div className='flex min-w-0 shrink-0 items-center gap-2 @xl/pagination:gap-3'>
-        <div className='flex shrink-0 items-baseline gap-1.5 text-xs font-medium whitespace-nowrap sm:text-sm'>
-          <span className='text-muted-foreground/80'>{t('Total:')}</span>
-          <span className='text-foreground tabular-nums'>
-            {totalRows.toLocaleString()}
-          </span>
-        </div>
 
         <div className='flex shrink-0 items-center gap-1.5 @lg/pagination:gap-2'>
           <p className='text-muted-foreground/80 hidden text-sm font-medium whitespace-nowrap @2xl/pagination:block'>

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: on desktop the table and its pagination share one card that is only as tall as its rows.
 import type {
   ColumnDef,
   Row,
@@ -337,8 +338,19 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
 
   const toolbarNode = renderToolbar(props, viewToggle)
   const mobileNode = renderMobile(props, showMobile, cardViewActive, viewMode)
-  const desktopNode = renderDesktop(props, showMobile, cardViewActive, viewMode)
-  const paginationNode = renderPagination(props)
+  const paginationInCard =
+    !showMobile &&
+    props.paginationInFooter !== false &&
+    props.showPagination !== false &&
+    !(cardViewActive && viewMode === DATA_TABLE_VIEW_MODES.CARD)
+  const desktopNode = renderDesktop(
+    props,
+    showMobile,
+    cardViewActive,
+    viewMode,
+    paginationInCard
+  )
+  const paginationNode = paginationInCard ? null : renderPagination(props)
 
   return (
     <>
@@ -494,7 +506,8 @@ function renderDesktop<TData>(
   props: DataTablePageProps<TData>,
   showMobile: boolean,
   cardViewActive: boolean,
-  viewMode: DataTableViewMode
+  viewMode: DataTableViewMode,
+  paginationInCard: boolean
 ): React.ReactNode {
   if (showMobile) {
     return null
@@ -529,7 +542,7 @@ function renderDesktop<TData>(
     )
   }
 
-  return (
+  const view = (
     <DataTableView
       table={props.table}
       isLoading={props.isLoading}
@@ -550,6 +563,7 @@ function renderDesktop<TData>(
       pinnedColumns={props.pinnedColumns}
       containerClassName={cn(
         fixedHeight && 'min-h-0 flex-1',
+        paginationInCard && 'rounded-none border-0 shadow-none',
         'transition-opacity duration-150',
         isFetchingOnly && 'pointer-events-none opacity-60',
         props.tableClassName
@@ -558,5 +572,27 @@ function renderDesktop<TData>(
         props.getRowClassName?.(row, { isMobile: false })
       }
     />
+  )
+
+  if (!paginationInCard) {
+    return view
+  }
+
+  return (
+    <div
+      data-slot='data-table-card'
+      className={cn(
+        'bg-card shadow-card flex flex-col overflow-hidden rounded-xl border',
+        fixedHeight && 'min-h-0 flex-initial'
+      )}
+    >
+      {view}
+      <div className='shrink-0 border-t px-4 py-2.5'>
+        <DataTablePagination
+          table={props.table}
+          compact={props.compactPagination}
+        />
+      </div>
+    </div>
   )
 }

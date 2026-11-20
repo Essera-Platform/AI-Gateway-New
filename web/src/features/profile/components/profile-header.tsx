@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the profile design: round avatar, the person's Gateway role, figures with their icon tiles in the Essera number style.
 import { Activity, BarChart3, WalletCards } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -25,6 +26,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { esseraAccountStats } from '@/features/essera/account-summary'
+import { NumberValue } from '@/features/essera/brand/number-value'
 import { toIntlLocale } from '@/i18n/languages'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatCompactNumber, formatQuota } from '@/lib/format'
@@ -85,7 +87,10 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
   const avatarName = profile.username || displayName
   const avatarFallback = getUserAvatarFallback(avatarName)
   const avatarFallbackStyle = getUserAvatarStyle(avatarName)
-  const roleLabel = getRoleLabel(profile.role)
+  let roleLabel = getRoleLabel(profile.role)
+  if (profile.essera) {
+    roleLabel = profile.essera.role === 'admin' ? t('Admin') : t('User')
+  }
   let stats: {
     label: string
     value: string
@@ -130,12 +135,15 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
   }
 
   return (
-    <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
-      <CardContent className='p-3 sm:p-5'>
-        <div className='flex items-center gap-3 text-left sm:gap-4'>
-          <Avatar className='ring-background h-12 w-12 rounded-xl text-sm ring-2 sm:h-16 sm:w-16 sm:rounded-2xl sm:text-lg sm:ring-4'>
+    <Card
+      data-card-hover='false'
+      className='shadow-card gap-0 overflow-hidden rounded-xl py-0'
+    >
+      <CardContent className='p-3 sm:p-6'>
+        <div className='flex items-center gap-3 text-left sm:gap-5'>
+          <Avatar className='ring-background h-12 w-12 rounded-full text-sm ring-2 sm:h-[72px] sm:w-[72px] sm:text-2xl sm:ring-4'>
             <AvatarFallback
-              className='rounded-xl font-semibold text-white sm:rounded-2xl'
+              className='rounded-full font-semibold text-white'
               style={avatarFallbackStyle}
             >
               {avatarFallback}
@@ -144,7 +152,7 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
 
           <div className='min-w-0 flex-1 space-y-1.5 sm:space-y-3'>
             <div className='flex min-w-0 items-center gap-2'>
-              <h1 className='truncate text-xl font-semibold tracking-tight sm:text-2xl'>
+              <h1 className='truncate text-xl font-bold tracking-tight sm:text-2xl'>
                 {displayName}
               </h1>
               <StatusBadge
@@ -177,24 +185,27 @@ export function ProfileHeader({ profile, loading }: ProfileHeaderProps) {
           </div>
         </div>
       </CardContent>
-      <div className='border-t'>
-        <div className='divide-border/60 grid grid-cols-3 divide-x'>
+      <div className='mx-3 border-t sm:mx-6'>
+        <div className='grid grid-cols-3 gap-3 py-3 sm:gap-6 sm:py-6'>
           {stats.map((item) => (
-            <div key={item.label} className='min-w-0 px-3 py-3 sm:px-5 sm:py-4'>
-              <div className='flex items-center gap-2'>
-                <IconBadge tone={item.tone} size='stat'>
-                  <item.icon />
-                </IconBadge>
-                <div className='text-muted-foreground truncate text-xs font-medium tracking-wider uppercase'>
+            <div key={item.label} className='flex min-w-0 items-start gap-3'>
+              <IconBadge
+                tone={item.tone}
+                size='lg'
+                className='hidden border border-current/15 sm:flex'
+              >
+                <item.icon />
+              </IconBadge>
+              <div className='min-w-0'>
+                <div className='text-muted-foreground truncate text-[11px] font-bold tracking-wider uppercase'>
                   {item.label}
                 </div>
-              </div>
-
-              <div className='text-foreground mt-1.5 truncate font-mono text-lg font-bold tracking-tight tabular-nums sm:mt-2 sm:text-2xl'>
-                {item.value}
-              </div>
-              <div className='text-muted-foreground/60 mt-1 hidden text-xs md:block'>
-                {item.description}
+                <div className='text-foreground mt-1 truncate text-lg font-bold sm:text-2xl'>
+                  <NumberValue value={item.value} />
+                </div>
+                <div className='text-muted-foreground mt-0.5 hidden truncate text-xs md:block'>
+                  {item.description}
+                </div>
               </div>
             </div>
           ))}

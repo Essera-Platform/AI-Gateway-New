@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 // Modified by Essera, 2026-11: a managed gateway serves one group, so the group choice is hidden.
+// Modified by Essera, 2026-11: the design's mono model chip and primary Send button.
 import { SendIcon, SquareIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -80,6 +81,7 @@ export function PlaygroundInputControls({
       onGroupChange={onGroupChange}
       disabled={isSelectorDisabled}
       hideGroups={managed}
+      className='bg-muted/60 hover:bg-muted max-w-[18rem] rounded-lg [&>span]:font-mono [&>span]:text-[12px]'
     />
   )
 
@@ -96,7 +98,7 @@ export function PlaygroundInputControls({
       </PromptInputButton>
     ) : (
       <PromptInputButton
-        className='bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground h-8 px-3 font-medium shadow-sm'
+        className='bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground h-8 rounded-lg px-3.5 font-semibold shadow-sm'
         disabled={!canSubmit}
         type='submit'
         variant='default'

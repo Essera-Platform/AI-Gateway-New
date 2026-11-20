@@ -138,7 +138,7 @@ function ProjectAttribution(props: { currentYear: number; inline?: boolean }) {
         href='https://github.com/QuantumNous/new-api'
         target='_blank'
         rel='noopener noreferrer'
-        className='text-foreground/70 hover:text-foreground font-medium transition-colors'
+        className='text-muted-foreground hover:text-foreground decoration-border underline underline-offset-2 transition-colors'
       >
         {t('New API')}
       </a>
@@ -232,6 +232,31 @@ export function Footer(props: FooterProps) {
   )
 
   const displayColumns = props.columns ?? fallbackColumns
+
+  // Modified by Essera, 2026-11: a managed gateway's footer is one bar: the logo and copyright
+  // on the left, the open-source notice as a small line on the right (below on narrow screens).
+  if (status?.essera_managed === true && !footerHtml) {
+    return (
+      <footer className={cn('border-border/60 relative z-10 border-t', props.className)}>
+        <div className='mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10 lg:px-8'>
+          <div className='flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2'>
+            <Link to='/' aria-label={t('Home')}>
+              <EsseraLogo />
+            </Link>
+            <div className='text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs'>
+              <span>
+                &copy; {currentYear} {displayName}
+              </span>
+              <LegalLinks leadingSeparator />
+            </div>
+          </div>
+          <p className='text-muted-foreground max-w-2xl min-w-0 text-[11px] leading-relaxed [overflow-wrap:anywhere] lg:text-right'>
+            <ProjectAttribution currentYear={currentYear} inline />
+          </p>
+        </div>
+      </footer>
+    )
+  }
 
   if (footerHtml) {
     return (

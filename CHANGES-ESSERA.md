@@ -210,3 +210,27 @@ The web UI takes the look of the Essera designs. Pages are restyled one by one i
   - the top bar and sidebar of the designs (56px bar with the managed pill, 240px bordered sidebar, section labels, the emerald active entry); Home is the Overview for someone signed in; the Playground's section is "Explore";
   - the home page is the Essera landing (`web/src/features/essera/landing/`): the hero ("One gateway for every model your teams use") with a sample request in each API format the gateway serves, the figures section (models available and model families counted live from the snapshot, 2 API formats, per-account controls), how it works, and the Console callout. It shows no latency, uptime, volume or region figure, and no third-party chat clients.
 - **Translations:** from this change on, new interface strings are added in English only (`web/src/i18n/locales/en.json`). The other locale files stay for upstream merges; a managed gateway does not load them, and elsewhere a missing string falls back to English. `bun run i18n:sync` would copy English into them, so it is not run for Essera strings.
+
+## 2026-11 — The Essera design (phase B: the signed-in pages)
+
+Every signed-in page takes its design, with only real data: widgets of the designs that the Gateway has no data for (compliance badges, latency, SLA, regions, context windows, invented capabilities) are left out. Behaviour and API calls are unchanged.
+
+| File | Change |
+| --- | --- |
+| `web/src/components/layout/components/section-page-layout.tsx` | The designs' page header: a 24px title, an optional description, and the page padding |
+| `web/src/components/ui/table.tsx`, `web/src/components/data-table/core/data-table-view.tsx`, `core/pagination.tsx`, `core/column-pinning.ts`, `layout/data-table-page.tsx` | Tables on a card (12px radius, card shadow), 13px cells, 12px semibold headers, mono cells keep their font; on desktop the pagination sits inside the card, total on the left, and the card is only as tall as its rows; pinned cells on the card surface |
+| `web/src/components/status-badge.tsx` | A badge is a pill with a tinted background and border in its own colour |
+| `web/src/components/ui/empty.tsx` | Empty states have an emerald icon tile and a bold title |
+| `web/src/features/keys/index.tsx`, `components/api-keys-cells.tsx` | API Keys: a description; the masked key in mono |
+| `web/src/features/usage-logs/index.tsx`, `components/columns/common-logs-columns.tsx`, `components/model-badge.tsx`, `components/log-cost-display.tsx` | Usage Logs: a description; time on two mono lines with a pill type tag; mono model, tokens and cost; column widths that fit 1366px (Details was cut off) |
+| `web/src/features/usage-logs/audit/index.tsx`, `components/audit-log-columns.tsx` | Audit Logs: a description; mono time, IP, method, route and status; column widths that fit 1366px |
+| `web/src/features/dashboard/components/overview/overview-dashboard.tsx`, `summary-cards.tsx`, `ui/panel-wrapper.tsx` | Overview: on a managed gateway the setup guide is collapsed behind a "Setup guide" button; the designs' cards; content panels in one row of equal height |
+| `web/src/features/dashboard/index.tsx`, `components/models/log-stat-cards.tsx`, `model-charts.tsx`, `consumption-distribution-chart.tsx`, `components/users/user-charts.tsx`, `lib/charts.ts` | Dashboard: one card per figure, the last highlighted; tabs with an emerald active edge; the designs' series colours and chart theme (mono axes and legend, dashed grid) |
+| `web/src/features/profile/index.tsx`, `components/profile-header.tsx`, `components/sidebar-modules-card.tsx` | Profile: round avatar, the person's Gateway role on a managed gateway, figures with icon tiles; the sidebar settings at full width in two columns (the empty left column is gone) |
+| `web/src/features/security/index.tsx`, `components/login-sessions-card.tsx`, `components/login-session-item.tsx` | Security & Access: a description, the sessions card at the page's width, the Current pill, mono IP and method, an outlined Revoke |
+| `web/src/features/playground/index.tsx`, `components/chat/playground-empty-state.tsx`, `components/input/playground-input*.tsx` | Playground: the page header, the chat framed in a card, the starter cards with a description, the composer card with a mono model chip and the primary Send; Attach and the hidden Search unchanged |
+| `web/src/features/pricing/index.tsx`, `components/pricing-toolbar.tsx`, `components/model-card.tsx` | Model Square: a left-aligned header with an "N models" pill, search in the toolbar card; on a managed gateway each model is an `EsseraModelCard` |
+| `web/src/features/auth/sign-in/index.tsx` | On a managed gateway the Essera form carries its own heading |
+| `web/src/features/errors/*.tsx` | The designs' error page (404, 401, 403, 500, 503): mono status, Overview or Home, Model Square and Go Back; on a managed gateway no link to new-api's issue tracker; the 503 page's inert "Learn more" is gone |
+
+New Essera files: `web/src/features/essera/brand/chart-theme.ts`, `web/src/features/essera/error-page.tsx`, `web/src/features/essera/model-square-card.tsx`. Essera's own sign-in (8 code boxes; a complete code is sent once, and Verify is disabled while it is checked), key-created dialog, Users page and API Docs page (Scalar themed to the tokens, a View API Keys link) are restyled in place.

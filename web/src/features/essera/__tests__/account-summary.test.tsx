@@ -39,14 +39,18 @@ const account: EsseraAccount = {
   token_quota: null,
 }
 
+// A figure is rendered with its unit in a separate span, so match the whole figure's text.
+const figure = (text: string) => (_: string, element: Element | null) =>
+  element?.classList.contains('num') === true && element.textContent === text
+
 describe('account summary on a managed gateway', () => {
   it('shows this month’s spend and the spend limit instead of a balance', () => {
     render(<ProfileHeader profile={profile(account)} loading={false} />)
 
     expect(screen.getByText('Spend this month')).toBeVisible()
-    expect(screen.getByText('12.34 USD')).toBeVisible()
+    expect(screen.getByText(figure('12.34 USD'))).toBeVisible()
     expect(screen.getByText('Spend limit')).toBeVisible()
-    expect(screen.getByText('100.00 USD')).toBeVisible()
+    expect(screen.getByText(figure('100.00 USD'))).toBeVisible()
     expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
     expect(screen.queryByText('essera')).not.toBeInTheDocument()
   })

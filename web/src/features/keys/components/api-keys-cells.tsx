@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 // Modified by Essera, 2026-11: a managed gateway's key is shown only when created, so the cell cannot reveal or copy it.
+// Modified by Essera, 2026-11: the masked key is set in mono, as in the designs.
 import { Check, Copy, Loader2 } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -79,7 +80,7 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
 
   if (managed) {
     return (
-      <span className='text-muted-foreground truncate font-mono text-xs'>
+      <span className='text-foreground/80 truncate font-mono'>
         {maskedKey}
       </span>
     )

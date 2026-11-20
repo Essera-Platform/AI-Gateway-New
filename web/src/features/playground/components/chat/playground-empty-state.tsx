@@ -16,11 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the design's empty state: a glowing icon tile and starter cards with a line each.
 import {
   BarChartIcon,
   CodeSquareIcon,
   GraduationCapIcon,
-  MessageSquarePlusIcon,
+  SquareTerminalIcon,
   NotepadTextIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -32,10 +33,26 @@ type PlaygroundEmptyStateProps = {
 }
 
 const starterPrompts = [
-  { icon: BarChartIcon, text: 'Analyze data' },
-  { icon: NotepadTextIcon, text: 'Summarize text' },
-  { icon: CodeSquareIcon, text: 'Code' },
-  { icon: GraduationCapIcon, text: 'Get advice' },
+  {
+    icon: BarChartIcon,
+    text: 'Analyze data',
+    description: 'Ask the model to read figures and explain the trends.',
+  },
+  {
+    icon: NotepadTextIcon,
+    text: 'Summarize text',
+    description: 'Turn a long passage into a short summary.',
+  },
+  {
+    icon: CodeSquareIcon,
+    text: 'Code',
+    description: 'Write, explain or fix a piece of code.',
+  },
+  {
+    icon: GraduationCapIcon,
+    text: 'Get advice',
+    description: 'Talk a question or a decision through.',
+  },
 ]
 
 export function PlaygroundEmptyState({
@@ -44,14 +61,18 @@ export function PlaygroundEmptyState({
   const { t } = useTranslation()
 
   return (
-    <div className='flex min-h-[min(520px,calc(100svh-18rem))] items-center justify-center px-1 py-8 md:py-12'>
-      <div className='grid w-full max-w-2xl gap-5 text-center'>
-        <div className='bg-muted/50 text-muted-foreground mx-auto flex size-11 items-center justify-center rounded-xl border'>
-          <MessageSquarePlusIcon className='size-5' aria-hidden='true' />
+    <div className='relative flex min-h-[min(480px,calc(100svh-24rem))] items-center justify-center px-1 py-4 md:py-6'>
+      <div
+        aria-hidden='true'
+        className='pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(ellipse_at_top,color-mix(in_oklch,var(--primary)_10%,transparent),transparent_70%)]'
+      />
+      <div className='relative grid w-full max-w-3xl gap-5 text-center'>
+        <div className='border-primary/25 bg-primary/10 text-primary mx-auto flex size-12 items-center justify-center rounded-2xl border shadow-[0_0_40px_-8px_color-mix(in_oklch,var(--primary)_45%,transparent)]'>
+          <SquareTerminalIcon className='size-6' aria-hidden='true' />
         </div>
 
         <div className='grid gap-2'>
-          <h2 className='text-xl font-semibold tracking-tight text-balance md:text-2xl'>
+          <h2 className='text-xl font-bold tracking-tight text-balance md:text-2xl'>
             {t('Start a playground chat')}
           </h2>
           <p className='text-muted-foreground mx-auto max-w-lg text-sm leading-6 text-balance'>
@@ -61,19 +82,28 @@ export function PlaygroundEmptyState({
           </p>
         </div>
 
-        <div className='grid gap-2 sm:grid-cols-2'>
-          {starterPrompts.map(({ icon: Icon, text }) => {
+        <div className='grid gap-3 text-left sm:grid-cols-2'>
+          {starterPrompts.map(({ icon: Icon, text, description }) => {
             const prompt = t(text)
 
             return (
               <Button
-                className='h-auto min-h-11 justify-start gap-2 px-3 py-2.5 text-left whitespace-normal'
+                className='bg-card hover:bg-card hover:border-primary/40 h-auto items-start justify-start gap-3 rounded-xl p-3.5 text-left font-normal whitespace-normal shadow-xs hover:shadow-[0_8px_24px_-4px_color-mix(in_oklch,var(--primary)_10%,transparent)]'
                 key={text}
                 onClick={() => onSelectPrompt(prompt)}
                 variant='outline'
               >
-                <Icon className='text-muted-foreground size-4' />
-                <span>{prompt}</span>
+                <span className='bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg'>
+                  <Icon className='size-4' aria-hidden='true' />
+                </span>
+                <span className='grid min-w-0 gap-0.5'>
+                  <span className='text-foreground text-sm font-semibold'>
+                    {prompt}
+                  </span>
+                  <span className='text-muted-foreground text-[13px] leading-5'>
+                    {t(description)}
+                  </span>
+                </span>
               </Button>
             )
           })}

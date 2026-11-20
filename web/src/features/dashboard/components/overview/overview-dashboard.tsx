@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 // Modified by Essera, 2026-11: a managed gateway's example request names its public address and a key placeholder, and copies without reading the key back; its admin sees the Console's service status in place of Uptime Kuma.
+// Modified by Essera, 2026-11: the overview design: the setup guide sits behind the "Setup guide" button (collapsed until opened on a managed gateway), the designs' cards and code panel, and the content panels in one row of equal height.
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
@@ -315,7 +316,7 @@ function RequestPreview(props: {
       initial={shouldReduceMotion ? false : { opacity: 0, y: 10, scale: 0.98 }}
       animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
       transition={MOTION_TRANSITION.slow}
-      className='bg-background/75 relative overflow-hidden rounded-2xl border p-3 shadow-sm backdrop-blur'
+      className='bg-background/75 shadow-card relative overflow-hidden rounded-xl border p-3 backdrop-blur'
     >
       {!shouldReduceMotion && (
         <motion.div
@@ -361,7 +362,7 @@ function RequestPreview(props: {
         )}
       </div>
 
-      <div className='bg-foreground/[0.035] my-3 rounded-xl p-3 font-mono text-xs'>
+      <div className='bg-code my-3 rounded-xl p-3 font-mono text-xs text-slate-300'>
         <div className='mb-2 flex items-center gap-1.5'>
           <span className='bg-destructive size-2 rounded-full' />
           <span className='bg-warning size-2 rounded-full' />
@@ -371,7 +372,7 @@ function RequestPreview(props: {
           {previewLines.map((line) => (
             <code
               key={line}
-              className='text-muted-foreground truncate'
+              className='truncate'
               title={line}
             >
               {line}
@@ -543,13 +544,13 @@ export function OverviewDashboard() {
         icon: FileText,
       },
       {
-        title: t('Pricing'),
+        title: managed ? t('Model Square') : t('Pricing'),
         description: t('Review model rates before scaling traffic'),
         to: '/pricing',
         icon: BookOpen,
       },
     ],
-    [t]
+    [managed, t]
   )
 
   const visibleQuickActions = useMemo(
@@ -610,7 +611,9 @@ export function OverviewDashboard() {
   const setupComplete = completedStepCount === startSteps.length
   const setupStatusReady = apiKeysQuery.isFetched && Boolean(user)
   const setupGuideExpanded =
-    manualSetupGuideExpanded ?? (setupStatusReady && !setupComplete)
+    manualSetupGuideExpanded ?? (!managed && setupStatusReady && !setupComplete)
+  const showSetupGuideButton =
+    setupStatusReady && (managed || setupComplete)
   const showLeftContentPanels =
     isAdmin || showApiInfoPanel || showAnnouncementsPanel || showFAQPanel
   const showContentPanels = showLeftContentPanels || showStatusPanel
@@ -628,17 +631,28 @@ export function OverviewDashboard() {
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Overview')}</SectionPageLayout.Title>
       <SectionPageLayout.Actions>
-        {setupStatusReady && setupComplete && (
+        {showSetupGuideButton && (
           <Button
             ref={setupGuideToggleRef}
             variant='ghost'
             size='sm'
-            className='text-muted-foreground hover:text-foreground h-auto min-h-7 max-w-[60vw] whitespace-normal'
+            className='text-muted-foreground hover:text-foreground h-auto min-h-7 max-w-[60vw] gap-1.5 whitespace-normal'
             aria-expanded={setupGuideExpanded}
             aria-controls={setupGuideId}
             onClick={handleSetupGuideToggle}
           >
+            <ListChecks data-icon='inline-start' />
             {t('Setup guide')}
+            {!setupComplete && (
+              <span className='num text-muted-foreground text-xs'>
+                {completedStepCount}/{startSteps.length}
+              </span>
+            )}
+            {setupGuideExpanded ? (
+              <ChevronUp data-icon='inline-end' />
+            ) : (
+              <ChevronDown data-icon='inline-end' />
+            )}
           </Button>
         )}
       </SectionPageLayout.Actions>
@@ -647,21 +661,21 @@ export function OverviewDashboard() {
           <div id={setupGuideId} hidden={!setupGuideExpanded}>
             {setupGuideExpanded && (
               <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
-                <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
-                  <div className='relative h-full overflow-hidden p-4 sm:p-5'>
-                    <SetupGuideBackdrop />
+                <CardStaggerItem className='bg-card shadow-card h-full overflow-hidden rounded-xl border'>
+                  <div className='relative h-full overflow-hidden p-4 sm:p-6'>
+                    {!managed && <SetupGuideBackdrop />}
                     <div className='relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]'>
                       <div className='flex min-w-0 flex-col gap-5'>
                         <div className='flex flex-wrap items-start justify-between gap-3'>
                           <div className='flex max-w-2xl flex-col gap-1'>
-                            <div className='text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wider uppercase'>
+                            <div className='text-primary flex items-center gap-2 font-mono text-[11px] font-bold tracking-wider uppercase'>
                               <ListChecks
                                 className='size-3.5'
                                 aria-hidden='true'
                               />
                               {t('Get started')}
                             </div>
-                            <h3 className='text-xl font-semibold tracking-tight sm:text-2xl'>
+                            <h3 className='text-xl font-bold tracking-tight sm:text-2xl'>
                               {t('Build on your API gateway in minutes')}
                             </h3>
                             <p className='text-muted-foreground max-w-xl text-sm leading-relaxed'>
@@ -688,7 +702,7 @@ export function OverviewDashboard() {
                           </div>
                         </div>
 
-                        <ol className='bg-background/45 rounded-2xl border p-2 backdrop-blur'>
+                        <ol className='bg-background/45 rounded-xl border p-2 backdrop-blur'>
                           {startSteps.map((step, index) => (
                             <StartStepItem
                               key={step.title}
@@ -708,13 +722,13 @@ export function OverviewDashboard() {
                   </div>
                 </CardStaggerItem>
 
-                <CardStaggerItem className='bg-card h-full rounded-2xl border p-4 shadow-xs sm:p-5'>
+                <CardStaggerItem className='bg-card shadow-card h-full rounded-xl border p-4 sm:p-6'>
                   <div className='flex h-full flex-col gap-4'>
                     <div className='flex flex-col gap-1'>
-                      <div className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
+                      <div className='text-primary font-mono text-[11px] font-bold tracking-wider uppercase'>
                         {t('Recommended actions')}
                       </div>
-                      <h3 className='text-lg font-semibold tracking-tight'>
+                      <h3 className='text-lg font-bold tracking-tight'>
                         {t('Keep the platform ready')}
                       </h3>
                     </div>
@@ -728,9 +742,9 @@ export function OverviewDashboard() {
               </CardStaggerContainer>
             )}
           </div>
-          {!setupGuideExpanded && !setupComplete && (
+          {!managed && !setupGuideExpanded && !setupComplete && (
             <CardStaggerContainer>
-              <CardStaggerItem className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
+              <CardStaggerItem className='bg-card shadow-card overflow-hidden rounded-xl border'>
                 <div className='relative overflow-hidden px-4 py-3 sm:px-5'>
                   <SetupGuideBackdrop compact />
                   <div className='relative flex flex-wrap items-center justify-between gap-3'>
@@ -811,24 +825,24 @@ export function OverviewDashboard() {
                     </CardStaggerItem>
                   )}
                   {showApiInfoPanel && (
-                    <CardStaggerItem>
+                    <CardStaggerItem className='h-full'>
                       <ApiInfoPanel />
                     </CardStaggerItem>
                   )}
                   {showAnnouncementsPanel && (
-                    <CardStaggerItem>
+                    <CardStaggerItem className='h-full'>
                       <AnnouncementsPanel />
                     </CardStaggerItem>
                   )}
                   {showFAQPanel && (
-                    <CardStaggerItem>
+                    <CardStaggerItem className='h-full'>
                       <FAQPanel />
                     </CardStaggerItem>
                   )}
                 </div>
               )}
               {showStatusPanel && (
-                <CardStaggerItem>
+                <CardStaggerItem className='h-full'>
                   {showServiceStatus ? <ServiceStatusPanel /> : <UptimePanel />}
                 </CardStaggerItem>
               )}

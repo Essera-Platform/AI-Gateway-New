@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 // Modified by Essera, 2026-11: a managed gateway's people keep only their login sessions; Cognito and the Console own the rest.
+// Modified by Essera, 2026-11: there the sessions card takes the page's width under a page description, as in the security design.
 import { Link2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -76,17 +77,12 @@ export function Security() {
     )
   } else if (esseraPerson) {
     content = (
-      <div className='grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
-        <section
-          aria-labelledby='security-access'
-          className='min-w-0 space-y-4'
-        >
-          <h3 id='security-access' className='text-sm font-semibold'>
-            {t('Sessions & Access')}
-          </h3>
-          <LoginSessionsCard />
-        </section>
-      </div>
+      <section aria-labelledby='security-access' className='min-w-0 space-y-3'>
+        <h3 id='security-access' className='text-base font-bold tracking-tight'>
+          {t('Sessions & Access')}
+        </h3>
+        <LoginSessionsCard />
+      </section>
     )
   } else {
     content = (
@@ -96,7 +92,7 @@ export function Security() {
             aria-labelledby='security-authentication'
             className='space-y-3'
           >
-            <h3 id='security-authentication' className='text-sm font-semibold'>
+            <h3 id='security-authentication' className='text-base font-bold tracking-tight'>
               {t('Login & Authentication')}
             </h3>
             <AccountActionCard
@@ -158,8 +154,17 @@ export function Security() {
       <SectionPageLayout.Title>
         {t('Security & Access')}
       </SectionPageLayout.Title>
+      {esseraPerson && (
+        <SectionPageLayout.Description>
+          {t('Review where you are signed in and sign out devices you do not use.')}
+        </SectionPageLayout.Description>
+      )}
       <SectionPageLayout.Content>
-        <div className='mx-auto w-full max-w-7xl'>{content}</div>
+        <div
+          className={esseraPerson ? 'w-full' : 'mx-auto w-full max-w-7xl'}
+        >
+          {content}
+        </div>
       </SectionPageLayout.Content>
     </SectionPageLayout>
   )

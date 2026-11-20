@@ -59,7 +59,9 @@ function usePeopleColumns(
         header: t('Email'),
         cell: ({ row }) => (
           <div className='flex min-w-0 flex-col'>
-            <span className='truncate text-sm'>{row.original.email}</span>
+            <span className='text-foreground truncate font-semibold'>
+              {row.original.email}
+            </span>
             {row.original.name && (
               <span className='text-muted-foreground truncate text-xs'>
                 {row.original.name}
@@ -75,7 +77,7 @@ function usePeopleColumns(
         accessorKey: 'role',
         header: t('Role'),
         cell: ({ row }) => (
-          <span className='text-sm'>
+          <span className='text-muted-foreground'>
             {row.original.role === 'admin' ? t('Admin') : t('User')}
           </span>
         ),
@@ -93,14 +95,13 @@ function usePeopleColumns(
                 label={active ? t('Active') : t('Suspended')}
                 variant={active ? 'success' : 'warning'}
                 copyable={false}
-                className='font-normal'
+                showDot
               />
               {row.original.pending && (
                 <StatusBadge
                   label={t('Pending')}
                   variant='info'
                   copyable={false}
-                  className='font-normal'
                 />
               )}
             </div>
@@ -114,7 +115,7 @@ function usePeopleColumns(
         accessorKey: 'key_count',
         header: t('API Keys'),
         cell: ({ row }) => (
-          <span className='text-sm tabular-nums'>{row.original.key_count}</span>
+          <span className='num font-mono'>{row.original.key_count}</span>
         ),
         enableSorting: false,
         size: 100,
@@ -200,6 +201,11 @@ export function EsseraPeople() {
     <>
       <SectionPageLayout fixedContent>
         <SectionPageLayout.Title>{t('Users')}</SectionPageLayout.Title>
+        <SectionPageLayout.Description>
+          {t(
+            'The people of your organisation who may use the Gateway. Limits and roles are set in the Essera Operations Console.'
+          )}
+        </SectionPageLayout.Description>
         <SectionPageLayout.Actions>
           <Button size='sm' onClick={() => setAddOpen(true)}>
             <Plus className='h-4 w-4' />

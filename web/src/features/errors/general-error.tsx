@@ -16,11 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useNavigate, useRouter } from '@tanstack/react-router'
+// Modified by Essera, 2026-11: the designs' error page (ErrorPage); a managed gateway does not send people to new-api's issue tracker.
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { ErrorPage } from '@/features/essera/error-page'
+import { cachedStatusIsManaged } from '@/features/essera/language'
 import { cn } from '@/lib/utils'
 
 const FEEDBACK_URL = 'https://github.com/QuantumNous/new-api/issues'
@@ -44,8 +46,8 @@ export function GeneralError({
   error,
 }: GeneralErrorProps) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const { history } = useRouter()
+  // Read from the saved status: an error page must not depend on the query client.
+  const managed = cachedStatusIsManaged()
   useEffect(() => {
     if (
       !(error instanceof Error) ||
@@ -77,44 +79,52 @@ export function GeneralError({
     ? t('Please wait a moment before trying again.')
     : t('Please try again later.')
 
-  return (
-    <div className={cn('h-svh w-full', className)}>
-      <div className='m-auto flex h-full w-full flex-col items-center justify-center gap-2'>
-        {!minimal && status !== undefined && (
-          <h1 className='text-[7rem] leading-tight font-bold'>{status}</h1>
-        )}
-        <span className='font-medium'>{title}</span>
-        <p className='text-muted-foreground text-center'>
-          {t('We apologize for the inconvenience.')} <br /> {description}
-        </p>
-        {!minimal && (
-          <p className='text-muted-foreground text-center text-sm'>
-            {t('If this keeps happening, please report it on GitHub Issues.')}
+  if (minimal) {
+    return (
+      <div className={cn('h-svh w-full', className)}>
+        <div className='m-auto flex h-full w-full flex-col items-center justify-center gap-2'>
+          <span className='font-medium'>{title}</span>
+          <p className='text-muted-foreground text-center'>
+            {t('We apologize for the inconvenience.')} <br /> {description}
           </p>
-        )}
-        {!minimal && (
-          <div className='mt-6 flex flex-wrap justify-center gap-4'>
-            <Button variant='outline' onClick={() => history.go(-1)}>
-              {t('Go Back')}
-            </Button>
-            <Button
-              variant='outline'
-              render={
-                <a
-                  href={FEEDBACK_URL}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                />
-              }
-            >
-              {t('Report an issue')}
-            </Button>
-            <Button onClick={() => navigate({ to: '/' })}>
-              {t('Back to Home')}
-            </Button>
-          </div>
-        )}
+        </div>
       </div>
-    </div>
+    )
+  }
+
+  return (
+    <ErrorPage
+      status={status}
+      className={className}
+      title={title}
+      description={
+        <>
+          <p>
+            {t('We apologize for the inconvenience.')} {description}
+          </p>
+          {!managed && (
+            <p className='mt-2 text-xs'>
+              {t('If this keeps happening, please report it on GitHub Issues.')}
+            </p>
+          )}
+        </>
+      }
+      actions={
+        !managed && (
+          <Button
+            variant='outline'
+            render={
+              <a
+                href={FEEDBACK_URL}
+                target='_blank'
+                rel='noopener noreferrer'
+              />
+            }
+          >
+            {t('Report an issue')}
+          </Button>
+        )
+      }
+    />
   )
 }

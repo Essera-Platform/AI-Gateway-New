@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the time on two mono lines and narrower columns, so the audit table fits 1366px.
 import type { ColumnDef } from '@tanstack/react-table'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -37,12 +38,18 @@ export function useAuditLogColumns(
       {
         accessorKey: 'created_at',
         header: t('Time'),
-        size: 180,
-        cell: ({ row }) => (
-          <span className='font-mono tabular-nums'>
-            {dayjs.unix(row.original.created_at).format('YYYY-MM-DD HH:mm:ss')}
-          </span>
-        ),
+        size: 105,
+        cell: ({ row }) => {
+          const time = dayjs.unix(row.original.created_at)
+          return (
+            <span className='text-foreground font-mono leading-tight tabular-nums'>
+              <span className='block'>{time.format('YYYY-MM-DD')}</span>
+              <span className='text-muted-foreground block'>
+                {time.format('HH:mm:ss')}
+              </span>
+            </span>
+          )
+        },
         meta: { label: t('Time'), mobileTitle: true },
       },
     ]
@@ -51,13 +58,13 @@ export function useAuditLogColumns(
         {
           accessorKey: 'username',
           header: t('Username'),
-          size: 100,
+          size: 145,
           meta: { label: t('Username') },
         },
         {
           id: 'event',
           header: t('Event'),
-          size: 360,
+          size: 240,
           accessorFn: (entry) => {
             const detail = buildAuditDetails(entry, t)
             return [detail.summary, detail.operation?.description]
@@ -68,14 +75,14 @@ export function useAuditLogColumns(
             const operation = buildAuditDetails(row.original, t).operation
             if (!operation) {
               return (
-                <TruncatedCell className='max-w-64'>
+                <TruncatedCell className='max-w-56'>
                   {getValue<string>()}
                 </TruncatedCell>
               )
             }
             return (
               <div className='min-w-0 space-y-1'>
-                <div className='flex min-w-0 items-baseline gap-1'>
+                <div className='flex max-w-56 min-w-0 items-baseline gap-1'>
                   <TruncatedCell
                     className='min-w-0 font-medium'
                     tooltipContent={operation.summary}
@@ -83,14 +90,14 @@ export function useAuditLogColumns(
                     {operation.headline}
                   </TruncatedCell>
                   {operation.identifier && (
-                    <span className='shrink-0 whitespace-nowrap'>
+                    <span className='text-muted-foreground shrink-0 font-mono text-xs! whitespace-nowrap'>
                       {operation.identifier}
                     </span>
                   )}
                 </div>
                 {operation.description && (
                   <TruncatedCell
-                    className='text-muted-foreground'
+                    className='text-muted-foreground max-w-56'
                     contentClassName='line-clamp-2 whitespace-normal break-words'
                     tooltipContent={operation.description}
                   >
@@ -108,7 +115,7 @@ export function useAuditLogColumns(
       {
         accessorKey: 'ip',
         header: 'IP',
-        size: 120,
+        size: 90,
         cell: ({ row }) => (
           <span className='font-mono'>{row.original.ip || '—'}</span>
         ),
@@ -117,9 +124,9 @@ export function useAuditLogColumns(
       {
         accessorKey: 'user_agent',
         header: t('Client'),
-        size: 180,
+        size: 100,
         cell: ({ row }) => (
-          <TruncatedCell className='max-w-48'>
+          <TruncatedCell className='max-w-24'>
             {row.original.user_agent || '—'}
           </TruncatedCell>
         ),
@@ -128,7 +135,7 @@ export function useAuditLogColumns(
       {
         accessorKey: 'method',
         header: t('Method'),
-        size: 76,
+        size: 64,
         cell: ({ row }) => (
           <span className='text-muted-foreground font-mono'>
             {row.original.method || '—'}
@@ -139,9 +146,9 @@ export function useAuditLogColumns(
       {
         accessorKey: 'route',
         header: t('Route'),
-        size: 220,
+        size: 120,
         cell: ({ row }) => (
-          <TruncatedCell className='max-w-60 font-mono'>
+          <TruncatedCell className='max-w-28 font-mono'>
             {row.original.route || '—'}
           </TruncatedCell>
         ),
@@ -150,7 +157,7 @@ export function useAuditLogColumns(
       {
         accessorKey: 'status',
         header: 'HTTP',
-        size: 60,
+        size: 56,
         cell: ({ row }) => (
           <span className='font-mono tabular-nums'>
             {row.original.status || '—'}
@@ -161,7 +168,7 @@ export function useAuditLogColumns(
       {
         accessorKey: 'success',
         header: t('Result'),
-        size: 82,
+        size: 76,
         cell: ({ row }) => (
           <StatusBadge
             label={row.original.success ? t('Success') : t('Failed')}
@@ -174,7 +181,7 @@ export function useAuditLogColumns(
       {
         id: 'details',
         header: t('Details'),
-        size: 70,
+        size: 60,
         enableHiding: false,
         cell: ({ row }) => <AuditLogDetailsDialog entry={row.original} />,
         meta: { label: t('Details') },

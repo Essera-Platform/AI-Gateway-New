@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
 
+import { NumberValue } from './brand/number-value'
 import { esseraPriceParts, type EsseraModelInfo } from './model-square-format'
 
 /**
@@ -43,13 +44,17 @@ export function EsseraModelPrices(props: {
             key={price.unit}
             className={cn(
               'flex min-w-0 gap-1',
-              props.compact ? 'items-baseline' : 'flex-col'
+              props.compact
+                ? 'items-baseline'
+                : 'col-span-full items-baseline justify-between gap-3'
             )}
           >
-            <span className='text-muted-foreground text-xs'>{parts.label}</span>
-            <span className='font-mono text-sm font-semibold tabular-nums'>
-              {parts.value}
-              <span className='text-muted-foreground text-xs font-normal'>
+            <span className='text-muted-foreground font-mono text-xs'>
+              {parts.label}
+            </span>
+            <span className='text-[13px] font-semibold whitespace-nowrap'>
+              <NumberValue value={parts.value} className='tracking-normal' />
+              <span className='text-muted-foreground font-mono text-xs font-normal'>
                 {' '}
                 / {parts.per}
               </span>

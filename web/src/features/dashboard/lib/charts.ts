@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { dataScheme as vchartDefaultDataScheme } from '@visactor/vchart/esm/theme/color-scheme/builtin/default'
 
 import { MAX_CHART_TREND_POINTS } from '@/features/dashboard/constants'
+import { ESSERA_CHART_SERIES } from '@/features/essera/brand/chart-theme'
 import type {
   QuotaDataItem,
   ProcessedChartData,
@@ -40,6 +41,8 @@ type TooltipLineItem = {
 }
 
 export function getDashboardChartColors(domainLength: number): string[] {
+  // Modified by Essera, 2026-11: the designs' series colours.
+  if (domainLength <= ESSERA_CHART_SERIES.length) return [...ESSERA_CHART_SERIES]
   const scheme =
     vchartDefaultDataScheme.find(
       (item) => !item.maxDomainLength || domainLength <= item.maxDomainLength
