@@ -1,0 +1,8 @@
+# Lint rules for openapi.yaml: every recommended rule as an error, except two that the
+# document breaks on purpose. Its server is a placeholder the Gateway replaces with its own
+# address when it serves the document, and the API has no license of its own.
+extends:
+  - recommended-strict
+rules:
+  info-license: off
+  no-server-example.com: off

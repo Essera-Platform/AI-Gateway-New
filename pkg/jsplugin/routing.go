@@ -494,6 +494,7 @@ var reservedRouteNamespaces = []string{
 	"/usage-logs",
 	"/users",
 	"/wallet",
+	"/docs", // Modified by Essera, 2026-11: the API Docs page
 }
 
 func (g *RoutingGeneration) Get(key string) (*LoadedPlugin, bool) {

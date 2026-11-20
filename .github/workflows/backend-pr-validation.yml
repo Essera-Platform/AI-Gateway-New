@@ -33,6 +33,20 @@ jobs:
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
+  openapi-lint:
+    name: API docs lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Lint the customer API's OpenAPI document
+        env:
+          REDOCLY_TELEMETRY: "off"
+          REDOCLY_SUPPRESS_UPDATE_NOTICE: "true"
+        run: npx --yes @redocly/cli@2.76.0 lint --config essera/apidocs/redocly.yaml essera/apidocs/openapi.yaml
+
   go-test:
     name: Backend tests
     runs-on: ubuntu-latest

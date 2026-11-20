@@ -7848,6 +7848,9 @@
     "Status temporarily unavailable": "Trạng thái tạm thời không khả dụng",
     "Service status": "Trạng thái dịch vụ",
     "Provider health over the last hour": "Tình trạng nhà cung cấp trong giờ qua",
-    "Providers": "Nhà cung cấp"
+    "Providers": "Nhà cung cấp",
+    "API Docs": "Tài liệu API",
+    "Loading API documentation...": "Đang tải tài liệu API...",
+    "The API documentation could not be loaded.": "Không thể tải tài liệu API."
   }
 }

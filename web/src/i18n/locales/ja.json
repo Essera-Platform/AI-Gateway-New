@@ -7848,6 +7848,9 @@
     "Status temporarily unavailable": "ステータスは一時的に利用できません",
     "Service status": "サービスの状態",
     "Provider health over the last hour": "直近1時間のプロバイダーの状態",
-    "Providers": "プロバイダー"
+    "Providers": "プロバイダー",
+    "API Docs": "APIドキュメント",
+    "Loading API documentation...": "APIドキュメントを読み込んでいます...",
+    "The API documentation could not be loaded.": "APIドキュメントを読み込めませんでした。"
   }
 }

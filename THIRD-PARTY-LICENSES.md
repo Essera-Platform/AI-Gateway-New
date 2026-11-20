@@ -116,6 +116,7 @@ Transitive dependencies should be audited before a final external release.
 | web      | production  | npm       | `@hugeicons/react`                                      | `1.1.9`                              | MIT                     |
 | web      | production  | npm       | `@lezer/highlight`                                      | `1.2.3`                              | MIT                     |
 | web      | production  | npm       | `@lobehub/icons`                                        | `5.22.0`                             | MIT                     |
+| web      | production  | npm       | `@scalar/api-reference-react`                           | `0.9.88`                             | MIT                     |
 | web      | production  | npm       | `@tanstack/react-query`                                 | `5.101.2`                            | MIT                     |
 | web      | production  | npm       | `@tanstack/react-router`                                | `1.170.18`                           | MIT                     |
 | web      | production  | npm       | `@tanstack/react-table`                                 | `8.21.3`                             | MIT                     |

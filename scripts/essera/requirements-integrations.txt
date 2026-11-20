@@ -1,0 +1,6 @@
+# The clients scripts/essera/verify_integrations.py checks against the Gateway, pinned.
+openai==3.46.0
+anthropic==2.6.0
+langchain-openai==1.7.4
+langchain-anthropic==1.7.10
+llama-index-llms-openai-like==0.8.1

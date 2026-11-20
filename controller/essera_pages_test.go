@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/essera/apidocs"
 	"github.com/QuantumNous/new-api/essera/consoleapi"
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/snapshot/snapshottest"
@@ -447,4 +448,33 @@ func TestTheDashboardAndAuditOfAPersonAreTheConsoles(t *testing.T) {
 
 	logins := page(t, users[snapshottest.UserSub], http.MethodGet, "/api/audit/self?category=login", "", GetAuditLogs, "/api/audit/self")
 	assert.Empty(t, logins.Data["items"], "the Console's audit has operations only")
+}
+
+func TestTheAPIDocsNameTheGatewaysAddressAndTheReadersModels(t *testing.T) {
+	_, users := consolePages(t)
+	t.Setenv("ESSERA_PUBLIC_URL", "https://ai-gateway-dev.esseratech.com/")
+	openAPI := func(userID int) (document map[string]any, raw string) {
+		engine := gin.New()
+		engine.GET("/api/essera/openapi.json", func(c *gin.Context) { c.Set("id", userID) }, EsseraOpenAPI)
+		recorder := httptest.NewRecorder()
+		engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/essera/openapi.json", nil))
+		require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+		assert.Equal(t, "private, no-store", recorder.Header().Get("Cache-Control"))
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &document), "the document is JSON")
+		return document, recorder.Body.String()
+	}
+
+	admin, raw := openAPI(users[snapshottest.AdminSub])
+	servers := admin["servers"].([]any)
+	assert.Equal(t, "https://ai-gateway-dev.esseratech.com", servers[0].(map[string]any)["url"])
+	paths := admin["paths"].(map[string]any)
+	for _, path := range []string{"/v1/models", "/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings"} {
+		assert.Contains(t, paths, path)
+	}
+	assert.Len(t, paths, 5)
+	assert.Contains(t, raw, `model=\"claude-sonnet\"`, "the first model the admin may call")
+	assert.NotContains(t, raw, apidocs.ExampleChatModel)
+
+	_, raw = openAPI(0)
+	assert.Contains(t, raw, `model=\"`+apidocs.ExampleChatModel+`\"`, "an operator keeps the document's examples")
 }
