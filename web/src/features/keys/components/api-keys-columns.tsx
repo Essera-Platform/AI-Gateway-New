@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: a managed gateway hides what the Console owns (quota, group, model and IP limits).
+// Modified by Essera, 2026-11: a managed gateway hides what the Console owns (quota, group, model and IP limits) and shows a key's Console state.
 import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useMemo } from 'react'
@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next'
 
 import { StatusBadge } from '@/components/status-badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { managedKeyStatus } from '@/features/essera/key-status'
 import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { useMediaQuery } from '@/hooks'
 import { toIntlLocale } from '@/i18n/languages'
@@ -126,8 +127,9 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         accessorKey: 'status',
         header: t('Status'),
         cell: ({ row }) => {
-          const statusConfig =
-            API_KEY_STATUSES[row.getValue('status') as number]
+          const statusConfig = managed
+            ? managedKeyStatus(row.original, now)
+            : API_KEY_STATUSES[row.getValue('status') as number]
           if (!statusConfig) return null
           return (
             <StatusBadge
@@ -243,7 +245,16 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         meta: { pinned: 'right' as const },
       },
     ],
-    [t, quotaUnit, now, groupRatios, shouldReduceMotion, locale, justNowLabel]
+    [
+      t,
+      quotaUnit,
+      now,
+      groupRatios,
+      shouldReduceMotion,
+      locale,
+      justNowLabel,
+      managed,
+    ]
   )
   return useMemo(
     () =>

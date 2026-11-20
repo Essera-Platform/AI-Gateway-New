@@ -24,6 +24,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/auth"
 	"github.com/QuantumNous/new-api/essera/configsync"
 	"github.com/QuantumNous/new-api/essera/identity"
+	"github.com/QuantumNous/new-api/essera/keys"
 	"github.com/QuantumNous/new-api/essera/policy"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/records/recordstest"
@@ -697,4 +698,23 @@ func TestAPersonSeesOnlyTheModelsRelayLetsThemCall(t *testing.T) {
 	request, denial := policy.Evaluate(caller, "user-1", "US", time.Now())
 	require.Nil(t, denial)
 	assert.Equal(t, request.AllowedModels, policy.Available(caller), "the list and relay cannot disagree")
+}
+
+func TestAManagedKeyCannotBeEnabledAgain(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	t.Setenv("ESSERA_MANAGED", "true")
+	token := seedToken(t, db, 1, "revoked-in-the-console", "revoked1234token5678")
+	require.NoError(t, db.Model(token).Update("status", keys.TokenStatusRevoked).Error)
+
+	for name, target := range map[string]string{"status only": "/api/token/?status_only=true", "whole key": "/api/token/"} {
+		body := map[string]any{"id": token.Id, "name": token.Name, "status": common.TokenStatusEnabled, "expired_time": -1, "unlimited_quota": true}
+		ctx, recorder := newAuthenticatedContext(t, http.MethodPut, target, body, 1)
+		UpdateToken(ctx)
+
+		assert.Equal(t, http.StatusConflict, recorder.Code, name)
+		assert.Contains(t, recorder.Body.String(), keys.ErrStateIsConsoles.Error(), name)
+		var after model.Token
+		require.NoError(t, db.First(&after, token.Id).Error)
+		assert.Equal(t, keys.TokenStatusRevoked, after.Status, name)
+	}
 }

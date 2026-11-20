@@ -412,6 +412,10 @@ func DeleteToken(c *gin.Context) {
 }
 
 func UpdateToken(c *gin.Context) {
+	if settings.Managed() { // Modified by Essera, 2026-11: a key's state is the Console's, never re-enabled here
+		common.ApiErrorStatus(c, http.StatusConflict, keys.ErrStateIsConsoles)
+		return
+	}
 	userId := c.GetInt("id")
 	statusOnly := c.Query("status_only")
 	request := tokenRequest{}
