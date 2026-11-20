@@ -282,3 +282,8 @@ A side-by-side pass against the client's Stitch screens fixed what still differe
 - **Dashboard:** the Flow tab appears only once there are records to draw, since it reads the same usage as the model charts and otherwise stands empty.
 - **API Keys:** the page carries no description; it repeated the title.
 - **Security & Access:** the sessions card no longer sits under a heading repeating the page title.
+
+## 2026-11 — The API tab describes what Bedrock accepts
+
+- **Supported parameters:** the chat, reasoning and embedding tables list only the parameters the Bedrock adaptor sends on. Converse carries `maxTokens`, `temperature`, `topP`, `stopSequences` and a tool config, so `frequency_penalty`, `presence_penalty`, `seed`, `n`, `logprobs`, `top_logprobs`, `logit_bias`, `response_format` and `user` are no longer shown as supported.
+- **Authentication:** the note names the API Keys page and the Console, which decide what a key may call. This gateway has no Tokens page, model groups or per-key IP scoping.

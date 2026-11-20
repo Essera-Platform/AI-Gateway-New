@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the supported-parameter tables list only what the Bedrock adaptor actually sends, so the API tab promises nothing the gateway drops or refuses.
 import type { PricingModel } from '../types'
 import {
   hashStringToSeed,
@@ -512,6 +513,9 @@ export type SupportedParameter = {
   required?: boolean
 }
 
+// The parameters Bedrock itself accepts on this Gateway's routes: Converse carries only
+// maxTokens, temperature, topP, stopSequences and a tool config, so a parameter the adaptor
+// drops or refuses is not listed as supported.
 const COMMON_CHAT_PARAMS: SupportedParameter[] = [
   {
     name: 'temperature',
@@ -534,46 +538,15 @@ const COMMON_CHAT_PARAMS: SupportedParameter[] = [
     descriptionKey: 'Maximum number of tokens in the response',
   },
   {
-    name: 'frequency_penalty',
-    type: 'number',
-    defaultValue: 0,
-    range: '-2 ~ 2',
-    descriptionKey: 'Penalises repetition of frequent tokens',
-  },
-  {
-    name: 'presence_penalty',
-    type: 'number',
-    defaultValue: 0,
-    range: '-2 ~ 2',
-    descriptionKey: 'Encourages introducing new topics',
-  },
-  {
     name: 'stop',
     type: 'array',
     descriptionKey: 'Up to 4 strings that stop generation',
-  },
-  {
-    name: 'seed',
-    type: 'integer',
-    descriptionKey: 'Deterministic sampling seed (best-effort)',
-  },
-  {
-    name: 'n',
-    type: 'integer',
-    defaultValue: 1,
-    range: '>= 1',
-    descriptionKey: 'Number of completions to generate',
   },
   {
     name: 'stream',
     type: 'boolean',
     defaultValue: false,
     descriptionKey: 'Stream tokens via Server-Sent Events',
-  },
-  {
-    name: 'response_format',
-    type: 'object',
-    descriptionKey: 'Force JSON object or schema-conforming output',
   },
   {
     name: 'tools',
@@ -585,28 +558,6 @@ const COMMON_CHAT_PARAMS: SupportedParameter[] = [
     type: 'string',
     enumValues: ['auto', 'none', 'required'],
     descriptionKey: 'Tool-choice policy or specific tool name',
-  },
-  {
-    name: 'logprobs',
-    type: 'boolean',
-    defaultValue: false,
-    descriptionKey: 'Return per-token log probabilities',
-  },
-  {
-    name: 'top_logprobs',
-    type: 'integer',
-    range: '0 ~ 20',
-    descriptionKey: 'Number of top log probabilities returned per token',
-  },
-  {
-    name: 'logit_bias',
-    type: 'object',
-    descriptionKey: 'Per-token logit bias map',
-  },
-  {
-    name: 'user',
-    type: 'string',
-    descriptionKey: 'End-user identifier for abuse monitoring',
   },
 ]
 
@@ -625,25 +576,29 @@ const REASONING_PARAMS: SupportedParameter[] = [
     descriptionKey: 'Maximum tokens including hidden reasoning tokens',
   },
   {
+    name: 'temperature',
+    type: 'number',
+    defaultValue: 1,
+    range: '0 ~ 2',
+    descriptionKey: 'Sampling temperature; lower is more deterministic',
+  },
+  {
+    name: 'top_p',
+    type: 'number',
+    defaultValue: 1,
+    range: '0 ~ 1',
+    descriptionKey: 'Nucleus sampling probability mass',
+  },
+  {
     name: 'stop',
     type: 'array',
     descriptionKey: 'Up to 4 strings that stop generation',
-  },
-  {
-    name: 'seed',
-    type: 'integer',
-    descriptionKey: 'Deterministic sampling seed (best-effort)',
   },
   {
     name: 'stream',
     type: 'boolean',
     defaultValue: false,
     descriptionKey: 'Stream tokens via Server-Sent Events',
-  },
-  {
-    name: 'response_format',
-    type: 'object',
-    descriptionKey: 'Force JSON object or schema-conforming output',
   },
   {
     name: 'tools',
@@ -655,11 +610,6 @@ const REASONING_PARAMS: SupportedParameter[] = [
     type: 'string',
     enumValues: ['auto', 'none', 'required'],
     descriptionKey: 'Tool-choice policy or specific tool name',
-  },
-  {
-    name: 'user',
-    type: 'string',
-    descriptionKey: 'End-user identifier for abuse monitoring',
   },
 ]
 
@@ -682,11 +632,6 @@ const EMBEDDING_PARAMS: SupportedParameter[] = [
     enumValues: ['float', 'base64'],
     defaultValue: 'float',
     descriptionKey: 'Wire encoding for the embedding vectors',
-  },
-  {
-    name: 'user',
-    type: 'string',
-    descriptionKey: 'End-user identifier for abuse monitoring',
   },
 ]
 

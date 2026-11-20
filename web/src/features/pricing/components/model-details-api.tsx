@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the authentication note names the API Keys page and the Console, which hold what a key may call; this gateway has no Tokens page, groups or per-key IP scoping.
 import {
   ChevronRight,
   Gauge,
@@ -745,7 +746,7 @@ function AuthSection() {
           </p>
           <p className='text-muted-foreground'>
             {t(
-              'Generate tokens from the Tokens page; you can scope them to specific models, groups, IPs, and rate-limits.'
+              'Create keys on the API Keys page. What a key may call, and its limits, come from the Essera Operations Console.'
             )}
           </p>
         </div>
