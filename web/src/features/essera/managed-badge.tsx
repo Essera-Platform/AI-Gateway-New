@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 
-import { Badge } from '@/components/ui/badge'
 import {
   Tooltip,
   TooltipContent,
@@ -21,8 +20,17 @@ export function EsseraManagedBadge() {
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<Badge variant='outline' tabIndex={0} className='ms-1' />}
+        render={
+          <span
+            tabIndex={0}
+            className='hidden shrink-0 items-center gap-1.5 rounded-full border border-emerald-200/60 bg-emerald-50/80 px-2.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-emerald-800 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 md:inline-flex dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
+          />
+        }
       >
+        <span
+          aria-hidden='true'
+          className='size-1.5 rounded-full bg-emerald-500 motion-safe:animate-pulse'
+        />
         {t('Managed by the Essera Operations Console')}
       </TooltipTrigger>
       <TooltipContent className='max-w-xs'>

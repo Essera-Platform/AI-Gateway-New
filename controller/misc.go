@@ -172,6 +172,7 @@ func GetStatus(c *gin.Context) {
 		data["custom_oauth_providers"] = providersInfo
 	}
 	managed.TrimStatus(data) // Modified by Essera, 2026-11: a managed gateway offers no chat links, docs, announcements or OAuth sign-in
+	managed.AddCatalog(data) // Modified by Essera, 2026-11: the landing page's live count of models and model families
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

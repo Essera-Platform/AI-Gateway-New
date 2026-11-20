@@ -158,12 +158,19 @@ func esseraLoginRefused(c *gin.Context, user *model.User) bool {
 	return false
 }
 
-// esseraSelfEditRefused refuses a person's change of their username or a Gateway password on
-// a managed gateway: the username is their email from the Console, and they sign in through
-// Cognito only. Their language, sidebar and display name stay theirs to change.
+// esseraSelfEditRefused refuses, on a managed gateway, anyone's interface language (the gateway
+// is English only) and a person's change of their username or a Gateway password: the username
+// is their email from the Console, and they sign in through Cognito only. Their sidebar and
+// display name stay theirs to change.
 func esseraSelfEditRefused(c *gin.Context, requestData map[string]any, passwordRequested bool) bool {
 	if !settings.Managed() {
 		return false
+	}
+	if _, setsLanguage := requestData["language"]; setsLanguage {
+		// A managed gateway is English only, so nobody keeps another interface language.
+		message := "This endpoint is not available on the Essera gateway."
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": message, "error": gin.H{"code": "essera_not_available", "message": message}})
+		return true
 	}
 	username, renaming := requestData["username"].(string)
 	if !passwordRequested && (!renaming || username == "" || username == c.GetString("username")) {

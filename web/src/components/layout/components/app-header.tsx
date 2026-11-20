@@ -21,6 +21,7 @@ import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationPopover } from '@/components/notification-popover'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
+import { ThemeSwitch } from '@/components/theme-switch'
 import { EsseraManagedBadge } from '@/features/essera/managed-badge'
 import { SystemUpdateAction } from '@/features/system-update/system-update-action'
 import { useNotifications } from '@/hooks/use-notifications'
@@ -114,7 +115,7 @@ export function AppHeader({
 
   return (
     <Header>
-      <div className='@container/system-brand flex min-w-0 flex-1 items-center gap-1'>
+      <div className='@container/system-brand flex min-w-0 flex-1 items-center gap-1 lg:gap-3'>
         <SystemBrand variant='inline' />
         <SystemUpdateAction presentation='version' />
         {/* Modified by Essera, 2026-11: says the Essera Operations Console administers this gateway. */}
@@ -149,6 +150,8 @@ export function AppHeader({
             />
           )}
           <LanguageSwitcher />
+          {/* Modified by Essera, 2026-11: a Light and Dark switch in the top bar. */}
+          <ThemeSwitch />
           {showConfigDrawer && <ConfigDrawer />}
           {showProfileDropdown && <ProfileDropdown />}
         </div>

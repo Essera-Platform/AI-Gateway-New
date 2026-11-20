@@ -1,6 +1,7 @@
 import { Activity, Gauge } from 'lucide-react'
 
 import type { EsseraAccountStat } from './account-summary'
+import { NumberValue } from './brand/number-value'
 
 /**
  * The side panel of the dashboard summary on a managed gateway: the spend limit and this
@@ -18,8 +19,8 @@ export function EsseraSummaryPanel(props: { stats: EsseraAccountStat[] }) {
         <span className='text-muted-foreground text-xs font-medium'>
           {limit?.label}
         </span>
-        <div className='font-mono text-xl font-semibold tracking-tight sm:text-2xl'>
-          {limit?.value}
+        <div className='text-xl font-extrabold sm:text-3xl'>
+          {limit?.value && <NumberValue value={limit.value} />}
         </div>
         <span className='text-muted-foreground text-[11px]'>
           {limit?.description}
@@ -38,7 +39,7 @@ export function EsseraSummaryPanel(props: { stats: EsseraAccountStat[] }) {
                   <cell.icon className='size-3 shrink-0' aria-hidden='true' />
                   <span className='truncate'>{cell.stat.label}</span>
                 </div>
-                <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
+                <div className='text-foreground num mt-1.5 truncate text-xs font-semibold'>
                   {cell.stat.value}
                 </div>
               </div>

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway's home page is the Essera landing.
 import { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -23,6 +24,8 @@ import { PublicLayout } from '@/components/layout'
 import { Footer } from '@/components/layout/components/footer'
 import { RichContent } from '@/components/rich-content'
 import { useTheme } from '@/context/theme-provider'
+import { EsseraLanding } from '@/features/essera/landing/essera-landing'
+import { useStatus } from '@/hooks/use-status'
 import { isLikelyHtml } from '@/lib/content-format'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -36,6 +39,7 @@ export function Home() {
   const { auth } = useAuthStore()
   const isAuthenticated = !!auth.user
   const { content, isLoaded, isUrl } = useHomePageContent()
+  const { status } = useStatus()
 
   const syncIframePreferences = useCallback(() => {
     try {
@@ -118,6 +122,10 @@ export function Home() {
         </div>
       </PublicLayout>
     )
+  }
+
+  if (status?.essera_managed === true) {
+    return <EsseraLanding isAuthenticated={isAuthenticated} />
   }
 
   return (

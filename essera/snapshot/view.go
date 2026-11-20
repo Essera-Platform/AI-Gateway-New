@@ -161,6 +161,48 @@ func (v *View) ModelServable(providerKey, modelKey string) bool {
 	return provider != nil && model != nil && provider.Status == StatusActive && model.Status == StatusActive
 }
 
+// Catalog is what the public landing page says about the catalog: how many models a guest can
+// see in the Model Square, and how many vendors make them.
+type Catalog struct {
+	Models   int `json:"models"`
+	Families int `json:"families"`
+}
+
+// geographyPrefixes name a Bedrock inference profile's geography, not the model's vendor.
+var geographyPrefixes = []string{"eu.", "us.", "us-gov.", "apac.", "jp.", "au.", "ca.", "global."}
+
+// Catalog counts the distinct active models of the active providers and their families. A
+// family is the vendor a Bedrock model id starts with ("anthropic" in
+// "eu.anthropic.claude-sonnet-4-6"); a key without one counts as its provider's.
+func (v *View) Catalog() Catalog {
+	models := map[string]struct{}{}
+	families := map[string]struct{}{}
+	for _, provider := range v.Providers() {
+		if provider.Status != StatusActive {
+			continue
+		}
+		for _, model := range provider.Models {
+			if model.Status != StatusActive {
+				continue
+			}
+			models[model.Key] = struct{}{}
+			family := provider.Key
+			id := model.Key
+			for _, prefix := range geographyPrefixes {
+				if rest, ok := strings.CutPrefix(id, prefix); ok {
+					id = rest
+					break
+				}
+			}
+			if vendor, _, ok := strings.Cut(id, "."); ok && vendor != "" {
+				family = vendor
+			}
+			families[family] = struct{}{}
+		}
+	}
+	return Catalog{Models: len(models), Families: len(families)}
+}
+
 // Narrow applies a child's own restrictions to its parent's: a list keeps only what both
 // allow, a limit takes the lower value, anything else the child sets replaces the parent's.
 // The Console guarantees a child never widens its parent; intersecting keeps that true even

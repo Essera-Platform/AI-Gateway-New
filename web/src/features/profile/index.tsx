@@ -22,7 +22,10 @@ import {
   CardStaggerContainer,
   CardStaggerItem,
 } from '@/components/page-transition'
-import { useEsseraPerson } from '@/features/essera/use-essera-managed'
+import {
+  useEsseraManaged,
+  useEsseraPerson,
+} from '@/features/essera/use-essera-managed'
 import { useStatus } from '@/hooks/use-status'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -38,6 +41,7 @@ export function Profile() {
   const { status } = useStatus()
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
   const esseraPerson = useEsseraPerson()
+  const { managed } = useEsseraManaged()
 
   const checkinEnabled = status?.checkin_enabled === true
   const turnstileEnabled = !!(
@@ -69,10 +73,13 @@ export function Profile() {
                     quotaRemindThreshold={quotaRemindThreshold}
                   />
                 )}
-                <LanguagePreferencesCard
-                  profile={profile}
-                  onProfileUpdate={refreshProfile}
-                />
+                {/* Modified by Essera, 2026-11: a managed gateway is English only. */}
+                {!managed && (
+                  <LanguagePreferencesCard
+                    profile={profile}
+                    onProfileUpdate={refreshProfile}
+                  />
+                )}
               </div>
 
               <div className='space-y-4 sm:space-y-6 xl:sticky xl:top-6'>

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: section labels and the active pill of the Essera designs.
 import { Link, useLocation } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import { type ReactNode, useState, useEffect } from 'react'
@@ -65,8 +66,8 @@ export function NavGroup({ title, items }: NavGroupProps) {
   const href = useLocation({ select: (location) => location.href })
 
   return (
-    <SidebarGroup className='px-2 py-1'>
-      <SidebarGroupLabel className='text-muted-foreground/70 px-2 text-[11px] font-medium tracking-wider uppercase'>
+    <SidebarGroup className='px-3 py-1.5'>
+      <SidebarGroupLabel className='text-muted-foreground/80 px-2.5 text-[11px] font-bold tracking-wider uppercase'>
         {title}
       </SidebarGroupLabel>
       <SidebarMenu>
@@ -110,6 +111,10 @@ export function NavGroup({ title, items }: NavGroupProps) {
   )
 }
 
+/** A sidebar entry: 13px, an outline icon, and the emerald pill with a hairline border when active. */
+const NAV_ITEM_CLASS =
+  'h-8 gap-2.5 border border-transparent px-2.5 text-[13px] font-medium text-sidebar-foreground hover:bg-muted hover:text-foreground [&_svg]:text-muted-foreground/80 data-active:border-emerald-200/60 data-active:font-semibold data-active:shadow-[0_1px_2px_rgb(16_185_129/0.08)] data-active:[&_svg]:text-primary dark:data-active:border-emerald-500/30'
+
 /**
  * Navigation badge component
  */
@@ -127,6 +132,7 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
       <SidebarMenuButton
         isActive={checkIsActive(href, item)}
         tooltip={item.title}
+        className={NAV_ITEM_CLASS}
         render={
           <Link
             to={item.url}
@@ -176,7 +182,9 @@ function SidebarMenuCollapsible({
     >
       <CollapsibleTrigger
         className='group/collapsible-trigger'
-        render={<SidebarMenuButton tooltip={item.title} />}
+        render={
+          <SidebarMenuButton tooltip={item.title} className={NAV_ITEM_CLASS} />
+        }
       >
         {item.icon && <item.icon className='shrink-0' />}
         <span className='min-w-0 flex-1 truncate'>{item.title}</span>

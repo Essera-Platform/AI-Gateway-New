@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway keeps the Essera look: saved presets, fonts, radius, scale and content width are not applied there.
 import {
   createContext,
   useCallback,
@@ -25,6 +26,7 @@ import {
   useState,
 } from 'react'
 
+import { useStatus } from '@/hooks/use-status'
 import {
   CONTENT_LAYOUT_VALUES,
   type ContentLayout,
@@ -125,38 +127,53 @@ export function ThemeCustomizationProvider(props: {
     )
   )
 
+  const managed = useStatus().status?.essera_managed === true
+  const applied = managed
+    ? DEFAULT_THEME_CUSTOMIZATION
+    : { preset, font, radius, scale }
+
   // Mirror state to the <body> via data-* attributes so theme-presets.css can
   // override CSS variables at the right cascade layer.
   useEffect(() => {
     applyAttribute(
       'data-theme-preset',
-      preset === DEFAULT_THEME_CUSTOMIZATION.preset ? null : preset
+      applied.preset === DEFAULT_THEME_CUSTOMIZATION.preset
+        ? null
+        : applied.preset
     )
-  }, [preset])
+  }, [applied.preset])
 
   // Resolve Auto into the preset font or the browser's sans-serif while
   // keeping an explicit Sans choice distinct from that browser fallback.
   useEffect(() => {
-    applyAttribute('data-theme-font', resolveThemeFont(font, preset))
-  }, [font, preset])
+    applyAttribute(
+      'data-theme-font',
+      resolveThemeFont(applied.font, applied.preset)
+    )
+  }, [applied.font, applied.preset])
 
   useEffect(() => {
     applyAttribute(
       'data-theme-radius',
-      radius === DEFAULT_THEME_CUSTOMIZATION.radius ? null : radius
+      applied.radius === DEFAULT_THEME_CUSTOMIZATION.radius
+        ? null
+        : applied.radius
     )
-  }, [radius])
+  }, [applied.radius])
 
   useEffect(() => {
     applyAttribute(
       'data-theme-scale',
-      scale === DEFAULT_THEME_CUSTOMIZATION.scale ? null : scale
+      applied.scale === DEFAULT_THEME_CUSTOMIZATION.scale ? null : applied.scale
     )
-  }, [scale])
+  }, [applied.scale])
 
+  const appliedContentLayout = managed
+    ? DEFAULT_THEME_CUSTOMIZATION.contentLayout
+    : contentLayout
   useEffect(() => {
-    applyAttribute('data-theme-content-layout', contentLayout)
-  }, [contentLayout])
+    applyAttribute('data-theme-content-layout', appliedContentLayout)
+  }, [appliedContentLayout])
 
   const setPreset = useCallback((value: ThemePreset) => {
     _setPreset(value)

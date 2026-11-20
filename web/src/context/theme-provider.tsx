@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: Light and Dark only, Light by default; a saved "system" choice reads as Light.
 import {
   createContext,
   useCallback,
@@ -31,11 +32,11 @@ import {
   writeThemePreference,
 } from '@/lib/theme-storage'
 
-type Theme = 'dark' | 'light' | 'system'
-type ResolvedTheme = Exclude<Theme, 'system'>
+type Theme = 'dark' | 'light'
+type ResolvedTheme = Theme
 
-const DEFAULT_THEME = 'system'
-const THEMES = new Set<Theme>(['dark', 'light', 'system'])
+const DEFAULT_THEME = 'light'
+const THEMES = new Set<Theme>(['dark', 'light'])
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -61,17 +62,6 @@ const initialState: ThemeProviderState = {
 
 const ThemeContext = createContext<ThemeProviderState>(initialState)
 
-function getSystemTheme(): ResolvedTheme {
-  if (typeof window === 'undefined') return 'light'
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light'
-}
-
-function resolveTheme(theme: Theme): ResolvedTheme {
-  return theme === 'system' ? getSystemTheme() : theme
-}
-
 export function ThemeProvider({
   children,
   defaultTheme = DEFAULT_THEME,
@@ -81,26 +71,12 @@ export function ThemeProvider({
   const [theme, _setTheme] = useState<Theme>(() =>
     readThemePreference(storageKey, THEMES, defaultTheme)
   )
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    resolveTheme(theme)
-  )
+  const resolvedTheme: ResolvedTheme = theme
 
   useEffect(() => {
     const root = window.document.documentElement
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-
-    const applyTheme = () => {
-      const nextResolvedTheme = theme === 'system' ? getSystemTheme() : theme
-      root.classList.remove('light', 'dark')
-      root.classList.add(nextResolvedTheme)
-      setResolvedTheme(nextResolvedTheme)
-    }
-
-    applyTheme()
-
-    mediaQuery.addEventListener('change', applyTheme)
-
-    return () => mediaQuery.removeEventListener('change', applyTheme)
+    root.classList.remove('light', 'dark')
+    root.classList.add(theme)
   }, [theme])
 
   const setTheme = useCallback(

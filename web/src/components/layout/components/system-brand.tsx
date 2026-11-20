@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway shows the Essera logo.
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
@@ -24,6 +25,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { EsseraLogo } from '@/features/essera/brand/essera-logo'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { cn } from '@/lib/utils'
@@ -54,6 +56,18 @@ export function SystemBrand(props: SystemBrandProps) {
   const name = status?.system_name || props.defaultName || 'New API'
   const version =
     status?.version || props.defaultVersion || t('Unknown version')
+
+  if (variant === 'inline' && status?.essera_managed === true) {
+    return (
+      <Link
+        to='/'
+        aria-label={t('Go to home')}
+        className='focus-visible:ring-ring/40 inline-flex min-w-0 items-center rounded-md outline-none select-none focus-visible:ring-2'
+      >
+        <EsseraLogo />
+      </Link>
+    )
+  }
 
   if (variant === 'inline') {
     return (

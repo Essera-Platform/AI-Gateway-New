@@ -21,6 +21,7 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 
+import { esseraFavicon } from '@/features/essera/brand/favicon'
 import { installBuildMetadata } from '@/lib/build-metadata'
 import { applyFaviconToDom } from '@/lib/dom-utils'
 import '@/lib/dayjs'
@@ -86,7 +87,9 @@ if (!rootElement) {
     // Cache-first
     const cached = readCachedStatus()
     if (cached?.system_name) apply(cached.system_name as string)
-    if (cached?.logo) applyFaviconToDom(cached.logo as string)
+    // Modified by Essera, 2026-11: a managed gateway's favicon is the Essera mark unless ESSERA_LOGO names one.
+    const cachedFavicon = cached ? esseraFavicon(cached) : ''
+    if (cachedFavicon) applyFaviconToDom(cachedFavicon)
 
     // Background refresh through the shared cache. This primes ['status']
     // before React mounts, so the root guard and every status consumer reuse
@@ -96,7 +99,8 @@ if (!rootElement) {
       .ensureQueryData(statusQueryOptions)
       .then((s) => {
         if (s?.system_name) apply(s.system_name as string)
-        if (s?.logo) applyFaviconToDom(s.logo as string)
+        const favicon = s ? esseraFavicon(s) : ''
+        if (favicon) applyFaviconToDom(favicon)
       })
       .catch(() => {
         /* empty */

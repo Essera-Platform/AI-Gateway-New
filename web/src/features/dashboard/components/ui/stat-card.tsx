@@ -16,11 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the value in the Essera number style, its unit in the emerald accent.
 import type { LucideIcon } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { NumberValue } from '@/features/essera/brand/number-value'
 import { cn } from '@/lib/utils'
 
 type StatCardTone = 'accent-1' | 'accent-2' | 'accent-3'
@@ -273,8 +275,8 @@ export function StatCard(props: StatCardProps) {
   } else {
     valueContent = (
       <div className='flex flex-col gap-1'>
-        <div className='text-foreground font-mono text-base font-semibold tracking-tight break-all tabular-nums sm:text-2xl'>
-          {props.value}
+        <div className='text-foreground text-base font-bold break-all sm:text-2xl'>
+          <NumberValue value={props.value} />
         </div>
         <p
           className={cn(

@@ -26,6 +26,10 @@ For commercial licensing, please contact support@quantumnous.com
  * that activates it. Loaded globally so font-switching is instantaneous
  * with no FOUT once the variable is fetched. */
 @import '@fontsource-variable/lora';
+/* Modified by Essera, 2026-11: Plus Jakarta Sans for the interface and JetBrains Mono for
+ * figures, prices, IDs and code, self-hosted; the figure style and the landing's backdrop. */
+@import '@fontsource-variable/plus-jakarta-sans';
+@import '@fontsource-variable/jetbrains-mono';
 
 @import './theme.css';
 @import './theme-presets.css';
@@ -117,6 +121,11 @@ For commercial licensing, please contact support@quantumnous.com
     font-family: var(--font-body);
   }
 
+  ::selection {
+    background-color: #10b981;
+    color: #ffffff;
+  }
+
   /* Keep sticky headers stable while primitives lock body scrolling. */
   body[data-scroll-locked] {
     overflow: unset !important;
@@ -194,6 +203,65 @@ For commercial licensing, please contact support@quantumnous.com
 
 @utility max-w-container-lg {
   max-width: 1536px;
+}
+
+/* A figure: mono, tabular, slashed zero, tight. Its unit goes in `text-unit`. */
+@utility num {
+  font-family: var(--font-ui-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  letter-spacing: -0.025em;
+}
+
+@layer components {
+  .essera-grid-bg {
+    background-image:
+      radial-gradient(
+        circle at 100% 0%,
+        rgb(16 185 129 / 0.08) 0%,
+        transparent 40%
+      ),
+      radial-gradient(
+        circle at 0% 20%,
+        rgb(5 150 105 / 0.05) 0%,
+        transparent 35%
+      ),
+      linear-gradient(to right, rgb(226 232 240 / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(226 232 240 / 0.5) 1px, transparent 1px);
+    background-size:
+      100% 100%,
+      100% 100%,
+      48px 48px,
+      48px 48px;
+  }
+
+  .dark .essera-grid-bg {
+    background-image:
+      radial-gradient(
+        circle at 100% 0%,
+        rgb(16 185 129 / 0.12) 0%,
+        transparent 45%
+      ),
+      radial-gradient(
+        circle at 0% 20%,
+        rgb(5 150 105 / 0.08) 0%,
+        transparent 35%
+      ),
+      linear-gradient(to right, rgb(30 41 59 / 0.55) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(30 41 59 / 0.55) 1px, transparent 1px);
+  }
+
+  .essera-gradient-text {
+    background: linear-gradient(135deg, #047857 0%, #10b981 60%, #34d399 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .dark .essera-gradient-text {
+    background: linear-gradient(135deg, #10b981 0%, #34d399 60%, #6ee7b7 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
 }
 
 @utility no-scrollbar {

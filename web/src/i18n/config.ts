@@ -16,9 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a managed gateway is English only; its other locales are kept for upstream merges but not loaded.
 import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
+
+import {
+  cachedStatusIsManaged,
+  ESSERA_LANGUAGE,
+} from '@/features/essera/language'
 
 import { convertDetectedLanguage } from './languages'
 import en from './locales/en.json'
@@ -39,13 +45,18 @@ export const resources = {
   zhTW,
 } as const
 
+const englishOnly = typeof window !== 'undefined' && cachedStatusIsManaged()
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    resources,
+    resources: englishOnly ? { en } : resources,
+    ...(englishOnly ? { lng: ESSERA_LANGUAGE } : {}),
     fallbackLng: 'en',
-    supportedLngs: ['en', 'zhCN', 'fr', 'ru', 'ja', 'vi', 'zhTW'],
+    supportedLngs: englishOnly
+      ? [ESSERA_LANGUAGE]
+      : ['en', 'zhCN', 'fr', 'ru', 'ja', 'vi', 'zhTW'],
     load: 'currentOnly',
     nsSeparator: false, // Allow literal colons in keys (e.g., URLs, labels)
     debug: import.meta.env.DEV,

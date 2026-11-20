@@ -108,3 +108,29 @@ func TestModelServableNeedsBothActive(t *testing.T) {
 	view = snapshot.NewView(8, view.Snapshot)
 	assert.False(t, view.ModelServable("openai", "gpt-4o"), "a provider in maintenance")
 }
+
+func TestCatalogCountsActiveModelsAndTheirVendors(t *testing.T) {
+	s := snapshottest.Sample()
+	s.Providers = &snapshot.ProviderCatalog{Providers: []snapshot.Provider{
+		{Key: "bedrock", Status: snapshot.StatusActive, Models: []snapshot.ProviderModel{
+			{Key: "eu.anthropic.claude-sonnet-4-6", Status: snapshot.StatusActive},
+			{Key: "anthropic.claude-haiku-4-5", Status: snapshot.StatusActive},
+			{Key: "eu.amazon.nova-pro-v1:0", Status: snapshot.StatusActive},
+			{Key: "global.amazon.nova-2-lite-v1:0", Status: snapshot.StatusActive},
+			{Key: "openai.gpt-oss-120b-1:0", Status: snapshot.StatusActive},
+			{Key: "meta.llama3-70b-instruct-v1:0", Status: snapshot.StatusDisabled},
+		}},
+		{Key: "acme", Status: snapshot.StatusActive, Models: []snapshot.ProviderModel{
+			{Key: "acme-1", Status: snapshot.StatusActive},
+			{Key: "openai.gpt-oss-120b-1:0", Status: snapshot.StatusActive},
+		}},
+		{Key: "mistral-direct", Status: snapshot.StatusMaintenance, Models: []snapshot.ProviderModel{
+			{Key: "mistral.mistral-large", Status: snapshot.StatusActive},
+		}},
+	}}
+
+	catalog := snapshot.NewView(1, s).Catalog()
+
+	assert.Equal(t, snapshot.Catalog{Models: 6, Families: 4}, catalog,
+		"one model listed by two providers counts once; anthropic, amazon, openai and acme; disabled models and inactive providers do not count")
+}
