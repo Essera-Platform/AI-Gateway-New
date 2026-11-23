@@ -2,6 +2,7 @@ package apidocs
 
 import (
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/managed"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 type openAPIDocument struct {
@@ -27,7 +29,7 @@ func decode(t *testing.T, spec []byte) openAPIDocument {
 }
 
 func TestTheDocumentNamesTheGatewaysAddressEverywhere(t *testing.T) {
-	spec, err := Spec("https://ai-gateway-dev.esseratech.com/", nil)
+	spec, err := Spec("https://ai-gateway-dev.esseratech.com/", nil, English)
 	require.NoError(t, err)
 
 	document := decode(t, spec)
@@ -39,7 +41,7 @@ func TestTheDocumentNamesTheGatewaysAddressEverywhere(t *testing.T) {
 }
 
 func TestTheDocumentDescribesOnlyTheCustomerRoutes(t *testing.T) {
-	spec, err := Spec("https://gateway.example.com", nil)
+	spec, err := Spec("https://gateway.example.com", nil, English)
 	require.NoError(t, err)
 
 	document := decode(t, spec)
@@ -73,7 +75,7 @@ func TestTheExamplesNameModelsTheReaderMayCall(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			spec, err := Spec("https://gateway.example.com", test.available)
+			spec, err := Spec("https://gateway.example.com", test.available, English)
 			require.NoError(t, err)
 			decode(t, spec)
 			assert.Contains(t, string(spec), `model=\"`+test.chat+`\"`)
@@ -82,5 +84,64 @@ func TestTheExamplesNameModelsTheReaderMayCall(t *testing.T) {
 				assert.NotContains(t, string(spec), ExampleChatModel)
 			}
 		})
+	}
+}
+
+func TestEveryTextHasAChineseTranslation(t *testing.T) {
+	translations, err := chineseTranslations()
+	require.NoError(t, err)
+	var root yaml.Node
+	require.NoError(t, yaml.Unmarshal(source, &root))
+
+	inEnglish := map[string]bool{}
+	visitText(&root, func(text *yaml.Node) { inEnglish[text.Value] = true })
+	require.NotEmpty(t, inEnglish)
+	untouched := regexp.MustCompile("(?s)```.*?```|`[^`\n]+`")
+	for english := range inEnglish {
+		chinese, ok := translations[english]
+		if !assert.True(t, ok, "no Chinese for %q", english) {
+			continue
+		}
+		assert.NotEmpty(t, chinese)
+		assert.NotEqual(t, english, chinese)
+		for _, code := range untouched.FindAllString(english, -1) {
+			assert.Contains(t, chinese, code, "the Chinese of %.40q keeps its code as it is", english)
+		}
+	}
+	for english := range translations {
+		assert.True(t, inEnglish[english], "the Chinese of %.60q translates a text openapi.yaml no longer has", english)
+	}
+}
+
+func TestTheChineseDocumentIsTheSameAPIInChinese(t *testing.T) {
+	english, err := Spec("https://gateway.example.com", []string{"amazon.nova-lite-v1:0"}, "")
+	require.NoError(t, err)
+	chinese, err := Spec("https://gateway.example.com", []string{"amazon.nova-lite-v1:0"}, "zh")
+	require.NoError(t, err)
+
+	var en, zh struct {
+		openAPIDocument
+		Info struct {
+			Title string `json:"title"`
+		} `json:"info"`
+	}
+	require.NoError(t, common.Unmarshal(english, &en))
+	require.NoError(t, common.Unmarshal(chinese, &zh))
+	assert.Equal(t, "Essera AI Gateway API", en.Info.Title)
+	assert.Equal(t, "Essera AI 网关 API", zh.Info.Title)
+	assert.Equal(t, en.Servers, zh.Servers)
+	assert.Equal(t, len(en.Paths), len(zh.Paths))
+	for path := range en.Paths {
+		assert.Contains(t, zh.Paths, path)
+	}
+	assert.Contains(t, string(chinese), `model=\"amazon.nova-lite-v1:0\"`, "code samples name the reader's models")
+	assert.Contains(t, string(chinese), `"tags":["模型"]`)
+}
+
+func TestLanguage(t *testing.T) {
+	for requested, want := range map[string]string{
+		"": English, "en": English, "zh": Chinese, "zh-CN": Chinese, "zhCN": Chinese, "zh_Hans": Chinese, "zh-TW": English, "fr": English,
+	} {
+		assert.Equal(t, want, Language(requested), requested)
 	}
 }

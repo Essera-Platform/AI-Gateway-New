@@ -259,7 +259,7 @@ func EsseraOpenAPI(c *gin.Context) {
 	if settings.Managed() {
 		available = esseraAvailableModels(c.GetInt("id"))
 	}
-	spec, err := apidocs.Spec(address, available)
+	spec, err := apidocs.Spec(address, available, c.Query("lang"))
 	if err != nil {
 		common.ApiError(c, err)
 		return
