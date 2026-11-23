@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: section labels and the active pill of the Essera designs.
+// Modified by Essera, 2026-11: section labels and the active pill of the Essera designs; collapsed, the groups centre the 32px icon buttons in the 44px rail.
 import { Link, useLocation } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import { type ReactNode, useState, useEffect } from 'react'
@@ -66,7 +66,7 @@ export function NavGroup({ title, items }: NavGroupProps) {
   const href = useLocation({ select: (location) => location.href })
 
   return (
-    <SidebarGroup className='px-3.5 py-0 not-first:mt-6'>
+    <SidebarGroup className='px-3.5 py-0 not-first:mt-6 group-data-[collapsible=icon]:px-1.5 group-data-[collapsible=icon]:not-first:mt-3'>
       <SidebarGroupLabel className='text-muted-foreground/80 h-auto px-2.5 text-[11px] leading-4 font-bold tracking-wider uppercase'>
         {title}
       </SidebarGroupLabel>

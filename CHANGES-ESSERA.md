@@ -307,3 +307,4 @@ A managed gateway offers two interface languages, English (the default) and Simp
 | `web/scripts/essera-zh-gaps.mjs` | Lists the strings the Chinese locale lacks: `en.json` keys, `t('…')` keys and `labelKey`-style constants in `src/` (`node scripts/essera-zh-gaps.mjs`, exits 1 on a gap) |
 
 - **Translations:** this replaces the English-only rule of phase A. A new interface string goes into `en.json` and `zh.json` together; the other locales still fall back to English. Product and protocol names stay as they are (Essera, AI Gateway, AWS Bedrock, OpenAI, Anthropic, model IDs, API), and so do the API format tabs of the landing's sample request (Chat, Responses, Messages), the copyright and license notices on `/legal`, and the font and license names.
+- **Sidebar, collapsed:** the groups drop their 14px side padding in the 44px icon rail, so the 32px icon buttons sit centred, and the gaps between groups shrink.
