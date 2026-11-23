@@ -1,6 +1,8 @@
 // Modified by Essera, 2026-11: every Bedrock model through Converse and ConverseStream,
-// /v1/responses, embeddings, Bedrock error mapping and the inference profile retry (see essera_*.go),
-// and the units Bedrock billed recorded for the Console (essera/metering).
+// /v1/responses, embeddings and Marengo embedding tasks, rerank, Stability image edits, Bedrock
+// error mapping and the inference profile retry (see essera_*.go), the units Bedrock billed
+// recorded for the Console (essera/metering), and Nova Sonic through the Realtime API
+// (essera_sonic.go).
 package aws
 
 import (
@@ -10,9 +12,11 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/metering"
+	"github.com/QuantumNous/new-api/essera/rerankunits"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -35,6 +39,10 @@ type Adaptor struct {
 	stream         *http.Response
 	embeddingPlan  *embeddingPlan
 	encodingFormat string
+	rerankPlan     *rerankPlan
+	generated      int64
+	sonicOpen      sonicOpener
+	embeddingTask  *EmbeddingTask
 }
 
 func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeminiChatRequest) (any, error) {
@@ -103,8 +111,8 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-	//TODO implement me
-	return nil, errors.New("not implemented")
+	// Modified by Essera, 2026-11: Stability AI's image services (essera_image.go).
+	return convertStabilityRequest(c, info.RelayMode, getAwsModelID(info.UpstreamModelName), request)
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
@@ -153,14 +161,34 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	// Modified by Essera, 2026-11: Amazon Rerank and Cohere Rerank are not
-	// offered in eu-west-1, the region Essera serves, so rerank is refused.
-	return nil, types.NewErrorWithStatusCode(errors.New("rerank is not supported on AWS Bedrock channels"), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	// Modified by Essera, 2026-11: Cohere Rerank 3.5 (essera_rerank.go).
+	body, plan, err := convertRerankRequest(request)
+	if err != nil {
+		return nil, err
+	}
+	// The tokenizer is read before Bedrock is called: a rerank whose units cannot be
+	// counted is not served.
+	tokenizer, loadErr := rerankunits.Load(c.Request.Context())
+	if loadErr != nil {
+		common.SysError(common.LogText("essera: rerank tokenizer: %s", loadErr.Error()))
+		return nil, types.NewErrorWithStatusCode(errors.New("rerank is temporarily unavailable"), types.ErrorCodeChannelAwsClientError, http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
+	}
+	plan.searchUnits = tokenizer.SearchUnits(plan.query, plan.documents)
+	a.rerankPlan = plan
+	return body, nil
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	// Modified by Essera, 2026-11: Titan Text v2, Titan Multimodal and Cohere Embed v3/v4.
+	// Modified by Essera, 2026-11: Titan Text v2, Titan Multimodal, Cohere Embed v3/v4 and
+	// Marengo; Marengo's video and audio as a task.
 	a.encodingFormat = request.EncodingFormat
+	if isEmbeddingTaskPath(info.RequestURLPath) {
+		var options embeddingTaskRequest
+		if err := common.UnmarshalBodyReusableNoCopy(c, &options); err != nil {
+			return nil, newBadRequest("invalid embedding task options: %s", err.Error())
+		}
+		return convertEmbeddingTaskRequest(getAwsModelID(info.UpstreamModelName), request, options)
+	}
 	return convertEmbeddingRequest(getAwsModelID(info.UpstreamModelName), request)
 }
 
@@ -187,6 +215,9 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 	case "", dto.AwsApiTypeInvokeModel, dto.AwsApiTypeMantle:
 	default:
 		return nil, errors.New("invalid AWS API type")
+	}
+	if info.RelayMode == relayconstant.RelayModeRealtime {
+		return nil, a.prepareSonic(c, info) // Modified by Essera, 2026-11
 	}
 	// Modified by Essera, 2026-11: Converse and embeddings use the Bedrock
 	// Runtime REST API; Claude keeps InvokeModel through the SDK, or Mantle.
@@ -228,6 +259,9 @@ func (a *Adaptor) doRuntimeRequest(c *gin.Context, info *relaycommon.RelayInfo, 
 	if err != nil {
 		return err
 	}
+	if a.route == routeEmbeddingTask {
+		return a.startEmbeddingTask(c, info, body)
+	}
 	send := func(action string, payload []byte, stream bool) error {
 		// At most two calls: a profile id never gets another retry.
 		for {
@@ -253,11 +287,22 @@ func (a *Adaptor) doRuntimeRequest(c *gin.Context, info *relaycommon.RelayInfo, 
 			return nil
 		}
 	}
-	if a.route == routeConverse {
+	switch a.route {
+	case routeConverse:
 		if info.IsStream {
 			return send("converse-stream", body, true)
 		}
 		return send("converse", body, false)
+	case routeRerank:
+		if !isRerankModel(a.modelID) {
+			return newBadRequest("model %s does not rerank on AWS Bedrock", info.UpstreamModelName)
+		}
+		if a.rerankPlan == nil {
+			return newBadRequest("invalid AWS Bedrock rerank request")
+		}
+		return send("invoke", body, false)
+	case routeImage:
+		return send("invoke", body, false)
 	}
 	var plan embeddingPlan
 	if err := common.Unmarshal(body, &plan); err != nil || len(plan.Calls) == 0 {
@@ -277,10 +322,19 @@ func (a *Adaptor) doRuntimeRequest(c *gin.Context, info *relaycommon.RelayInfo, 
 
 // DoResponse records the units Bedrock billed for the answer. Modified by Essera, 2026-11.
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
+	if info.RelayMode == relayconstant.RelayModeRealtime {
+		return a.serveSonic(c, info)
+	}
 	usage, err = a.doResponse(c, resp, info)
-	if settled, ok := usage.(*dto.Usage); ok && err == nil {
+	if settled, ok := usage.(*dto.Usage); ok && err == nil && a.embeddingTask == nil {
+		family := embeddingFamilyOf(a.modelID)
 		units := metering.FromUsage(settled)
-		units.InputImages = imagesPricedApart(embeddingFamilyOf(a.modelID), a.embeddingPlan)
+		units.InputImages = imagesPricedApart(family, a.embeddingPlan)
+		units.InputTexts = textsPricedApart(family, a.embeddingPlan)
+		units.Generated = a.generated
+		if family == embeddingMarengo {
+			units.Input = 0 // Bedrock prices Marengo per text request and image, not per token
+		}
 		metering.Record(c, units)
 	}
 	return usage, err
@@ -306,6 +360,24 @@ func (a *Adaptor) doResponse(c *gin.Context, resp *http.Response, info *relaycom
 			return nil, bedrockReplyError(reply)
 		}
 	}
+	switch route {
+	case routeRerank:
+		response, apiErr := rerankResponseFromReply(a.rerankPlan, a.replies[0])
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		a.generated = a.rerankPlan.searchUnits
+		c.JSON(http.StatusOK, response)
+		return &response.Usage, nil
+	case routeImage:
+		response, images, apiErr := stabilityImageResponse(a.replies[0])
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		a.generated = images
+		c.JSON(http.StatusOK, response)
+		return &dto.Usage{}, nil
+	}
 	if route == routeConverse {
 		var chat *http.Response
 		if a.stream != nil {
@@ -318,11 +390,19 @@ func (a *Adaptor) doResponse(c *gin.Context, resp *http.Response, info *relaycom
 		}
 		return serveOpenAIChat(c, info, chat)
 	}
-	response, apiErr := embeddingResponseFromReplies(info.UpstreamModelName, embeddingFamilyOf(a.modelID), a.embeddingPlan, a.replies, a.encodingFormat)
+	if route == routeEmbeddingTask {
+		answer, err := EmbeddingTaskStarted(c, info, *a.embeddingTask)
+		if err != nil {
+			return nil, types.NewError(fmt.Errorf("keeping embedding task %s: %w", a.embeddingTask.ID, err), types.ErrorCodeBadResponse, types.ErrOptionWithSkipRetry())
+		}
+		c.JSON(http.StatusOK, answer)
+		return &dto.Usage{}, nil
+	}
+	response, reported, apiErr := embeddingResponseFromReplies(info.UpstreamModelName, embeddingFamilyOf(a.modelID), a.embeddingPlan, a.replies, a.encodingFormat)
 	if apiErr != nil {
 		return nil, apiErr
 	}
-	if response.Usage.PromptTokens == 0 {
+	if !reported && embeddingFamilyOf(a.modelID) != embeddingMarengo {
 		estimate := info.GetEstimatePromptTokens()
 		response.Usage = dto.Usage{PromptTokens: estimate, TotalTokens: estimate}
 	}

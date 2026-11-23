@@ -7867,6 +7867,8 @@
     "Long context cache write (1 h)": "Ghi bộ nhớ đệm ngữ cảnh dài (1 giờ)",
     "Long context output": "Đầu ra ngữ cảnh dài",
     "Input image": "Hình ảnh đầu vào",
+    "Speech input": "Đầu vào giọng nói",
+    "Speech output": "Đầu ra giọng nói",
     "Charges": "Chi phí",
     "Not priced yet": "Chưa có giá",
     "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Giá ngữ cảnh dài áp dụng cho mọi token của yêu cầu có lời nhắc dài hơn ngưỡng ngữ cảnh dài của mô hình."

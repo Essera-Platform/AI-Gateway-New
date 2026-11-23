@@ -97,19 +97,21 @@ func TestGuardIsOffUnlessManaged(t *testing.T) {
 }
 
 func TestCustomerRequestAllowed(t *testing.T) {
-	for _, path := range []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings", "/v1/embeddings/"} {
+	for _, path := range []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings", "/v1/embeddings/", "/v1/embeddings/tasks", "/v1/rerank", "/v1/images/edits"} {
 		assert.True(t, CustomerRequestAllowed(http.MethodPost, path), path)
 	}
-	for _, path := range []string{"/v1/models", "/v1/models/eu.amazon.nova-lite-v1:0"} {
+	for _, path := range []string{"/v1/models", "/v1/models/eu.amazon.nova-lite-v1:0", "/v1/embeddings/tasks/embtask-1"} {
 		assert.True(t, CustomerRequestAllowed(http.MethodGet, path), path)
 	}
+	for _, path := range []string{"/v1/embeddings/tasks", "/v1/embeddings/tasks/embtask-1/content", "/v1/embeddings"} {
+		assert.False(t, CustomerRequestAllowed(http.MethodGet, path), "only one task is read: %s", path)
+	}
+	assert.False(t, CustomerRequestAllowed(http.MethodPost, "/v1/embeddings/tasks/embtask-1"))
 	closed := map[string]string{
 		"/v1/completions":                       "legacy completions: the Bedrock adaptor serves none",
-		"/v1/images/generations":                "no image model in the Console's region",
-		"/v1/images/edits":                      "no image model in the Console's region",
+		"/v1/images/generations":                "no text-to-image model in the Console's region",
 		"/v1/audio/speech":                      "no speech model in the Console's region",
 		"/v1/audio/transcriptions":              "audio goes in as chat input, not here",
-		"/v1/rerank":                            "no rerank model in the Console's region",
 		"/v1/moderations":                       "Bedrock has no moderations",
 		"/v1/responses/compact":                 "a compaction, not a measured response",
 		"/v1/models/gemini:generateContent":     "Gemini's format is not converted for Bedrock",
@@ -124,7 +126,8 @@ func TestCustomerRequestAllowed(t *testing.T) {
 		assert.False(t, CustomerRequestAllowed(http.MethodPost, path), "%s: %s", path, why)
 	}
 	assert.False(t, CustomerRequestAllowed(http.MethodGet, "/v1/responses"), "a GET opens a WebSocket whose calls are not accounted for")
-	assert.False(t, CustomerRequestAllowed(http.MethodGet, "/v1/realtime"), "realtime: no such model in the Console's region")
+	assert.True(t, CustomerRequestAllowed(http.MethodGet, "/v1/realtime"), "a speech model's Realtime session, one usage event")
+	assert.False(t, CustomerRequestAllowed(http.MethodPost, "/v1/realtime"), "a Realtime session opens with a GET")
 	assert.False(t, CustomerRequestAllowed(http.MethodGet, "/v1beta/models"), "Gemini's model list")
 	assert.False(t, CustomerRequestAllowed(http.MethodGet, "/v1/dashboard/billing/usage"), "new-api's balance; the Console bills")
 	assert.False(t, CustomerRequestAllowed(http.MethodDelete, "/v1/models/gpt-4o"))

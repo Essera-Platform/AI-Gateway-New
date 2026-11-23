@@ -498,10 +498,10 @@ func TestTheAPIDocsNameTheGatewaysAddressAndTheReadersModels(t *testing.T) {
 	servers := admin["servers"].([]any)
 	assert.Equal(t, "https://ai-gateway-dev.esseratech.com", servers[0].(map[string]any)["url"])
 	paths := admin["paths"].(map[string]any)
-	for _, path := range []string{"/v1/models", "/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings"} {
+	for _, path := range []string{"/v1/models", "/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings", "/v1/embeddings/tasks", "/v1/embeddings/tasks/{task_id}", "/v1/rerank", "/v1/images/edits", "/v1/realtime"} {
 		assert.Contains(t, paths, path)
 	}
-	assert.Len(t, paths, 5)
+	assert.Len(t, paths, 10)
 	assert.Contains(t, raw, `model=\"claude-sonnet\"`, "the first model the admin may call")
 	assert.NotContains(t, raw, apidocs.ExampleChatModel)
 

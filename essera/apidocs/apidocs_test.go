@@ -53,6 +53,7 @@ func TestTheDocumentDescribesOnlyTheCustomerRoutes(t *testing.T) {
 	}
 	assert.ElementsMatch(t, []string{
 		"GET /v1/models", "POST /v1/chat/completions", "POST /v1/responses", "POST /v1/messages", "POST /v1/embeddings",
+		"POST /v1/embeddings/tasks", "GET /v1/embeddings/tasks/{task_id}", "POST /v1/rerank", "POST /v1/images/edits", "GET /v1/realtime",
 	}, operations)
 	t.Setenv("ESSERA_MANAGED", "true")
 	for _, operation := range operations {
@@ -71,6 +72,7 @@ func TestTheExamplesNameModelsTheReaderMayCall(t *testing.T) {
 		{name: "nobody's models: the examples keep theirs", available: nil, chat: ExampleChatModel, embed: ExampleEmbeddingModel},
 		{name: "the example models when allowed", available: []string{"amazon.nova-lite-v1:0", ExampleChatModel, ExampleEmbeddingModel}, chat: ExampleChatModel, embed: ExampleEmbeddingModel},
 		{name: "else the first allowed of each kind", available: []string{"cohere.embed-v4:0", "mistral.ministral-3-8b-instruct", "amazon.nova-lite-v1:0"}, chat: "amazon.nova-lite-v1:0", embed: "cohere.embed-v4:0"},
+		{name: "a speech model is no chat example", available: []string{"amazon.nova-2-5-sonic", "amazon.nova-lite-v1:0"}, chat: "amazon.nova-lite-v1:0", embed: ExampleEmbeddingModel},
 		{name: "no embedding model allowed", available: []string{"eu.amazon.nova-lite-v1:0"}, chat: "eu.amazon.nova-lite-v1:0", embed: ExampleEmbeddingModel},
 	}
 	for _, test := range tests {

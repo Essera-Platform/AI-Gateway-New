@@ -11,8 +11,11 @@ import (
 	"encoding/hex"
 	"io"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -21,6 +24,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/essera/metering"
+	"github.com/QuantumNous/new-api/essera/rerankunits"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
@@ -32,6 +36,7 @@ import (
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
+	bedrockruntimeTypes "github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
 	"github.com/aws/smithy-go"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -729,8 +734,10 @@ func TestBedrockEmbeddings(t *testing.T) {
 		wantFirst []float64
 		wantCount int
 		wantUsage int
-		// Images Bedrock prices per image: Titan Multimodal's and Cohere v3's, not Cohere v4's.
+		// Images Bedrock prices per image: Titan Multimodal's, Cohere v3's and Marengo's, not
+		// Cohere v4's; texts it prices per request: Marengo's.
 		wantImages int64
+		wantTexts  int64
 	}{
 		{
 			family: "Titan Text v2: one call per input, dimensions", model: "amazon.titan-embed-text-v2:0", request: `{"input":["a","b"],"dimensions":256}`,
@@ -773,6 +780,18 @@ func TestBedrockEmbeddings(t *testing.T) {
 			wantFirst: []float64{5, 6}, wantCount: 1, wantUsage: 4,
 		},
 		{
+			family: "Nova Multimodal: a text, its tokens from the header", model: "amazon.nova-2-multimodal-embeddings-v1:0", request: `{"input":"a","dimensions":256}`,
+			replies:  []bedrockReplyFixture{{header: tokens, body: []byte(`{"embeddings":[{"embeddingType":"TEXT","embedding":[1,2]}]}`)}},
+			wantPath: "/model/amazon.nova-2-multimodal-embeddings-v1%3A0/invoke", wantBody: []string{`{"taskType":"SINGLE_EMBEDDING","singleEmbeddingParams":{"embeddingPurpose":"GENERIC_INDEX","embeddingDimension":256,"text":{"truncationMode":"END","value":"a"}}}`},
+			wantFirst: []float64{1, 2}, wantCount: 1, wantUsage: 4,
+		},
+		{
+			family: "Nova Multimodal: an image is a standard image, priced per image, with no tokens", model: "amazon.nova-2-multimodal-embeddings-v1:0", request: `{"input":"data:image/jpg;base64,aW1n"}`,
+			replies:  []bedrockReplyFixture{{header: map[string]string{bedrockInputTokenHeader: "0"}, body: []byte(`{"embeddings":[{"embeddingType":"IMAGE","embedding":[3]}]}`)}},
+			wantPath: "/model/amazon.nova-2-multimodal-embeddings-v1%3A0/invoke", wantBody: []string{`{"taskType":"SINGLE_EMBEDDING","singleEmbeddingParams":{"embeddingPurpose":"GENERIC_INDEX","image":{"format":"jpeg","detailLevel":"STANDARD_IMAGE","source":{"bytes":"aW1n"}}}}`},
+			wantFirst: []float64{3}, wantCount: 1, wantUsage: 0, wantImages: 1,
+		},
+		{
 			family: "Cohere Embed v3: one batched call", model: "cohere.embed-multilingual-v3", request: `{"input":["a","b"]}`,
 			replies:  []bedrockReplyFixture{{header: tokens, body: []byte(`{"id":"x","response_type":"embeddings_by_type","embeddings":{"float":[[1,1],[2,2]]},"texts":["a","b"]}`)}},
 			wantPath: "/model/cohere.embed-multilingual-v3/invoke", wantBody: []string{`{"texts":["a","b"],"input_type":"search_document","embedding_types":["float"]}`},
@@ -784,6 +803,16 @@ func TestBedrockEmbeddings(t *testing.T) {
 			wantPath: "/model/eu.cohere.embed-v4%3A0/invoke", wantBody: []string{`{"texts":["a"],"input_type":"search_document","embedding_types":["float"],"output_dimension":512}`},
 			wantFirst: []float64{7, 8}, wantCount: 1, wantUsage: 4,
 		},
+		{
+			family: "Marengo: a text and an image, one call each, priced per request and image, no tokens", model: "twelvelabs.marengo-embed-3-0-v1:0", request: `{"input":["a dog","data:image/png;base64,aW1n"],"dimensions":512}`,
+			replies: []bedrockReplyFixture{
+				{body: []byte(`{"data":[{"embedding":[0.25,0.5]}]}`)},
+				{body: []byte(`{"data":{"embedding":[0.75]}}`)},
+			},
+			wantPath:  "/model/twelvelabs.marengo-embed-3-0-v1%3A0/invoke",
+			wantBody:  []string{`{"inputType":"text","text":{"inputText":"a dog"}}`, `{"inputType":"image","image":{"mediaSource":{"base64String":"aW1n"}}}`},
+			wantFirst: []float64{0.25, 0.5}, wantCount: 2, wantUsage: 0, wantImages: 1, wantTexts: 1,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.family, func(t *testing.T) {
@@ -791,6 +820,7 @@ func TestBedrockEmbeddings(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			c := newAwsTestContext(recorder, context.Background())
 			info := newBedrockTestInfo(server, relayconstant.RelayModeEmbeddings, relaytypes.RelayFormatEmbedding, test.model, false)
+			info.SetEstimatePromptTokens(99)
 			var request dto.EmbeddingRequest
 			require.NoError(t, common.Unmarshal([]byte(test.request), &request))
 
@@ -815,7 +845,7 @@ func TestBedrockEmbeddings(t *testing.T) {
 			assert.EqualValues(t, test.wantUsage, response.Usage.PromptTokens)
 			units, ok := metering.Recorded(c)
 			require.True(t, ok)
-			assert.Equal(t, metering.Units{Input: int64(test.wantUsage), InputImages: test.wantImages}, units)
+			assert.Equal(t, metering.Units{Input: int64(test.wantUsage), InputImages: test.wantImages, InputTexts: test.wantTexts}, units)
 		})
 	}
 
@@ -844,6 +874,16 @@ func TestBedrockEmbeddings(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
 	})
 
+	t.Run("Marengo refuses another vector length, and video or audio outside a task", func(t *testing.T) {
+		dimensions := 1024
+		for _, request := range []dto.EmbeddingRequest{{Input: "a", Dimensions: &dimensions}, {Input: "data:video/mp4;base64,dmlk"}, {Input: "data:audio/wav;base64,YXVk"}} {
+			_, err := convertEmbeddingRequest("twelvelabs.marengo-embed-3-0-v1:0", request)
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+		}
+	})
+
 	t.Run("a chat model is refused", func(t *testing.T) {
 		_, err := convertEmbeddingRequest("eu.amazon.nova-lite-v1:0", dto.EmbeddingRequest{Input: "a"})
 		var apiErr *relaytypes.NewAPIError
@@ -852,12 +892,166 @@ func TestBedrockEmbeddings(t *testing.T) {
 	})
 }
 
-func TestBedrockRerankIsRefused(t *testing.T) {
-	_, err := (&Adaptor{}).ConvertRerankRequest(nil, relayconstant.RelayModeRerank, dto.RerankRequest{})
-	var apiErr *relaytypes.NewAPIError
-	require.ErrorAs(t, err, &apiErr)
-	assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
-	assert.True(t, relaytypes.IsSkipRetryError(apiErr))
+func TestBedrockRerank(t *testing.T) {
+	const model = "cohere.rerank-v3-5:0"
+	t.Run("a rerank whose units cannot be counted is refused before Bedrock", func(t *testing.T) {
+		rerankunits.Install(nil)
+		t.Setenv("ESSERA_RERANK_TOKENIZER", filepath.Join(t.TempDir(), "missing.json"))
+		c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+		_, err := (&Adaptor{}).ConvertRerankRequest(c, relayconstant.RelayModeRerank, dto.RerankRequest{Query: "q", Documents: []any{"a"}})
+		var apiErr *relaytypes.NewAPIError
+		require.ErrorAs(t, err, &apiErr)
+		assert.Equal(t, http.StatusServiceUnavailable, apiErr.StatusCode)
+	})
+	tiny, err := os.ReadFile("../../../essera/rerankunits/testdata/tiny-tokenizer.json")
+	require.NoError(t, err)
+	tokenizer, err := rerankunits.Parse(tiny)
+	require.NoError(t, err)
+	rerankunits.Install(tokenizer)
+
+	t.Run("Cohere Rerank 3.5: best first, documents returned, search units counted", func(t *testing.T) {
+		server, captured := startBedrockStub(t, jsonFixture(`{"results":[{"index":2,"relevance_score":0.1},{"index":0,"relevance_score":0.9}]}`))
+		recorder := httptest.NewRecorder()
+		c := newAwsTestContext(recorder, context.Background())
+		info := newBedrockTestInfo(server, relayconstant.RelayModeRerank, relaytypes.RelayFormatRerank, model, false)
+		// With the test tokenizer each "w" is a token: 150 documents of one chunk each.
+		documents := make([]any, 150)
+		for i := range documents {
+			documents[i] = "w"
+		}
+		documents[0] = map[string]any{"text": "Paris"}
+		topN, returnDocuments := 2, true
+		request := dto.RerankRequest{Model: model, Query: "capital of France", Documents: documents, TopN: &topN, ReturnDocuments: &returnDocuments}
+
+		_, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertRerankRequest(c, info.RelayMode, request) })
+		require.Nil(t, apiErr)
+
+		requests := captured()
+		require.Len(t, requests, 1)
+		assert.Equal(t, "/model/cohere.rerank-v3-5%3A0/invoke", requests[0].path)
+		assert.Equal(t, "capital of France", ojson.GetBytes(requests[0].body, "query").String())
+		assert.Equal(t, "Paris", ojson.GetBytes(requests[0].body, "documents.0").String())
+		assert.EqualValues(t, 150, ojson.GetBytes(requests[0].body, "documents.#").Int())
+		assert.EqualValues(t, 2, ojson.GetBytes(requests[0].body, "top_n").Int())
+		assert.EqualValues(t, 2, ojson.GetBytes(requests[0].body, "api_version").Int())
+		assert.JSONEq(t, `[{"index":0,"relevance_score":0.9,"document":{"text":"Paris"}},{"index":2,"relevance_score":0.1,"document":{"text":"w"}}]`, ojson.GetBytes(recorder.Body.Bytes(), "results").Raw)
+		units, ok := metering.Recorded(c)
+		require.True(t, ok)
+		assert.Equal(t, metering.Units{Generated: 2}, units)
+	})
+
+	refused := map[string]dto.RerankRequest{
+		"no query":                    {Documents: []any{"a"}},
+		"no documents":                {Query: "q"},
+		"over 1000 documents":         {Query: "q", Documents: make([]any, 1001)},
+		"a document that is not text": {Query: "q", Documents: []any{42}},
+		"top_n over the documents":    {Query: "q", Documents: []any{"a"}, TopN: common.GetPointer(2)},
+	}
+	for name, request := range refused {
+		t.Run(name, func(t *testing.T) {
+			_, err := (&Adaptor{}).ConvertRerankRequest(nil, relayconstant.RelayModeRerank, request)
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+			assert.True(t, relaytypes.IsSkipRetryError(apiErr))
+		})
+	}
+	t.Run("a long document is sent as it is: Bedrock splits it", func(t *testing.T) {
+		c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+		_, err := (&Adaptor{}).ConvertRerankRequest(c, relayconstant.RelayModeRerank, dto.RerankRequest{Query: "q", Documents: []any{strings.Repeat("a", 100_000)}})
+		require.NoError(t, err)
+	})
+	t.Run("search units count the chunks of every document with the query", func(t *testing.T) {
+		long := strings.TrimSpace(strings.Repeat("w ", 498))
+		documents := make([]any, 51)
+		for i := range documents {
+			documents[i] = long
+		}
+		c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+		adaptor := &Adaptor{}
+		_, err := adaptor.ConvertRerankRequest(c, relayconstant.RelayModeRerank, dto.RerankRequest{Query: "w w w", Documents: documents})
+		require.NoError(t, err)
+		assert.EqualValues(t, 2, adaptor.rerankPlan.searchUnits, "51 documents of 501 tokens with the query are 102 chunks")
+	})
+}
+
+func TestBedrockStabilityImageEdits(t *testing.T) {
+	const inpaint = "stability.stable-image-inpaint-v1:0"
+	relayImage := func(t *testing.T, c *gin.Context, model string, mode int, request dto.ImageRequest) (*httptest.Server, func() []capturedBedrockRequest, *relaytypes.NewAPIError) {
+		server, captured := startBedrockStub(t, jsonFixture(`{"seeds":[1],"finish_reasons":[null],"images":["aW1hZ2U="]}`))
+		info := newBedrockTestInfo(server, mode, relaytypes.RelayFormatOpenAIImage, model, false)
+		info.ApiKey = "test-api-key|us-east-1"
+		_, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertImageRequest(c, info, request) })
+		return server, captured, apiErr
+	}
+
+	t.Run("multipart: image, mask and the service's own fields, through the us. profile", func(t *testing.T) {
+		var form bytes.Buffer
+		writer := multipart.NewWriter(&form)
+		for name, content := range map[string]string{"image": "img", "mask": "msk"} {
+			part, err := writer.CreateFormFile(name, name+".png")
+			require.NoError(t, err)
+			_, _ = part.Write([]byte(content))
+		}
+		for name, value := range map[string]string{"model": inpaint, "prompt": "a cat", "seed": "7", "negative_prompt": "dog", "output_format": "jpeg", "ignored": "x"} {
+			require.NoError(t, writer.WriteField(name, value))
+		}
+		require.NoError(t, writer.Close())
+		recorder := httptest.NewRecorder()
+		c := newAwsTestContext(recorder, context.Background())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", &form)
+		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+		require.NoError(t, c.Request.ParseMultipartForm(1<<20))
+
+		_, captured, apiErr := relayImage(t, c, inpaint, relayconstant.RelayModeImagesEdits, dto.ImageRequest{Model: inpaint, Prompt: "a cat"})
+		require.Nil(t, apiErr)
+		requests := captured()
+		require.Len(t, requests, 1)
+		assert.Equal(t, "/model/us.stability.stable-image-inpaint-v1%3A0/invoke", requests[0].path)
+		assert.JSONEq(t, `{"prompt":"a cat","image":"aW1n","mask":"bXNr","seed":7,"negative_prompt":"dog","output_format":"jpeg"}`, string(requests[0].body))
+		assert.Equal(t, "aW1hZ2U=", ojson.GetBytes(recorder.Body.Bytes(), "data.0.b64_json").String())
+		units, ok := metering.Recorded(c)
+		require.True(t, ok)
+		assert.Equal(t, metering.Units{Generated: 1}, units)
+	})
+
+	t.Run("JSON: style transfer takes its two images", func(t *testing.T) {
+		const model = "stability.stable-style-transfer-v1:0"
+		recorder := httptest.NewRecorder()
+		c := newAwsTestContext(recorder, context.Background())
+		var request dto.ImageRequest
+		require.NoError(t, common.Unmarshal([]byte(`{"model":"`+model+`","prompt":"","images":[{"image_url":"data:image/png;base64,aW5pdA=="},{"image_url":"c3R5bGU="}],"style_strength":0.5}`), &request))
+
+		_, captured, apiErr := relayImage(t, c, model, relayconstant.RelayModeImagesEdits, request)
+		require.Nil(t, apiErr)
+		assert.JSONEq(t, `{"init_image":"aW5pdA==","style_image":"c3R5bGU=","style_strength":0.5}`, string(captured()[0].body))
+	})
+
+	refused := map[string]struct {
+		model   string
+		mode    int
+		request string
+	}{
+		"text to image":               {inpaint, relayconstant.RelayModeImagesGenerations, `{"prompt":"a cat"}`},
+		"more than one image":         {inpaint, relayconstant.RelayModeImagesEdits, `{"prompt":"a cat","n":2,"image":"aW1n"}`},
+		"a URL answer":                {inpaint, relayconstant.RelayModeImagesEdits, `{"prompt":"a cat","response_format":"url","image":"aW1n"}`},
+		"a linked image":              {inpaint, relayconstant.RelayModeImagesEdits, `{"prompt":"a cat","image":"https://example.com/a.png"}`},
+		"no image":                    {inpaint, relayconstant.RelayModeImagesEdits, `{"prompt":"a cat"}`},
+		"style transfer one":          {"stability.stable-style-transfer-v1:0", relayconstant.RelayModeImagesEdits, `{"prompt":"","image":"aW1n"}`},
+		"a field that is no number":   {inpaint, relayconstant.RelayModeImagesEdits, `{"prompt":"a cat","image":"aW1n","seed":"x"}`},
+		"a model that makes no image": {"amazon.nova-lite-v1:0", relayconstant.RelayModeImagesEdits, `{"prompt":"a cat","image":"aW1n"}`},
+	}
+	for name, test := range refused {
+		t.Run(name, func(t *testing.T) {
+			c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+			var request dto.ImageRequest
+			require.NoError(t, common.Unmarshal([]byte(test.request), &request))
+			_, err := convertStabilityRequest(c, test.mode, test.model, request)
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+		})
+	}
 }
 
 // onDemandRefusal is Bedrock's answer for a model that a region serves only
@@ -1026,4 +1220,152 @@ func TestBedrockInferenceProfiles(t *testing.T) {
 		assert.Equal(t, model, info.UpstreamModelName)
 		assert.Equal(t, "eu."+model, resolveBedrockModelID(9105, model, "eu-west-1"))
 	})
+}
+
+type fakeAsyncInvoker struct {
+	started []*bedrockruntime.StartAsyncInvokeInput
+	region  string
+}
+
+func (f *fakeAsyncInvoker) StartAsyncInvoke(_ context.Context, input *bedrockruntime.StartAsyncInvokeInput, _ ...func(*bedrockruntime.Options)) (*bedrockruntime.StartAsyncInvokeOutput, error) {
+	f.started = append(f.started, input)
+	return &bedrockruntime.StartAsyncInvokeOutput{InvocationArn: aws.String("arn:aws:bedrock:us-east-1:123456789012:async-invoke/inv1")}, nil
+}
+
+func (f *fakeAsyncInvoker) GetAsyncInvoke(context.Context, *bedrockruntime.GetAsyncInvokeInput, ...func(*bedrockruntime.Options)) (*bedrockruntime.GetAsyncInvokeOutput, error) {
+	return &bedrockruntime.GetAsyncInvokeOutput{
+		Status: bedrockruntimeTypes.AsyncInvokeStatusCompleted,
+		OutputDataConfig: &bedrockruntimeTypes.AsyncInvokeOutputDataConfigMemberS3OutputDataConfig{
+			Value: bedrockruntimeTypes.AsyncInvokeS3OutputDataConfig{S3Uri: aws.String("s3://out-bucket/embedding-tasks/embtask-1/inv1")},
+		},
+	}, nil
+}
+
+func TestMarengoEmbeddingTasks(t *testing.T) {
+	const marengo = "twelvelabs.marengo-embed-3-0-v1:0"
+	original := EmbeddingTaskStarted
+	t.Cleanup(func() { EmbeddingTaskStarted = original })
+	var kept []EmbeddingTask
+	EmbeddingTaskStarted = func(_ *gin.Context, _ *relaycommon.RelayInfo, task EmbeddingTask) (any, error) {
+		kept = append(kept, task)
+		return map[string]string{"task_id": task.ID, "status": "SUBMITTED"}, nil
+	}
+
+	t.Run("a video's options become Marengo's asynchronous input", func(t *testing.T) {
+		start, end := 1.5, 9.0
+		plan, err := convertEmbeddingTaskRequest(marengo, dto.EmbeddingRequest{Input: "data:video/mp4;base64,dmlk"}, embeddingTaskRequest{
+			StartSec: &start, EndSec: &end, EmbeddingOption: []string{"visual"}, EmbeddingScope: []string{"clip"},
+			Segmentation: map[string]any{"method": "fixed", "fixed": map[string]any{"durationSec": 6}},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "video", plan.Modality)
+		body, err := common.Marshal(plan.ModelInput)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"inputType":"video","video":{"mediaSource":{"base64String":"dmlk"},"startSec":1.5,"endSec":9,"embeddingOption":["visual"],"embeddingScope":["clip"],"segmentation":{"method":"fixed","fixed":{"durationSec":6}}}}`, string(body))
+	})
+
+	t.Run("a task takes one video or audio of Marengo, within its 4 hours", func(t *testing.T) {
+		start, end, tooLong := 5.0, 5.0, 4*60*60+1.0
+		refused := []struct {
+			model   string
+			request dto.EmbeddingRequest
+			options embeddingTaskRequest
+		}{
+			{marengo, dto.EmbeddingRequest{Input: "a dog"}, embeddingTaskRequest{}},
+			{marengo, dto.EmbeddingRequest{Input: "data:image/png;base64,aW1n"}, embeddingTaskRequest{}},
+			{marengo, dto.EmbeddingRequest{Input: []any{"data:audio/wav;base64,YQ==", "data:audio/wav;base64,Yg=="}}, embeddingTaskRequest{}},
+			{marengo, dto.EmbeddingRequest{Input: "data:audio/wav;base64,YQ=="}, embeddingTaskRequest{StartSec: &start, EndSec: &end}},
+			{marengo, dto.EmbeddingRequest{Input: "data:audio/wav;base64,YQ=="}, embeddingTaskRequest{EndSec: &tooLong}},
+			{"amazon.titan-embed-text-v2:0", dto.EmbeddingRequest{Input: "data:video/mp4;base64,dmlk"}, embeddingTaskRequest{}},
+		}
+		for _, test := range refused {
+			_, err := convertEmbeddingTaskRequest(test.model, test.request, test.options)
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr, "%v", test.request.Input)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+		}
+	})
+
+	t.Run("the submission starts the invocation on the base model with the task role and keeps the task", func(t *testing.T) {
+		t.Setenv(OutputBucketEnv, "out-bucket")
+		invoker := &fakeAsyncInvoker{}
+		originalInvoker := newAsyncInvoker
+		t.Cleanup(func() { newAsyncInvoker = originalInvoker })
+		newAsyncInvoker = func(_ context.Context, region string) (asyncInvoker, error) {
+			invoker.region = region
+			return invoker, nil
+		}
+		recorder := httptest.NewRecorder()
+		c := newAwsTestContext(recorder, context.Background())
+		body := `{"model":"us.` + marengo + `","input":"data:audio/wav;base64,YXVk","embedding_option":["audio"]}`
+		c.Request = httptest.NewRequest(http.MethodPost, EmbeddingTaskPath, strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		unused := httptest.NewServer(http.NotFoundHandler())
+		t.Cleanup(unused.Close)
+		info := newBedrockTestInfo(unused, relayconstant.RelayModeEmbeddings, relaytypes.RelayFormatEmbedding, "us."+marengo, false)
+		info.ApiKey = "test-api-key|us-east-1"
+		info.RequestURLPath = EmbeddingTaskPath
+		var request dto.EmbeddingRequest
+		require.NoError(t, common.Unmarshal([]byte(body), &request))
+
+		usage, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertEmbeddingRequest(c, info, request) })
+		require.Nil(t, apiErr)
+		assert.Zero(t, usage.PromptTokens)
+		require.Len(t, invoker.started, 1)
+		started := invoker.started[0]
+		assert.Equal(t, "us-east-1", invoker.region)
+		assert.Equal(t, marengo, aws.ToString(started.ModelId), "Bedrock starts an invocation on the base model only")
+		taskID := aws.ToString(started.ClientRequestToken)
+		assert.True(t, strings.HasPrefix(taskID, "embtask-"))
+		output := started.OutputDataConfig.(*bedrockruntimeTypes.AsyncInvokeOutputDataConfigMemberS3OutputDataConfig)
+		assert.Equal(t, "s3://out-bucket/embedding-tasks/"+taskID+"/", aws.ToString(output.Value.S3Uri))
+		input, err := started.ModelInput.MarshalSmithyDocument()
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"inputType":"audio","audio":{"mediaSource":{"base64String":"YXVk"},"embeddingOption":["audio"]}}`, string(input))
+		require.Len(t, kept, 1)
+		assert.Equal(t, EmbeddingTask{ID: taskID, Model: "us." + marengo, Modality: "audio", InvocationARN: "arn:aws:bedrock:us-east-1:123456789012:async-invoke/inv1", Region: "us-east-1"}, kept[0])
+		assert.JSONEq(t, `{"task_id":"`+taskID+`","status":"SUBMITTED"}`, recorder.Body.String())
+		_, recorded := metering.Recorded(c)
+		assert.False(t, recorded, "a task's units are reported when it ends")
+	})
+
+	t.Run("a completed task's output is read from where Bedrock wrote it", func(t *testing.T) {
+		originalInvoker, originalReader := newAsyncInvoker, readTaskOutput
+		t.Cleanup(func() { newAsyncInvoker, readTaskOutput = originalInvoker, originalReader })
+		newAsyncInvoker = func(context.Context, string) (asyncInvoker, error) { return &fakeAsyncInvoker{}, nil }
+		var read string
+		readTaskOutput = func(_ context.Context, region, bucket, key string) ([]byte, error) {
+			read = region + " " + bucket + " " + key
+			return []byte(`{"data":[{"embedding":[0.5],"embeddingOption":"visual","embeddingScope":"asset","startSec":0.0,"endSec":4.6},{"embedding":[0.25],"embeddingOption":"visual","embeddingScope":"clip","startSec":0.0,"endSec":4.600000381469727}]}`), nil
+		}
+		state, err := PollEmbeddingTask(context.Background(), EmbeddingTask{InvocationARN: "arn", Region: "us-east-1"})
+		require.NoError(t, err)
+		assert.Equal(t, EmbeddingTaskState{Done: true, OutputURI: "s3://out-bucket/embedding-tasks/embtask-1/inv1"}, state)
+		items, err := EmbeddingTaskOutput(context.Background(), "us-east-1", state.OutputURI)
+		require.NoError(t, err)
+		assert.Equal(t, "us-east-1 out-bucket embedding-tasks/embtask-1/inv1/output.json", read)
+		require.Len(t, items, 2)
+		assert.Equal(t, EmbeddingTaskItem{Object: "embedding", Index: 1, Embedding: []float64{0.25}, EmbeddingOption: "visual", EmbeddingScope: "clip", StartSec: 0, EndSec: 4.600000381469727}, items[1])
+		assert.Equal(t, int64(5), MediaSeconds(items))
+	})
+}
+
+func TestMediaSecondsAreTheSpanRoundedUp(t *testing.T) {
+	span := func(start, end float64) EmbeddingTaskItem { return EmbeddingTaskItem{StartSec: start, EndSec: end} }
+	tests := []struct {
+		name  string
+		items []EmbeddingTaskItem
+		want  int64
+	}{
+		{"no embeddings", nil, 0},
+		{"a whole second", []EmbeddingTaskItem{span(0, 3)}, 3},
+		{"float noise past a whole second is no extra second", []EmbeddingTaskItem{span(0, 3.0000001)}, 3},
+		{"a part of a second is a second", []EmbeddingTaskItem{span(0, 3.4)}, 4},
+		{"clips from start_sec to end_sec", []EmbeddingTaskItem{span(10, 16), span(16, 21.5)}, 12},
+		{"at most 4 hours", []EmbeddingTaskItem{span(0, 1e9)}, 4 * 60 * 60},
+		{"an end before the start is nothing", []EmbeddingTaskItem{span(5, 2)}, 0},
+	}
+	for _, test := range tests {
+		assert.Equal(t, test.want, MediaSeconds(test.items), test.name)
+	}
 }

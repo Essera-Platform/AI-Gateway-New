@@ -148,6 +148,28 @@ type SignInAttempt struct {
 
 func (SignInAttempt) TableName() string { return "essera_sign_in_attempts" }
 
+// EmbeddingTask is a customer's video or audio embedding task (Marengo on Bedrock): whose it is,
+// so only they read it, and its usage event, written to the outbox once when it ends.
+type EmbeddingTask struct {
+	TaskID        string `gorm:"primaryKey;type:varchar(64)"`
+	Model         string `gorm:"type:varchar(200)"`
+	Modality      string `gorm:"type:varchar(16)"` // video or audio
+	InvocationARN string `gorm:"type:varchar(256)"`
+	Region        string `gorm:"type:varchar(32)"`
+	OutputURI     string `gorm:"type:varchar(512)"`
+	CustomerID    string `gorm:"type:varchar(128);index"`
+	EndUserID     string `gorm:"type:varchar(200)"`
+	Status        string `gorm:"type:varchar(16);index"` // new-api's task statuses
+	FailReason    string `gorm:"type:text"`
+	Seconds       int64  // of media Bedrock processed, once it succeeded
+	Event         string `gorm:"type:text"` // usage.recorded as at submission, completed when it ends
+	CreatedAt     time.Time
+	FinishedAt    *time.Time
+	ReportedAt    *time.Time `gorm:"index"`
+}
+
+func (EmbeddingTask) TableName() string { return "essera_embedding_tasks" }
+
 // Migrate creates or updates the Essera tables in the primary database.
 func Migrate() error {
 	// The Gateway's own monthly counters, spend included, gave way to the Console's totals.
@@ -155,5 +177,5 @@ func Migrate() error {
 		return err
 	}
 	return model.DB.AutoMigrate(&ConfigVersion{}, &OutboxEvent{}, &ConsoleTotal{}, &LocalUse{}, &ProviderMinute{}, &RequestStat{}, &ProviderError{},
-		&PersonUser{}, &Key{}, &CognitoSession{}, &SignInAttempt{})
+		&PersonUser{}, &Key{}, &CognitoSession{}, &SignInAttempt{}, &EmbeddingTask{})
 }

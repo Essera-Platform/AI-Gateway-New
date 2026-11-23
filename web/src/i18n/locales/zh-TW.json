@@ -7867,6 +7867,8 @@
     "Long context cache write (1 h)": "長上下文快取寫入（1 小時）",
     "Long context output": "長上下文輸出",
     "Input image": "輸入圖片",
+    "Speech input": "語音輸入",
+    "Speech output": "語音輸出",
     "Charges": "費用明細",
     "Not priced yet": "尚未定價",
     "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "當請求的提示超過模型的長上下文長度時，長上下文價格適用於該請求的所有 token。"

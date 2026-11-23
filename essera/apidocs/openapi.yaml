@@ -47,8 +47,10 @@ info:
 
     Text models answer on `/v1/chat/completions`, `/v1/responses` and `/v1/messages`, whatever their vendor: the
     Gateway converts between the formats. Embedding models (Titan Text Embeddings G1 and v2, Titan Multimodal Embeddings,
-    Cohere Embed) answer on `/v1/embeddings`. Images, audio generation, speech, rerank, realtime sessions, files and
-    fine-tuning are not offered.
+    Cohere Embed, Nova Multimodal Embeddings, TwelveLabs Marengo) answer on `/v1/embeddings`, and Marengo embeds video
+    and audio as tasks on `/v1/embeddings/tasks`. Cohere Rerank answers on `/v1/rerank`, Stability AI's image services
+    on `/v1/images/edits`, and Nova Sonic speaks on the Realtime WebSocket `/v1/realtime`. Image generation, text to
+    speech, transcription, files and fine-tuning are not offered.
 
     ## Limits and billing
 
@@ -198,6 +200,12 @@ tags:
     description: Text generation in the OpenAI and Anthropic formats.
   - name: Embeddings
     description: Vectors for search and retrieval.
+  - name: Rerank
+    description: Documents ordered by relevance to a query.
+  - name: Images
+    description: Image edits.
+  - name: Realtime
+    description: Spoken conversations over a WebSocket.
 paths:
   /v1/models:
     get:
@@ -746,6 +754,255 @@ paths:
               input: "The capital of Ireland is Dublin.",
             });
             console.log(result.data[0].embedding.length);
+
+  /v1/embeddings/tasks:
+    post:
+      operationId: createEmbeddingTask
+      tags: [Embeddings]
+      summary: Start a video or audio embedding task
+      description: |
+        Embeds one video or audio with TwelveLabs Marengo Embed 3.0 (`twelvelabs.marengo-embed-3-0-v1:0`), which takes
+        too long to answer at once: the task runs on the Gateway and you read it with its `task_id`. Give the media in
+        `input` as a base64 data URL (`data:video/mp4;base64,…`, `data:audio/wav;base64,…`); the request body may be up
+        to 25 MB. Texts and images embed with Marengo on `/v1/embeddings`. A task is billed per second of the media
+        processed, from `start_sec` to `end_sec` (the whole media by default), when it ends; a failed task is not billed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingTaskRequest"
+            example:
+              model: twelvelabs.marengo-embed-3-0-v1:0
+              input: data:video/mp4;base64,AAAAIGZ0eXBpc29t…
+              embedding_option: [visual, audio]
+              embedding_scope: [clip, asset]
+      responses:
+        "200":
+          description: The task, started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingTask"
+              example:
+                object: embedding.task
+                task_id: embtask-4NwH7ebSuaGd8mlqSFNdfdAn
+                model: twelvelabs.marengo-embed-3-0-v1:0
+                status: SUBMITTED
+                created_at: 1795442400
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+      x-codeSamples:
+        - lang: Shell
+          label: curl
+          source: |
+            curl https://ai-gateway.example.com/v1/embeddings/tasks \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $ESSERA_API_KEY" \
+              -d "{\"model\": \"twelvelabs.marengo-embed-3-0-v1:0\", \"input\": \"data:video/mp4;base64,$(base64 -w0 clip.mp4)\"}"
+  /v1/embeddings/tasks/{task_id}:
+    get:
+      operationId: getEmbeddingTask
+      tags: [Embeddings]
+      summary: Read an embedding task
+      description: |
+        The task's status: `SUBMITTED`, `IN_PROGRESS`, `SUCCESS` or `FAILURE` with its `fail_reason`. Once it succeeded,
+        `data` holds its embeddings, each for a clip or the whole asset of one kind (`visual`, `audio`,
+        `transcription`), and `usage` the seconds billed. Poll every few seconds. Embeddings are kept for 7 days;
+        after that the task answers 410. Your account reads its tasks; a user reads only their own.
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The task, with its embeddings once it succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingTask"
+              example:
+                object: embedding.task
+                task_id: embtask-4NwH7ebSuaGd8mlqSFNdfdAn
+                model: twelvelabs.marengo-embed-3-0-v1:0
+                status: SUCCESS
+                created_at: 1795442400
+                finished_at: 1795442408
+                data:
+                  - object: embedding
+                    index: 0
+                    embedding: [0.0123, -0.0456, 0.0789]
+                    embedding_option: visual
+                    embedding_scope: clip
+                    start_sec: 0
+                    end_sec: 6.2
+                usage:
+                  input_video_seconds: 7
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          description: No task of yours has this id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "410":
+          description: The task's embeddings have expired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      x-codeSamples:
+        - lang: Shell
+          label: curl
+          source: |
+            curl https://ai-gateway.example.com/v1/embeddings/tasks/embtask-4NwH7ebSuaGd8mlqSFNdfdAn \
+              -H "Authorization: Bearer $ESSERA_API_KEY"
+
+  /v1/rerank:
+    post:
+      operationId: createRerank
+      tags: [Rerank]
+      summary: Rerank documents
+      description: |
+        Orders documents by how relevant they are to a query, with Cohere Rerank 3.5 (`cohere.rerank-v3-5:0`), in the
+        Cohere and Jina format. `documents` takes up to 1000 texts (or `{"text": …}` objects) of any length. Results
+        come best first; `return_documents` adds each document's text. A request is billed in search units: one per
+        100 documents, at least one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [model, query, documents]
+              properties:
+                model:
+                  type: string
+                  examples: [cohere.rerank-v3-5:0]
+                query:
+                  type: string
+                documents:
+                  type: array
+                  maxItems: 1000
+                  items: {}
+                top_n:
+                  type: integer
+                return_documents:
+                  type: boolean
+            example:
+              model: cohere.rerank-v3-5:0
+              query: What is the capital of Ireland?
+              documents: [Dublin is the capital of Ireland., Paris is the capital of France.]
+              top_n: 1
+      responses:
+        "200":
+          description: The documents' indexes and relevance scores, best first.
+          content:
+            application/json:
+              example:
+                results:
+                  - index: 0
+                    relevance_score: 0.98
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/images/edits:
+    post:
+      operationId: createImageEdit
+      tags: [Images]
+      summary: Edit an image
+      description: |
+        Edits an image with one of Stability AI's image services (upscale, inpaint, outpaint, erase object, remove
+        background, search and replace, search and recolor, control sketch and structure, style guide, style
+        transfer), in the OpenAI format, as multipart form data or JSON. Give the image inline (a file, or a base64
+        data URL in JSON) with `prompt` and, where the service takes one, `mask`; the service's own fields, such as
+        `negative_prompt`, `seed` or `output_format`, are passed on. One image per request, returned as
+        `b64_json`, and billed per image made.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [model, image]
+              properties:
+                model:
+                  type: string
+                  examples: [stability.stable-image-inpaint-v1:0]
+                image:
+                  type: string
+                  format: binary
+                mask:
+                  type: string
+                  format: binary
+                prompt:
+                  type: string
+      responses:
+        "200":
+          description: The edited image.
+          content:
+            application/json:
+              example:
+                created: 1795442400
+                data:
+                  - b64_json: iVBORw0KGgo…
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/realtime:
+    get:
+      operationId: openRealtimeSession
+      tags: [Realtime]
+      summary: Open a Realtime speech session
+      description: |
+        Opens a WebSocket in the OpenAI Realtime format with Amazon Nova Sonic (`amazon.nova-2-sonic-v1:0`,
+        `amazon.nova-2-5-sonic`), named in `model`. Send `session.update` first (instructions, voice, tools), then
+        audio with `input_audio_buffer.append` (pcm16 at 24 kHz) or text with `conversation.item.create`; the model
+        detects turns itself and answers with audio, transcripts and function calls as Realtime server events. A
+        session is billed once it ends, in speech tokens and text tokens.
+      parameters:
+        - name: model
+          in: query
+          required: true
+          schema:
+            type: string
+            examples: [amazon.nova-2-sonic-v1:0]
+      responses:
+        "101":
+          description: The WebSocket is open.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
 components:
   securitySchemes:
@@ -1506,3 +1763,87 @@ components:
               type: integer
             total_tokens:
               type: integer
+    EmbeddingTaskRequest:
+      type: object
+      required: [model, input]
+      properties:
+        model:
+          type: string
+          examples: [twelvelabs.marengo-embed-3-0-v1:0]
+        input:
+          type: string
+          description: One video or audio as a base64 data URL.
+        start_sec:
+          type: number
+          description: Where to start in the media, in seconds; 0 by default.
+        end_sec:
+          type: number
+          description: Where to stop, in seconds; the end of the media by default.
+        embedding_option:
+          type: array
+          items:
+            type: string
+            enum: [visual, audio, transcription]
+          description: What to embed; all of them by default (video), or audio and transcription (audio).
+        embedding_scope:
+          type: array
+          items:
+            type: string
+            enum: [clip, asset]
+          description: Embed each clip, the whole asset, or both.
+        embedding_type:
+          type: array
+          items:
+            type: string
+            enum: [separate_embedding, fused_embedding]
+          description: One embedding per kind, or one fused embedding as well.
+        segmentation:
+          type: object
+          description: 'How the media is cut into clips, as Marengo takes it, for example `{"method": "fixed", "fixed": {"durationSec": 6}}` or `{"method": "dynamic", "dynamic": {"minDurationSec": 4}}` (video only).'
+    EmbeddingTask:
+      type: object
+      required: [object, task_id, model, status, created_at]
+      properties:
+        object:
+          type: string
+          const: embedding.task
+        task_id:
+          type: string
+        model:
+          type: string
+        status:
+          type: string
+          enum: [SUBMITTED, IN_PROGRESS, SUCCESS, FAILURE]
+        fail_reason:
+          type: string
+        created_at:
+          type: integer
+        finished_at:
+          type: integer
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              object:
+                type: string
+                const: embedding
+              index:
+                type: integer
+              embedding:
+                type: array
+                items:
+                  type: number
+              embedding_option:
+                type: string
+              embedding_scope:
+                type: string
+              start_sec:
+                type: number
+              end_sec:
+                type: number
+        usage:
+          type: object
+          description: The seconds billed, `input_video_seconds` or `input_audio_seconds`.
+          additionalProperties:
+            type: integer

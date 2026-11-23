@@ -52,6 +52,11 @@ type Event struct {
 	OutputUnits          int64     `json:"output_units"`
 	GeneratedUnits       int64     `json:"generated_units"`
 	InputImageUnits      int64     `json:"input_image_units"`
+	SpeechInputUnits     int64     `json:"speech_input_units"`
+	SpeechOutputUnits    int64     `json:"speech_output_units"`
+	InputTextUnits       int64     `json:"input_text_units,omitempty"`
+	InputVideoSeconds    int64     `json:"input_video_seconds,omitempty"`
+	InputAudioSeconds    int64     `json:"input_audio_seconds,omitempty"`
 	Status               string    `json:"status"`
 	ProviderRef          *string   `json:"provider_ref,omitempty"`
 	CorrelationID        *string   `json:"correlation_id,omitempty"`
@@ -80,6 +85,10 @@ func Finished(c *gin.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIE
 		return
 	}
 	event := build(c, request, info, apiErr, now)
+	if apiErr == nil && c.GetBool(taskAcceptedKey) {
+		stats.Request(now, event.Provider, event.Model, event.Status, event.HTTPStatus, time.Duration(event.LatencyMs)*time.Millisecond, event.Retries)
+		return // reported when the task ends
+	}
 	stats.Request(now, event.Provider, event.Model, event.Status, event.HTTPStatus, time.Duration(event.LatencyMs)*time.Millisecond, event.Retries)
 	if apiErr != nil {
 		stats.ProviderError(now, event.Provider, event.Model, event.HTTPStatus, apiErr.Error())
@@ -130,10 +139,13 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 		category := string(apiErr.GetErrorCode())
 		event.ErrorCategory = &category
 	}
-	if units, ok := metering.Recorded(c); ok {
+	units, metered := metering.Recorded(c)
+	if metered {
 		event.InputUnits, event.OutputUnits = units.Input, units.Output
 		event.CacheReadUnits, event.CacheWriteUnits, event.CacheWrite1hUnits = units.CacheRead, units.CacheWrite, units.CacheWrite1h
-		event.InputImageUnits = units.InputImages
+		event.InputImageUnits, event.InputTextUnits = units.InputImages, units.InputTexts
+		event.GeneratedUnits = units.Generated
+		event.SpeechInputUnits, event.SpeechOutputUnits = units.SpeechInput, units.SpeechOutput
 	} else if consumed, ok := common.GetContextKey(c, constant.ContextKeyConsumeLog); ok {
 		if params, ok := consumed.(*model.RecordConsumeLogParams); ok {
 			event.InputUnits = int64(params.PromptTokens)
@@ -141,14 +153,14 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 		}
 	}
 	if event.Status == "succeeded" {
-		measureGenerated(&event, info)
+		measureGenerated(&event, info, metered)
 	}
 	return event
 }
 
 // tokens is every token of the request, cached or not, as the monthly token limit counts them.
 func (e Event) tokens() int64 {
-	return e.InputUnits + e.CacheReadUnits + e.CacheWriteUnits + e.CacheWrite1hUnits + e.OutputUnits
+	return e.InputUnits + e.CacheReadUnits + e.CacheWriteUnits + e.CacheWrite1hUnits + e.OutputUnits + e.SpeechInputUnits + e.SpeechOutputUnits
 }
 
 // unknownProvider names a channel that cannot be looked up, so its event still reaches the
@@ -170,11 +182,13 @@ func ProviderOf(channelID int) string {
 
 func modalityOf(mode int) string {
 	switch mode {
-	case relayconstant.RelayModeEmbeddings, relayconstant.RelayModeRerank:
+	case relayconstant.RelayModeEmbeddings:
 		return "embedding"
+	case relayconstant.RelayModeRerank:
+		return "rerank"
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
 		return "image"
-	case relayconstant.RelayModeAudioSpeech, relayconstant.RelayModeAudioTranscription, relayconstant.RelayModeAudioTranslation:
+	case relayconstant.RelayModeAudioSpeech, relayconstant.RelayModeAudioTranscription, relayconstant.RelayModeAudioTranslation, relayconstant.RelayModeRealtime:
 		return "audio"
 	}
 	return "text"
@@ -185,14 +199,22 @@ func modalityOf(mode int) string {
 const audioTokensPerMinute = 1000
 
 // measureGenerated turns new-api's counts into the units the Console prices.
-//   - Images: the images actually settled, not the n asked for. new-api writes one prompt token
-//     when the provider reports no usage; that is no token at all.
+//   - Images: the images the provider billed when the adaptor metered them, else the images
+//     actually settled, not the n asked for. new-api writes one prompt token when the provider
+//     reports no usage; that is no token at all.
 //   - Audio: minutes of sound, rounded up, from new-api's per-minute tokens. They are not tokens,
-//     so the token units are cleared.
-func measureGenerated(event *Event, info *relaycommon.RelayInfo) {
+//     so the token units are cleared. A Realtime session keeps the speech and text tokens the
+//     provider billed.
+//   - Rerank: the search units the adaptor metered, as they are.
+func measureGenerated(event *Event, info *relaycommon.RelayInfo, metered bool) {
+	if info.RelayMode == relayconstant.RelayModeRealtime {
+		return
+	}
 	switch event.Modality {
 	case "image":
-		event.GeneratedUnits = imagesSettled(info)
+		if !metered {
+			event.GeneratedUnits = imagesSettled(info)
+		}
 		if event.InputUnits <= 1 && event.OutputUnits == 0 {
 			event.InputUnits = 0
 		}

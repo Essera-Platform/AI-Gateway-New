@@ -1,6 +1,6 @@
 // Essera fork: calls the Bedrock Runtime REST API (Converse, ConverseStream and
-// InvokeModel with each embedding model's native body) over the channel's HTTP
-// client, and maps Bedrock's errors to OpenAI-style statuses.
+// InvokeModel with each embedding, rerank and image model's native body) over
+// the channel's HTTP client, and maps Bedrock's errors to OpenAI-style statuses.
 package aws
 
 import (
@@ -41,6 +41,9 @@ const (
 	routeMantle
 	routeConverse
 	routeEmbedding
+	routeRerank
+	routeImage
+	routeEmbeddingTask
 )
 
 const bedrockInputTokenHeader = "X-Amzn-Bedrock-Input-Token-Count"
@@ -55,7 +58,14 @@ type bedrockReply struct {
 func selectBedrockRoute(info *relaycommon.RelayInfo) bedrockRoute {
 	switch info.RelayMode {
 	case relayconstant.RelayModeEmbeddings:
+		if isEmbeddingTaskPath(info.RequestURLPath) {
+			return routeEmbeddingTask
+		}
 		return routeEmbedding
+	case relayconstant.RelayModeRerank:
+		return routeRerank
+	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
+		return routeImage
 	case relayconstant.RelayModeResponses:
 		return routeConverse
 	}

@@ -57,6 +57,8 @@ const UNIT_LABEL_KEYS: Record<
   cache_write_tokens: { label: 'Cache write (5 min)', ...TOKENS },
   cache_write_1h_tokens: { label: 'Cache write (1 h)', ...TOKENS },
   output_tokens: { label: 'Output', ...TOKENS },
+  speech_input_tokens: { label: 'Speech input', ...TOKENS },
+  speech_output_tokens: { label: 'Speech output', ...TOKENS },
   input_tokens_long: { label: 'Long context input', ...TOKENS },
   cache_read_tokens_long: { label: 'Long context cache read', ...TOKENS },
   cache_write_tokens_long: {

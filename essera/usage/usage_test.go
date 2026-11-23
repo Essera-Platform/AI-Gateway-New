@@ -122,6 +122,20 @@ func TestTheUnitsTheProviderBilledAreReportedApart(t *testing.T) {
 	assert.Equal(t, int64(1065), tokens, "the token limit counts cached tokens too")
 }
 
+func TestSpeechTokensAreReportedApartFromText(t *testing.T) {
+	s := serve(t, "")
+	metering.Record(s.context, metering.Units{Input: 351, Output: 32, SpeechInput: 264, SpeechOutput: 33})
+
+	usage.Finished(s.context, s.info, nil)
+
+	events := queued(t)
+	require.Len(t, events, 1)
+	event := events[0]
+	assert.Equal(t, [4]int64{351, 32, 264, 33}, [4]int64{event.InputUnits, event.OutputUnits, event.SpeechInputUnits, event.SpeechOutputUnits})
+	_, tokens := counted(t, "customer", snapshottest.CustomerID)
+	assert.Equal(t, int64(680), tokens, "the token limit counts speech tokens too")
+}
+
 func TestTheGatewayPricesNothing(t *testing.T) {
 	s := serve(t, "user-1") // the snapshot carries rates for this model
 

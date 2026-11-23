@@ -66,6 +66,37 @@ describe('a request’s charges from the Console', () => {
     })
   })
 
+  it('names a speech model’s speech tokens apart from its text tokens', () => {
+    render(
+      <EsseraCharges
+        charges={[
+          {
+            unit: 'speech_output_tokens',
+            quantity: 33,
+            amount: '0.000396',
+            currency: 'USD',
+          },
+          {
+            unit: 'speech_input_tokens',
+            quantity: 264,
+            amount: '0.000792',
+            currency: 'USD',
+          },
+        ]}
+        total='0.001188'
+        currency='USD'
+      />
+    )
+
+    const input = screen.getByText('Speech input')
+    const output = screen.getByText('Speech output')
+    expect(input.parentElement).toHaveTextContent('264 · 0.000792 USD')
+    expect(output.parentElement).toHaveTextContent('33 · 0.000396 USD')
+    expect(
+      input.compareDocumentPosition(output) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
   it('says a unit the Console has not priced is not priced yet, never a zero', () => {
     render(
       <EsseraCharges

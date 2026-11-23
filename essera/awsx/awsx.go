@@ -36,6 +36,12 @@ func awsConfig(ctx context.Context) (aws.Config, error) {
 	return loaded, loadErr
 }
 
+// Config is the task role's configuration, for the Bedrock calls a provider key cannot make:
+// asynchronous invocations, whose output Bedrock writes to the Gateway's bucket.
+func Config(ctx context.Context) (aws.Config, error) {
+	return awsConfig(ctx)
+}
+
 func s3Client(ctx context.Context) (*s3.Client, error) {
 	cfg, err := awsConfig(ctx)
 	if err != nil {
@@ -213,4 +219,16 @@ func Credentials(ctx context.Context) (aws.Credentials, string, error) {
 	}
 	credentials, err := cfg.Credentials.Retrieve(ctx)
 	return credentials, cfg.Region, err
+}
+
+// CredentialsProvider is the task role's credentials, refreshed as they expire.
+func CredentialsProvider(ctx context.Context) (aws.CredentialsProvider, error) {
+	cfg, err := awsConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Credentials == nil {
+		return nil, errors.New("no AWS credentials")
+	}
+	return cfg.Credentials, nil
 }

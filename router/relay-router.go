@@ -1,3 +1,4 @@
+// Modified by Essera, 2026-11: POST /v1/embeddings/tasks and GET /v1/embeddings/tasks/:task_id.
 package router
 
 import (
@@ -5,6 +6,7 @@ import (
 
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/controller"
+	"github.com/QuantumNous/new-api/essera/embeddingtasks"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/relay"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -78,6 +80,7 @@ func SetRelayRouter(router *gin.Engine) {
 		// Responses WebSocket route. Channel selection happens after the first
 		// response.create event; each event runs the ordinary request limiter.
 		relayV1Router.GET("/responses", controller.ResponsesWebSocket)
+		relayV1Router.GET("/embeddings/tasks/:task_id", embeddingtasks.Get) // Modified by Essera, 2026-11
 	}
 	relayV1Router.Use(middleware.ModelRequestRateLimit())
 	{
@@ -135,6 +138,10 @@ func SetRelayRouter(router *gin.Engine) {
 
 		// embedding related routes
 		httpRouter.POST("/embeddings", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatEmbedding)
+		})
+		// Modified by Essera, 2026-11: video and audio embeddings as a task (essera/embeddingtasks).
+		httpRouter.POST("/embeddings/tasks", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatEmbedding)
 		})
 
