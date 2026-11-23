@@ -17,10 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 // Modified by Essera, 2026-11: the design's page header and the chat framed in a card.
-// Modified by Essera, 2026-11: the parameters offered and sent follow the selected model.
+// Modified by Essera, 2026-11: the parameters offered and sent follow the selected model;
+// a model AWS could not serve lately is noted in the model picker.
 import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { withAvailabilityNotes } from '@/features/essera/model-availability'
 import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
 
@@ -60,6 +62,15 @@ export function Playground() {
   const parameterSupport = useMemo(
     () => modelParameterSupport(pricedModels, config.model, managed),
     [pricedModels, config.model, managed]
+  )
+  const modelOptions = useMemo(
+    () =>
+      withAvailabilityNotes(
+        models,
+        pricedModels,
+        t('Temporarily unavailable at AWS')
+      ),
+    [models, pricedModels, t]
   )
   const sentParameters = useMemo(
     () => effectiveParameterEnabled(parameterEnabled, parameterSupport),
@@ -152,7 +163,7 @@ export function Playground() {
             isGenerating={isGenerating}
             isModelLoading={isLoadingModels}
             modelValue={config.model}
-            models={models}
+            models={modelOptions}
             onGroupChange={(value) => updateConfig('group', value)}
             onConfigChange={updateConfig}
             onClearMessages={handleClearMessages}

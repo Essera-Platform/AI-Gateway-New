@@ -51,6 +51,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EsseraModelMetricsLine } from '@/features/essera/model-metrics'
 import { EsseraModelPrices } from '@/features/essera/model-square'
 import { esseraModelTypeLabel } from '@/features/essera/model-square-format'
+import { EsseraUnavailableBadge } from '@/features/essera/model-unavailable-badge'
 import { getPerfMetrics } from '@/features/performance-metrics/api'
 import {
   formatLatency,
@@ -282,14 +283,21 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
     enabled: !props.model.essera, // Modified by Essera, 2026-11
   })
 
-  // Modified by Essera, 2026-11: a managed gateway shows the Console's measurements, or none.
+  // Modified by Essera, 2026-11: a managed gateway shows the Console's measurements, or none,
+  // and above them whether AWS could serve the model lately.
   if (props.model.essera) {
-    if (!props.model.essera.metrics) return null
+    const unavailable = props.model.essera.temporarilyUnavailable && (
+      <EsseraUnavailableBadge />
+    )
+    if (!props.model.essera.metrics) return unavailable || null
     return (
-      <EsseraModelMetricsLine
-        metrics={props.model.essera.metrics}
-        className='bg-muted/20 rounded-lg border px-4 py-3'
-      />
+      <>
+        {unavailable}
+        <EsseraModelMetricsLine
+          metrics={props.model.essera.metrics}
+          className='bg-muted/20 rounded-lg border px-4 py-3'
+        />
+      </>
     )
   }
 

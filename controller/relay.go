@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	taskdto "github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/essera/availability"
 	"github.com/QuantumNous/new-api/essera/providerlimits"
 	"github.com/QuantumNous/new-api/essera/usage"
 	"github.com/QuantumNous/new-api/i18n"
@@ -260,6 +261,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 		finishReply()
 
+		availability.Record(relayInfo.OriginModelName, newAPIError) // Modified by Essera, 2026-11
 		if newAPIError == nil {
 			service.MarkRequestPolicySuccess(c, relayInfo.StreamStatus)
 			relayInfo.LastError = nil

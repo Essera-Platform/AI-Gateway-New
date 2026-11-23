@@ -42,6 +42,7 @@ export type EsseraModelInfo = {
   modelType: string
   prices: EsseraPrice[]
   metrics?: EsseraModelMetrics | undefined
+  temporarilyUnavailable?: boolean
 }
 
 const TOKENS = { one: 'token', many: '{{count}} tokens' }

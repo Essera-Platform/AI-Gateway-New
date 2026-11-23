@@ -7878,6 +7878,8 @@
     "Video input": "Видеоввод",
     "Search unit": "Поисковая единица",
     "search unit": "поисковая единица",
-    "{{count}} search units": "{{count}} поисковых единиц"
+    "{{count}} search units": "{{count}} поисковых единиц",
+    "Temporarily unavailable at AWS": "Временно недоступна в AWS",
+    "Recent requests for this model failed because AWS could not process them. You can still try it.": "Последние запросы к этой модели завершились ошибкой: AWS не смог их обработать. Вы всё равно можете попробовать."
   }
 }

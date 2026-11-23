@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: messages carry attachments; content parts include files.
+// Modified by Essera, 2026-11: messages carry attachments; content parts include files;
+// a model option may carry a note such as AWS being unable to serve it lately.
 import type { MessageAttachment } from '@/features/essera/playground/attachments'
 
 // Message types
@@ -151,6 +152,7 @@ export interface ParameterEnabled {
 export interface ModelOption {
   label: string
   value: string
+  note?: string
 }
 
 export interface GroupOption {

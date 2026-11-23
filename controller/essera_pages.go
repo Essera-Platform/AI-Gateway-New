@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/essera/availability"
 	"github.com/QuantumNous/new-api/essera/configsync"
 	"github.com/QuantumNous/new-api/essera/consoleapi"
 	"github.com/QuantumNous/new-api/essera/identity"
@@ -562,6 +563,9 @@ type esseraPricing struct {
 	ModelType     string                  `json:"model_type"`
 	EsseraPrices  []consoleapi.Price      `json:"essera_prices,omitempty"`
 	EsseraMetrics *consoleapi.ModelMetric `json:"essera_metrics,omitempty"`
+	// TemporarilyUnavailable: this Gateway's recent calls of the model all failed
+	// because AWS could not serve it (essera/availability).
+	TemporarilyUnavailable bool `json:"temporarily_unavailable,omitempty"`
 	modelparams.Params
 }
 
@@ -629,6 +633,8 @@ func esseraPricingList(c *gin.Context) {
 					EsseraPrices:  byModel[provider.Key+"/"+providerModel.Key],
 					EsseraMetrics: metricsOf[provider.Key+"/"+providerModel.Key],
 					Params:        modelparams.Of(providerModel.Key, providerModel.Modality),
+
+					TemporarilyUnavailable: availability.TemporarilyUnavailable(providerModel.Key),
 				})
 			}
 			if len(models) > listed {

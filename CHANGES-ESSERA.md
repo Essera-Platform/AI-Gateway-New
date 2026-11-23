@@ -417,7 +417,17 @@ The Console's usage reads carry `units`, every unit it measured by the name its 
 ## Model availability (2026-11)
 
 - **Playground history:** a reply that failed is shown as an error but never sent back to a model as an assistant turn, and neither is the prompt it failed to answer, so the next request carries only the exchanges a model answered. Regenerating the failed reply sends its prompt again.
+- **No retries of a model AWS cannot serve:** Bedrock's `ServiceUnavailableException` ("Bedrock is unable to process your request", 503 `service_unavailable`) is not retried by the AWS SDK on Claude's InvokeModel path, where it used to be called three times per attempt, and the relay retries it only when a channel the request has not tried yet serves the model (same group, same channel filters); otherwise the client gets the error after one attempt. Throttling, timeouts and other 5xx keep their retries.
+- **Temporarily unavailable models (`essera/availability`):** each instance notes, per model, the attempts that failed with that error since the model's last success. Two of them within ten minutes mark the model for five minutes after the last; a success clears it, other failures neither count nor clear. Requests are still sent to Bedrock. The managed `/api/pricing` gives a marked model `temporarily_unavailable: true`; the Model Square card and details show "Temporarily unavailable at AWS", and the Playground's model picker shows it under the model's name. The model stays listed and selectable.
 
 | File | Change |
 | --- | --- |
 | `web/src/features/playground/lib/streaming/payload-builder.ts` | A failed exchange is left out of `messages` |
+| `relay/channel/aws/relay-aws.go`, `essera_runtime.go` | The SDK client's retryer leaves out `ServiceUnavailableException` |
+| `service/relay_error.go` | The retry decision stops on that error when no untried channel serves the model |
+| `model/essera_channel_candidates.go` (new) | `HasUntriedChannel`, from the channel cache or the abilities table |
+| `controller/relay.go` | Each attempt's outcome reaches `essera/availability` |
+| `controller/essera_pages.go` | `temporarily_unavailable` on the Model Square's models |
+| `web/src/features/essera/model-availability.ts`, `model-unavailable-badge.tsx` (new), `model-square-card.tsx`, `model-square-format.ts`, `web/src/features/pricing/components/model-details.tsx`, `hooks/use-pricing-data.ts`, `types.ts` | The note on the card and in the details |
+| `web/src/components/model-group-selector.tsx`, `web/src/features/playground/index.tsx`, `types.ts` | A model option's note in the Playground's picker |
+| `web/src/i18n/locales/*.json` | The note's texts |

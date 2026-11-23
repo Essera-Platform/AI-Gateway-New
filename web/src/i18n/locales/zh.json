@@ -7984,6 +7984,8 @@
     "Video input": "视频输入",
     "Search unit": "搜索单位",
     "search unit": "搜索单位",
-    "{{count}} search units": "{{count}} 搜索单位"
+    "{{count}} search units": "{{count}} 搜索单位",
+    "Temporarily unavailable at AWS": "AWS 暂时无法提供此模型",
+    "Recent requests for this model failed because AWS could not process them. You can still try it.": "此模型最近的请求均因 AWS 无法处理而失败。您仍可以尝试调用。"
   }
 }

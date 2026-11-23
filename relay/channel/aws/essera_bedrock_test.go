@@ -35,6 +35,7 @@ import (
 	"github.com/MoeForge/moego/ojson"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
@@ -721,6 +722,35 @@ func TestBedrockErrorsKeepTheirMeaning(t *testing.T) {
 		apiErr := newAwsInvokeError(context.Background(), err, "InvokeModel")
 		assert.Equal(t, http.StatusTooManyRequests, apiErr.StatusCode)
 		assert.Equal(t, "rate_limit_exceeded", string(apiErr.GetErrorCode()))
+	})
+
+	t.Run("the SDK calls an unavailable model once and keeps retrying throttling", func(t *testing.T) {
+		for _, test := range []struct {
+			exception string
+			status    int
+			wantCalls int
+		}{
+			{exception: "ServiceUnavailableException", status: http.StatusServiceUnavailable, wantCalls: 1},
+			{exception: "ThrottlingException", status: http.StatusTooManyRequests, wantCalls: 3},
+		} {
+			calls := 0
+			client := bedrockruntime.New(bedrockruntime.Options{
+				Region:       "us-east-1",
+				BaseEndpoint: aws.String("https://bedrock.test"),
+				Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("access-key", "secret-key", "")),
+				Retryer:      retry.AddWithMaxBackoffDelay(bedrockSDKRetryer(), time.Millisecond),
+				HTTPClient: awsHTTPClientFunc(func(request *http.Request) (*http.Response, error) {
+					calls++
+					header := http.Header{"Content-Type": {"application/json"}, "X-Amzn-Errortype": {test.exception}}
+					return &http.Response{StatusCode: test.status, Header: header, Body: io.NopCloser(strings.NewReader(`{"message":"Bedrock is unable to process your request."}`)), Request: request}, nil
+				}),
+			})
+			_, err := client.InvokeModel(context.Background(), &bedrockruntime.InvokeModelInput{ModelId: aws.String("anthropic.claude-fable-5"), Body: []byte(`{}`)})
+			require.Error(t, err)
+			assert.Equal(t, test.wantCalls, calls, test.exception)
+			apiErr := newAwsInvokeError(context.Background(), err, "InvokeModel")
+			assert.Equal(t, test.status, apiErr.StatusCode, test.exception)
+		}
 	})
 }
 
