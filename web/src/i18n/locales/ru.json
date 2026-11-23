@@ -7867,6 +7867,8 @@
     "Long context cache write (1 h)": "Запись в кэш с длинным контекстом (1 ч)",
     "Long context output": "Вывод с длинным контекстом",
     "Input image": "Входное изображение",
+    "Speech input": "Речевой ввод",
+    "Speech output": "Речевой вывод",
     "Charges": "Начисления",
     "Not priced yet": "Ещё не оценено",
     "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Цены с длинным контекстом применяются ко всем токенам запроса, промпт которого длиннее порога длинного контекста модели."

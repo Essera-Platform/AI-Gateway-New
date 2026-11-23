@@ -29,6 +29,8 @@ func TestGeneratedUnitsAreWhatTheConsolePrices(t *testing.T) {
 			relaycommon.RelayInfo{RelayMode: relayconstant.RelayModeAudioTranscription}, false, 0, 0, 2},
 		{"speech's output minutes", Event{Modality: "audio", OutputUnits: 1000},
 			relaycommon.RelayInfo{RelayMode: relayconstant.RelayModeAudioSpeech}, false, 0, 0, 1},
+		{"a Realtime session keeps the text tokens the provider billed", Event{Modality: "audio", InputUnits: 351, OutputUnits: 32},
+			relaycommon.RelayInfo{RelayMode: relayconstant.RelayModeRealtime}, false, 351, 32, 0},
 		{"text is left alone", Event{Modality: "text", InputUnits: 10, OutputUnits: 5},
 			relaycommon.RelayInfo{}, false, 10, 5, 0},
 	}

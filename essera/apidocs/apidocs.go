@@ -194,7 +194,8 @@ func Spec(serverAddress string, available []string, language string) ([]byte, er
 }
 
 // exampleModels picks the models the examples name: the example models when the reader may
-// call them, else the first chat and the first embedding model they may call.
+// call them, else the first chat and the first embedding model they may call. Nova Sonic
+// speaks only through the Realtime API, so it never names a chat example.
 func exampleModels(available []string) (chat, embedding string) {
 	chat, embedding = ExampleChatModel, ExampleEmbeddingModel
 	if len(available) == 0 {
@@ -202,7 +203,7 @@ func exampleModels(available []string) (chat, embedding string) {
 	}
 	sorted := slices.Sorted(slices.Values(available))
 	if !slices.Contains(sorted, ExampleChatModel) {
-		if i := slices.IndexFunc(sorted, func(model string) bool { return !isEmbeddingModel(model) }); i >= 0 {
+		if i := slices.IndexFunc(sorted, func(model string) bool { return !isEmbeddingModel(model) && !strings.Contains(model, "sonic") }); i >= 0 {
 			chat = sorted[i]
 		}
 	}

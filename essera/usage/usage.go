@@ -52,6 +52,8 @@ type Event struct {
 	OutputUnits          int64     `json:"output_units"`
 	GeneratedUnits       int64     `json:"generated_units"`
 	InputImageUnits      int64     `json:"input_image_units"`
+	SpeechInputUnits     int64     `json:"speech_input_units"`
+	SpeechOutputUnits    int64     `json:"speech_output_units"`
 	Status               string    `json:"status"`
 	ProviderRef          *string   `json:"provider_ref,omitempty"`
 	CorrelationID        *string   `json:"correlation_id,omitempty"`
@@ -136,6 +138,7 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 		event.CacheReadUnits, event.CacheWriteUnits, event.CacheWrite1hUnits = units.CacheRead, units.CacheWrite, units.CacheWrite1h
 		event.InputImageUnits = units.InputImages
 		event.GeneratedUnits = units.Generated
+		event.SpeechInputUnits, event.SpeechOutputUnits = units.SpeechInput, units.SpeechOutput
 	} else if consumed, ok := common.GetContextKey(c, constant.ContextKeyConsumeLog); ok {
 		if params, ok := consumed.(*model.RecordConsumeLogParams); ok {
 			event.InputUnits = int64(params.PromptTokens)
@@ -150,7 +153,7 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 
 // tokens is every token of the request, cached or not, as the monthly token limit counts them.
 func (e Event) tokens() int64 {
-	return e.InputUnits + e.CacheReadUnits + e.CacheWriteUnits + e.CacheWrite1hUnits + e.OutputUnits
+	return e.InputUnits + e.CacheReadUnits + e.CacheWriteUnits + e.CacheWrite1hUnits + e.OutputUnits + e.SpeechInputUnits + e.SpeechOutputUnits
 }
 
 // unknownProvider names a channel that cannot be looked up, so its event still reaches the
@@ -178,7 +181,7 @@ func modalityOf(mode int) string {
 		return "rerank"
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
 		return "image"
-	case relayconstant.RelayModeAudioSpeech, relayconstant.RelayModeAudioTranscription, relayconstant.RelayModeAudioTranslation:
+	case relayconstant.RelayModeAudioSpeech, relayconstant.RelayModeAudioTranscription, relayconstant.RelayModeAudioTranslation, relayconstant.RelayModeRealtime:
 		return "audio"
 	}
 	return "text"
@@ -193,9 +196,13 @@ const audioTokensPerMinute = 1000
 //     actually settled, not the n asked for. new-api writes one prompt token when the provider
 //     reports no usage; that is no token at all.
 //   - Audio: minutes of sound, rounded up, from new-api's per-minute tokens. They are not tokens,
-//     so the token units are cleared.
+//     so the token units are cleared. A Realtime session keeps the speech and text tokens the
+//     provider billed.
 //   - Rerank: the search units the adaptor metered, as they are.
 func measureGenerated(event *Event, info *relaycommon.RelayInfo, metered bool) {
+	if info.RelayMode == relayconstant.RelayModeRealtime {
+		return
+	}
 	switch event.Modality {
 	case "image":
 		if !metered {

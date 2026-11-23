@@ -122,7 +122,8 @@ func TestCustomerRequestAllowed(t *testing.T) {
 		assert.False(t, CustomerRequestAllowed(http.MethodPost, path), "%s: %s", path, why)
 	}
 	assert.False(t, CustomerRequestAllowed(http.MethodGet, "/v1/responses"), "a GET opens a WebSocket whose calls are not accounted for")
-	assert.False(t, CustomerRequestAllowed(http.MethodGet, "/v1/realtime"), "realtime: no such model in the Console's region")
+	assert.True(t, CustomerRequestAllowed(http.MethodGet, "/v1/realtime"), "a speech model's Realtime session, one usage event")
+	assert.False(t, CustomerRequestAllowed(http.MethodPost, "/v1/realtime"), "a Realtime session opens with a GET")
 	assert.False(t, CustomerRequestAllowed(http.MethodGet, "/v1beta/models"), "Gemini's model list")
 	assert.False(t, CustomerRequestAllowed(http.MethodGet, "/v1/dashboard/billing/usage"), "new-api's balance; the Console bills")
 	assert.False(t, CustomerRequestAllowed(http.MethodDelete, "/v1/models/gpt-4o"))

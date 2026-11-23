@@ -1,7 +1,7 @@
 // Modified by Essera, 2026-11: every Bedrock model through Converse and ConverseStream,
 // /v1/responses, embeddings, rerank, Stability image edits, Bedrock error mapping and the
-// inference profile retry (see essera_*.go), and the units Bedrock billed recorded for the
-// Console (essera/metering).
+// inference profile retry (see essera_*.go), the units Bedrock billed recorded for the Console
+// (essera/metering), and Nova Sonic through the Realtime API (essera_sonic.go).
 package aws
 
 import (
@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -38,6 +39,7 @@ type Adaptor struct {
 	encodingFormat string
 	rerankPlan     *rerankPlan
 	generated      int64
+	sonicOpen      sonicOpener
 }
 
 func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeminiChatRequest) (any, error) {
@@ -195,6 +197,9 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 	default:
 		return nil, errors.New("invalid AWS API type")
 	}
+	if info.RelayMode == relayconstant.RelayModeRealtime {
+		return nil, a.prepareSonic(c, info) // Modified by Essera, 2026-11
+	}
 	// Modified by Essera, 2026-11: Converse and embeddings use the Bedrock
 	// Runtime REST API; Claude keeps InvokeModel through the SDK, or Mantle.
 	a.route = selectBedrockRoute(info)
@@ -295,6 +300,9 @@ func (a *Adaptor) doRuntimeRequest(c *gin.Context, info *relaycommon.RelayInfo, 
 
 // DoResponse records the units Bedrock billed for the answer. Modified by Essera, 2026-11.
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
+	if info.RelayMode == relayconstant.RelayModeRealtime {
+		return a.serveSonic(c, info)
+	}
 	usage, err = a.doResponse(c, resp, info)
 	if settled, ok := usage.(*dto.Usage); ok && err == nil {
 		units := metering.FromUsage(settled)
