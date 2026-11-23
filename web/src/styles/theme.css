@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 /* Modified by Essera, 2026-11: the Essera palette (emerald on slate) in Light and Dark,
  * Plus Jakarta Sans for the interface, JetBrains Mono for figures and code, and the
  * designs' radius scale (4, 6, 8, 12, 16 and 24px). */
+/* Modified by Essera, 2026-11: Chinese system fonts after Plus Jakarta Sans and JetBrains Mono, which have no CJK glyphs. */
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -120,10 +121,12 @@ For commercial licensing, please contact support@quantumnous.com
    * preference. Explicit Sans selects Public Sans in theme-presets.css. */
   --font-ui-sans:
     'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, -apple-system,
-    'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    'Segoe UI', Roboto, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', sans-serif;
   --font-ui-mono:
     'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular,
-    Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+    Menlo, Monaco, Consolas, 'Liberation Mono', 'PingFang SC', 'Microsoft YaHei',
+    'Noto Sans SC', 'Noto Sans CJK SC', monospace;
   --font-body: var(--font-ui-sans);
   --background: #f8fafc;
   --foreground: #0f172a;

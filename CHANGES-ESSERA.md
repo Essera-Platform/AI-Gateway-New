@@ -301,6 +301,7 @@ A managed gateway offers two interface languages, English (the default) and Simp
 | `web/src/features/profile/index.tsx`, `web/src/features/auth/hooks/use-auth-redirect.ts` | Comments only: the language is the browser's choice, not the account's |
 | `web/src/i18n/locales/en.json`, `web/src/i18n/locales/zh.json` | 89 interface strings that had no Chinese now have it (31 of them sat outside `en.json`'s `translation` block and are moved into it), with the gateway messages that reach the console and the usage logs; the Console is "Essera 运营控制台" throughout |
 | `web/src/features/essera/legal/open-source-notices.tsx` | The AGPLv3 §7(b) sentence "Frontend design and development by New API contributors." stays in English in every language; in Chinese a gloss follows it |
+| `web/src/styles/theme.css` | The interface and figure fonts fall back to the Chinese system fonts (PingFang SC, Microsoft YaHei, Noto Sans SC) |
 | `web/src/features/dashboard/index.tsx` | A duplicate import removed |
 | `web/scripts/essera-zh-gaps.mjs` | Lists the strings the Chinese locale lacks: `en.json` keys, `t('…')` keys and `labelKey`-style constants in `src/` (`node scripts/essera-zh-gaps.mjs`, exits 1 on a gap) |
 
