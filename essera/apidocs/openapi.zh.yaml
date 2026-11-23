@@ -48,8 +48,10 @@
 
     Text models answer on `/v1/chat/completions`, `/v1/responses` and `/v1/messages`, whatever their vendor: the
     Gateway converts between the formats. Embedding models (Titan Text Embeddings G1 and v2, Titan Multimodal Embeddings,
-    Cohere Embed) answer on `/v1/embeddings`. Images, audio generation, speech, rerank, realtime sessions, files and
-    fine-tuning are not offered.
+    Cohere Embed, Nova Multimodal Embeddings, TwelveLabs Marengo) answer on `/v1/embeddings`, and Marengo embeds video
+    and audio as tasks on `/v1/embeddings/tasks`. Cohere Rerank answers on `/v1/rerank`, Stability AI's image services
+    on `/v1/images/edits`, and Nova Sonic speaks on the Realtime WebSocket `/v1/realtime`. Image generation, text to
+    speech, transcription, files and fine-tuning are not offered.
 
     ## Limits and billing
 
@@ -228,7 +230,10 @@
 
     文本模型无论来自哪家厂商，都可通过 `/v1/chat/completions`、`/v1/responses` 和 `/v1/messages` 调用：
     网关会在这些格式之间进行转换。嵌入模型（Titan Text Embeddings G1 和 v2、Titan Multimodal Embeddings、
-    Cohere Embed）通过 `/v1/embeddings` 调用。不提供图像、音频生成、语音、重排序（rerank）、实时会话、文件和微调。
+    Cohere Embed、Nova Multimodal Embeddings、TwelveLabs Marengo）通过 `/v1/embeddings` 调用，Marengo 还可通过
+    `/v1/embeddings/tasks` 以任务方式为视频和音频生成嵌入。Cohere Rerank 通过 `/v1/rerank` 调用，Stability AI
+    的图像服务通过 `/v1/images/edits` 调用，Nova Sonic 通过实时 WebSocket `/v1/realtime` 进行语音对话。
+    不提供图像生成、文本转语音、语音转写、文件和微调。
 
     ## 限额与计费
 
@@ -638,3 +643,59 @@
   zh: '媒体切分为片段的方式，按 Marengo 的格式，例如 `{"method": "fixed", "fixed": {"durationSec": 6}}` 或 `{"method": "dynamic", "dynamic": {"minDurationSec": 4}}`（仅视频）。'
 - en: "The seconds billed, `input_video_seconds` or `input_audio_seconds`."
   zh: "计费的秒数，`input_video_seconds` 或 `input_audio_seconds`。"
+- en: "Rerank"
+  zh: "重排序"
+- en: "Images"
+  zh: "图像"
+- en: "Realtime"
+  zh: "实时"
+- en: "Documents ordered by relevance to a query."
+  zh: "按与查询的相关性排序的文档。"
+- en: "Image edits."
+  zh: "图像编辑。"
+- en: "Spoken conversations over a WebSocket."
+  zh: "通过 WebSocket 进行的语音对话。"
+- en: "Rerank documents"
+  zh: "对文档重排序"
+- en: "The documents' indexes and relevance scores, best first."
+  zh: "文档的索引和相关性分数，按相关性从高到低排列。"
+- en: "Edit an image"
+  zh: "编辑图像"
+- en: "The edited image."
+  zh: "编辑后的图像。"
+- en: "Open a Realtime speech session"
+  zh: "打开实时语音会话"
+- en: "The WebSocket is open."
+  zh: "WebSocket 已打开。"
+- en: |
+    Orders documents by how relevant they are to a query, with Cohere Rerank 3.5 (`cohere.rerank-v3-5:0`), in the
+    Cohere and Jina format. `documents` takes up to 1000 texts (or `{"text": …}` objects) of any length. Results
+    come best first; `return_documents` adds each document's text. A request is billed in search units: one per
+    100 documents, at least one.
+  zh: |
+    使用 Cohere Rerank 3.5（`cohere.rerank-v3-5:0`）按与查询的相关性对文档排序，采用 Cohere 和 Jina 格式。
+    `documents` 最多接受 1000 个任意长度的文本（或 `{"text": …}` 对象）。结果按相关性从高到低返回；`return_documents`
+    会附上每个文档的文本。请求按搜索单元计费：每 100 个文档一个，至少一个。
+- en: |
+    Edits an image with one of Stability AI's image services (upscale, inpaint, outpaint, erase object, remove
+    background, search and replace, search and recolor, control sketch and structure, style guide, style
+    transfer), in the OpenAI format, as multipart form data or JSON. Give the image inline (a file, or a base64
+    data URL in JSON) with `prompt` and, where the service takes one, `mask`; the service's own fields, such as
+    `negative_prompt`, `seed` or `output_format`, are passed on. One image per request, returned as
+    `b64_json`, and billed per image made.
+  zh: |
+    使用 Stability AI 的一项图像服务编辑图像（放大、局部重绘、扩图、擦除对象、移除背景、搜索并替换、搜索并重新着色、
+    草图控制和结构控制、风格引导、风格迁移），采用 OpenAI 格式，以 multipart 表单数据或 JSON 提交。请以内联方式提供图像
+    （文件，或 JSON 中的 base64 data URL），并附上 `prompt`，以及服务需要时的 `mask`；服务自有的字段，例如
+    `negative_prompt`、`seed` 或 `output_format`，会原样传递。每个请求生成一张图像，以 `b64_json` 返回，按生成的图像计费。
+- en: |
+    Opens a WebSocket in the OpenAI Realtime format with Amazon Nova Sonic (`amazon.nova-2-sonic-v1:0`,
+    `amazon.nova-2-5-sonic`), named in `model`. Send `session.update` first (instructions, voice, tools), then
+    audio with `input_audio_buffer.append` (pcm16 at 24 kHz) or text with `conversation.item.create`; the model
+    detects turns itself and answers with audio, transcripts and function calls as Realtime server events. A
+    session is billed once it ends, in speech tokens and text tokens.
+  zh: |
+    以 OpenAI Realtime 格式打开与 Amazon Nova Sonic（`amazon.nova-2-sonic-v1:0`、`amazon.nova-2-5-sonic`）的
+    WebSocket，模型在 `model` 中指定。请先发送 `session.update`（指令、声音、工具），再通过 `input_audio_buffer.append`
+    发送音频（24 kHz 的 pcm16），或通过 `conversation.item.create` 发送文本；模型会自行检测轮次，并以 Realtime 服务器事件
+    返回音频、转录文本和函数调用。会话结束时按语音 Token 和文本 Token 计费。
