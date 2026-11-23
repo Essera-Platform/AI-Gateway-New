@@ -20,148 +20,149 @@ import type {
   EsseraModelInfo,
   EsseraModelMetrics,
   EsseraPrice,
-} from '@/features/essera/model-square-format'
+} from "@/features/essera/model-square-format";
 
 // ----------------------------------------------------------------------------
 // Pricing Types
 // ----------------------------------------------------------------------------
 
 export type PricingVendor = {
-  id: number
-  name: string
-  icon?: string
-  description?: string
-}
+  id: number;
+  name: string;
+  icon?: string;
+  description?: string;
+};
 
-export type BillingUsageUnit = 'second' | 'count' | 'token' | 'credit'
+export type BillingUsageUnit = "second" | "count" | "token" | "credit";
 
 export type BillingUsageFieldSchema = {
-  type?: 'number' | 'boolean'
-  unit?: BillingUsageUnit
-  unitLabel?: string | Record<string, string>
-  enum?: string[]
-  enumLabels?: Record<string, string | Record<string, string>>
-  description?: string | Record<string, string>
-}
+  type?: "number" | "boolean";
+  unit?: BillingUsageUnit;
+  unitLabel?: string | Record<string, string>;
+  enum?: string[];
+  enumLabels?: Record<string, string | Record<string, string>>;
+  description?: string | Record<string, string>;
+};
 
-export type BillingUsageSchema = Record<string, BillingUsageFieldSchema>
+export type BillingUsageSchema = Record<string, BillingUsageFieldSchema>;
 
 export type BillingUsageExample = {
-  label: string
-  facts: Record<string, string | number>
-}
+  label: string;
+  facts: Record<string, string | number>;
+};
 
 export type BillingPluginVariant = {
-  plugin_key: string
-  plugin_name: string
-  icon?: string
-  billing_expr: string
-  billing_mode?: 'ratio' | 'tiered_expr'
-  billing_usage_schema: BillingUsageSchema
-  billing_usage_examples?: BillingUsageExample[]
-}
+  plugin_key: string;
+  plugin_name: string;
+  icon?: string;
+  billing_expr: string;
+  billing_mode?: "ratio" | "tiered_expr";
+  billing_usage_schema: BillingUsageSchema;
+  billing_usage_examples?: BillingUsageExample[];
+};
 
 export type PricingModel = {
-  billing_plugin_variants?: BillingPluginVariant[]
+  billing_plugin_variants?: BillingPluginVariant[];
   // Requests outside the plugin variants still pay the model-level price.
-  ordinary_pricing?: boolean
-  id: number
-  model_name: string
-  description?: string
-  icon?: string
-  vendor_id?: number
-  vendor_name?: string
-  vendor_icon?: string
-  vendor_description?: string
-  quota_type: number
-  model_ratio: number
-  completion_ratio: number
-  model_price?: number
-  cache_ratio?: number | null
-  create_cache_ratio?: number | null
-  image_ratio?: number | null
-  audio_ratio?: number | null
-  audio_completion_ratio?: number | null
-  enable_groups: string[]
-  tags?: string
-  supported_endpoint_types?: string[]
-  key?: string
-  group_ratio?: Record<string, number>
+  ordinary_pricing?: boolean;
+  id: number;
+  model_name: string;
+  description?: string;
+  icon?: string;
+  vendor_id?: number;
+  vendor_name?: string;
+  vendor_icon?: string;
+  vendor_description?: string;
+  quota_type: number;
+  model_ratio: number;
+  completion_ratio: number;
+  model_price?: number;
+  cache_ratio?: number | null;
+  create_cache_ratio?: number | null;
+  image_ratio?: number | null;
+  audio_ratio?: number | null;
+  audio_completion_ratio?: number | null;
+  enable_groups: string[];
+  tags?: string;
+  supported_endpoint_types?: string[];
+  key?: string;
+  group_ratio?: Record<string, number>;
   /** Billing mode (e.g. "tiered_expr") used to flag dynamic pricing */
-  billing_mode?: string
+  billing_mode?: string;
   /** Raw expression describing dynamic / tiered billing */
-  billing_expr?: string
+  billing_expr?: string;
   /** Task-plugin usage facts and their billing units. */
-  billing_usage_schema?: BillingUsageSchema
+  billing_usage_schema?: BillingUsageSchema;
   /** Display-only labeled usage vectors for pricing examples. */
-  billing_usage_examples?: BillingUsageExample[]
+  billing_usage_examples?: BillingUsageExample[];
   /** Pricing version returned by backend, useful for cache busting */
-  pricing_version?: string
+  pricing_version?: string;
   /**
    * Optional model metadata fields reserved for backend-provided catalog data.
    * Keep them data-driven; do not synthesize display values on the client.
    */
-  context_length?: number
-  max_output_tokens?: number
-  knowledge_cutoff?: string
-  release_date?: string
-  parameter_count?: string
-  input_modalities?: Modality[]
-  output_modalities?: Modality[]
-  capabilities?: ModelCapability[]
+  context_length?: number;
+  max_output_tokens?: number;
+  knowledge_cutoff?: string;
+  release_date?: string;
+  parameter_count?: string;
+  input_modalities?: Modality[];
+  output_modalities?: Modality[];
+  capabilities?: ModelCapability[];
   // Modified by Essera, 2026-11: a managed gateway lists the Console's models and the
   // signed-in person's prices.
-  display_name?: string
-  model_type?: string
-  essera_prices?: EsseraPrice[]
-  essera_metrics?: EsseraModelMetrics
-  supported_parameters?: string[]
-  sampling_exclusive?: boolean
-  essera?: EsseraModelInfo
-}
+  display_name?: string;
+  model_type?: string;
+  essera_prices?: EsseraPrice[];
+  essera_metrics?: EsseraModelMetrics;
+  supported_parameters?: string[];
+  sampling_exclusive?: boolean;
+  tool_choices?: string[];
+  essera?: EsseraModelInfo;
+};
 
 /** Input/output modalities supported by a model. */
-export type Modality = 'text' | 'image' | 'audio' | 'video' | 'file'
+export type Modality = "text" | "image" | "audio" | "video" | "file";
 
 /** Functional capabilities a model exposes. */
 export type ModelCapability =
-  | 'function_calling'
-  | 'streaming'
-  | 'vision'
-  | 'json_mode'
-  | 'structured_output'
-  | 'reasoning'
-  | 'tools'
-  | 'system_prompt'
-  | 'web_search'
-  | 'code_interpreter'
-  | 'caching'
-  | 'embeddings'
+  | "function_calling"
+  | "streaming"
+  | "vision"
+  | "json_mode"
+  | "structured_output"
+  | "reasoning"
+  | "tools"
+  | "system_prompt"
+  | "web_search"
+  | "code_interpreter"
+  | "caching"
+  | "embeddings";
 
 export type PricingData = {
-  success: boolean
-  message?: string
-  data: PricingModel[]
-  vendors: PricingVendor[]
-  group_ratio: Record<string, number>
-  usable_group: Record<string, { desc: string; ratio: number }>
-  supported_endpoint: Record<string, string>
-  auto_groups: string[]
+  success: boolean;
+  message?: string;
+  data: PricingModel[];
+  vendors: PricingVendor[];
+  group_ratio: Record<string, number>;
+  usable_group: Record<string, { desc: string; ratio: number }>;
+  supported_endpoint: Record<string, string>;
+  auto_groups: string[];
   // Modified by Essera, 2026-11
   essera?: {
-    signed_in: boolean
-    prices_available?: boolean
-    metrics_available?: boolean
-  }
-}
+    signed_in: boolean;
+    prices_available?: boolean;
+    metrics_available?: boolean;
+  };
+};
 
-export type TokenUnit = 'M' | 'K'
+export type TokenUnit = "M" | "K";
 export type PriceType =
-  | 'input'
-  | 'output'
-  | 'cache'
-  | 'create_cache'
-  | 'image'
-  | 'audio_input'
-  | 'audio_output'
-export type QuotaType = 0 | 1 // 0: token-based, 1: per-request
+  | "input"
+  | "output"
+  | "cache"
+  | "create_cache"
+  | "image"
+  | "audio_input"
+  | "audio_output";
+export type QuotaType = 0 | 1; // 0: token-based, 1: per-request

@@ -17,13 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 // Modified by Essera, 2026-11: the supported-parameter tables list only what the Bedrock adaptor actually sends, so the API tab promises nothing the gateway drops or refuses.
-import type { PricingModel } from '../types'
+import type { PricingModel } from "../types";
 import {
   hashStringToSeed,
   randomInRange,
   randomIntInRange,
   seededRandom,
-} from './seed'
+} from "./seed";
 
 // ----------------------------------------------------------------------------
 // Mock model statistics
@@ -40,209 +40,209 @@ import {
 // data is designed to mirror what we expect the real endpoints to return.
 
 export type GroupPerformance = {
-  group: string
-  ttft_p50_ms: number
-  ttft_p95_ms: number
-  ttft_p99_ms: number
-  throughput_tps: number
-  uptime_30d_pct: number
+  group: string;
+  ttft_p50_ms: number;
+  ttft_p95_ms: number;
+  ttft_p99_ms: number;
+  throughput_tps: number;
+  uptime_30d_pct: number;
   /** Number of monitored requests in the last 24h (display only). */
-  request_volume_24h: number
-}
+  request_volume_24h: number;
+};
 
 export type LatencyTimePoint = {
-  timestamp: string
-  group: string
-  ttft_ms: number
-}
+  timestamp: string;
+  group: string;
+  ttft_ms: number;
+};
 
 export type UptimeDayPoint = {
-  date: string
-  uptime_pct: number
-  incidents: number
-  outage_minutes: number
-}
+  date: string;
+  uptime_pct: number;
+  incidents: number;
+  outage_minutes: number;
+};
 
 export type AppRanking = {
-  rank: number
-  name: string
-  description: string
-  category: string
-  growth_pct: number
-  monthly_tokens: number
-  url?: string
-  initial: string
-}
+  rank: number;
+  name: string;
+  description: string;
+  category: string;
+  growth_pct: number;
+  monthly_tokens: number;
+  url?: string;
+  initial: string;
+};
 
 const APP_TEMPLATES: Array<
-  Omit<AppRanking, 'rank' | 'monthly_tokens' | 'growth_pct' | 'initial'>
+  Omit<AppRanking, "rank" | "monthly_tokens" | "growth_pct" | "initial">
 > = [
   {
-    name: 'Cline',
-    description: 'Autonomous coding agent inside the IDE',
-    category: 'Coding',
-    url: 'https://cline.bot',
+    name: "Cline",
+    description: "Autonomous coding agent inside the IDE",
+    category: "Coding",
+    url: "https://cline.bot",
   },
   {
-    name: 'Roo Code',
-    description: 'AI agent for VS Code with multi-step planning',
-    category: 'Coding',
-    url: 'https://roocode.com',
+    name: "Roo Code",
+    description: "AI agent for VS Code with multi-step planning",
+    category: "Coding",
+    url: "https://roocode.com",
   },
   {
-    name: 'Open WebUI',
-    description: 'Self-hosted ChatGPT-like web interface',
-    category: 'Chat',
-    url: 'https://openwebui.com',
+    name: "Open WebUI",
+    description: "Self-hosted ChatGPT-like web interface",
+    category: "Chat",
+    url: "https://openwebui.com",
   },
   {
-    name: 'LibreChat',
-    description: 'Open-source chat platform with multi-model support',
-    category: 'Chat',
-    url: 'https://librechat.ai',
+    name: "LibreChat",
+    description: "Open-source chat platform with multi-model support",
+    category: "Chat",
+    url: "https://librechat.ai",
   },
   {
-    name: 'Lobe Chat',
-    description: 'Modern open-source chat UI with plugins',
-    category: 'Chat',
-    url: 'https://lobehub.com',
+    name: "Lobe Chat",
+    description: "Modern open-source chat UI with plugins",
+    category: "Chat",
+    url: "https://lobehub.com",
   },
   {
-    name: 'NextChat',
-    description: 'Cross-platform private ChatGPT client',
-    category: 'Chat',
-    url: 'https://nextchat.dev',
+    name: "NextChat",
+    description: "Cross-platform private ChatGPT client",
+    category: "Chat",
+    url: "https://nextchat.dev",
   },
   {
-    name: 'Continue',
-    description: 'Open-source AI code assistant for editors',
-    category: 'Coding',
-    url: 'https://continue.dev',
+    name: "Continue",
+    description: "Open-source AI code assistant for editors",
+    category: "Coding",
+    url: "https://continue.dev",
   },
   {
-    name: 'Aider',
-    description: 'Pair-programming agent in your terminal',
-    category: 'Coding',
-    url: 'https://aider.chat',
+    name: "Aider",
+    description: "Pair-programming agent in your terminal",
+    category: "Coding",
+    url: "https://aider.chat",
   },
   {
-    name: 'Dify',
-    description: 'LLM application development platform',
-    category: 'Platform',
-    url: 'https://dify.ai',
+    name: "Dify",
+    description: "LLM application development platform",
+    category: "Platform",
+    url: "https://dify.ai",
   },
   {
-    name: 'FastGPT',
-    description: 'Knowledge base orchestration and chat platform',
-    category: 'Platform',
-    url: 'https://fastgpt.in',
+    name: "FastGPT",
+    description: "Knowledge base orchestration and chat platform",
+    category: "Platform",
+    url: "https://fastgpt.in",
   },
   {
-    name: 'Flowise',
-    description: 'Low-code LLM workflow builder',
-    category: 'Platform',
-    url: 'https://flowiseai.com',
+    name: "Flowise",
+    description: "Low-code LLM workflow builder",
+    category: "Platform",
+    url: "https://flowiseai.com",
   },
   {
-    name: 'OpenInterpreter',
-    description: 'Natural-language code execution agent',
-    category: 'Coding',
-    url: 'https://openinterpreter.com',
+    name: "OpenInterpreter",
+    description: "Natural-language code execution agent",
+    category: "Coding",
+    url: "https://openinterpreter.com",
   },
   {
-    name: 'Devika',
-    description: 'Open-source AI software engineer',
-    category: 'Coding',
-    url: 'https://github.com/stitionai/devika',
+    name: "Devika",
+    description: "Open-source AI software engineer",
+    category: "Coding",
+    url: "https://github.com/stitionai/devika",
   },
   {
-    name: 'Cherry Studio',
-    description: 'Multi-model desktop chat client',
-    category: 'Chat',
-    url: 'https://cherry-ai.com',
+    name: "Cherry Studio",
+    description: "Multi-model desktop chat client",
+    category: "Chat",
+    url: "https://cherry-ai.com",
   },
   {
-    name: 'AnythingLLM',
-    description: 'Workspaces around your private documents',
-    category: 'Platform',
-    url: 'https://anythingllm.com',
+    name: "AnythingLLM",
+    description: "Workspaces around your private documents",
+    category: "Platform",
+    url: "https://anythingllm.com",
   },
   {
-    name: 'OpenHands',
-    description: 'Coding agent with browser-and-code tools',
-    category: 'Coding',
-    url: 'https://docs.all-hands.dev',
+    name: "OpenHands",
+    description: "Coding agent with browser-and-code tools",
+    category: "Coding",
+    url: "https://docs.all-hands.dev",
   },
   {
-    name: 'Cursor',
-    description: 'AI-native code editor',
-    category: 'Coding',
-    url: 'https://cursor.com',
+    name: "Cursor",
+    description: "AI-native code editor",
+    category: "Coding",
+    url: "https://cursor.com",
   },
   {
-    name: 'Zed',
-    description: 'Multiplayer code editor with AI',
-    category: 'Coding',
-    url: 'https://zed.dev',
+    name: "Zed",
+    description: "Multiplayer code editor with AI",
+    category: "Coding",
+    url: "https://zed.dev",
   },
   {
-    name: 'Notion AI',
-    description: 'Documents and writing assistant',
-    category: 'Productivity',
-    url: 'https://notion.so',
+    name: "Notion AI",
+    description: "Documents and writing assistant",
+    category: "Productivity",
+    url: "https://notion.so",
   },
   {
-    name: 'Raycast AI',
-    description: 'AI on your macOS launcher',
-    category: 'Productivity',
-    url: 'https://raycast.com',
+    name: "Raycast AI",
+    description: "AI on your macOS launcher",
+    category: "Productivity",
+    url: "https://raycast.com",
   },
   {
-    name: 'Obsidian Smart Connections',
-    description: 'Connect notes with semantic search',
-    category: 'Productivity',
+    name: "Obsidian Smart Connections",
+    description: "Connect notes with semantic search",
+    category: "Productivity",
   },
   {
-    name: 'Bolt.new',
-    description: 'Prompt-to-app full-stack builder',
-    category: 'Coding',
-    url: 'https://bolt.new',
+    name: "Bolt.new",
+    description: "Prompt-to-app full-stack builder",
+    category: "Coding",
+    url: "https://bolt.new",
   },
   {
-    name: 'Pieces',
-    description: 'AI workflow companion for developers',
-    category: 'Productivity',
-    url: 'https://pieces.app',
+    name: "Pieces",
+    description: "AI workflow companion for developers",
+    category: "Productivity",
+    url: "https://pieces.app",
   },
   {
-    name: 'AmazingAI',
-    description: 'Personal AI knowledge assistant',
-    category: 'Productivity',
+    name: "AmazingAI",
+    description: "Personal AI knowledge assistant",
+    category: "Productivity",
   },
   {
-    name: 'TypingMind',
-    description: 'Better UI for ChatGPT and Claude',
-    category: 'Chat',
-    url: 'https://typingmind.com',
+    name: "TypingMind",
+    description: "Better UI for ChatGPT and Claude",
+    category: "Chat",
+    url: "https://typingmind.com",
   },
-]
+];
 
 const PROFILE_BY_NAME = (name: string) => {
-  const n = name.toLowerCase()
-  if (/embed|rerank/.test(n)) return 'embedding'
-  if (/image|sora|veo|kling|pika|jimeng|dalle|imagen/.test(n)) return 'image'
-  if (/whisper|tts|voice|audio/.test(n)) return 'audio'
-  if (/o1|o3|o4|reasoning|thinking|deepseek-r/.test(n)) return 'reasoning'
-  if (/flash|haiku|mini|small|nano|fast/.test(n)) return 'fast'
-  if (/gpt-5|opus|ultra|405|70b/.test(n)) return 'large'
-  return 'standard'
-}
+  const n = name.toLowerCase();
+  if (/embed|rerank/.test(n)) return "embedding";
+  if (/image|sora|veo|kling|pika|jimeng|dalle|imagen/.test(n)) return "image";
+  if (/whisper|tts|voice|audio/.test(n)) return "audio";
+  if (/o1|o3|o4|reasoning|thinking|deepseek-r/.test(n)) return "reasoning";
+  if (/flash|haiku|mini|small|nano|fast/.test(n)) return "fast";
+  if (/gpt-5|opus|ultra|405|70b/.test(n)) return "large";
+  return "standard";
+};
 
 type ProfileSpec = {
-  ttftRange: [number, number]
-  throughputRange: [number, number]
-  uptimeRange: [number, number]
-}
+  ttftRange: [number, number];
+  throughputRange: [number, number];
+  uptimeRange: [number, number];
+};
 
 const PROFILE_SPECS: Record<string, ProfileSpec> = {
   embedding: {
@@ -280,29 +280,29 @@ const PROFILE_SPECS: Record<string, ProfileSpec> = {
     throughputRange: [70, 140],
     uptimeRange: [99.6, 99.97],
   },
-}
+};
 
 function rangeFromSeed(
   rand: () => number,
-  [min, max]: [number, number]
+  [min, max]: [number, number],
 ): number {
-  return randomInRange(rand, min, max)
+  return randomInRange(rand, min, max);
 }
 
 function applyGroupFactor(value: number, factor: number): number {
-  return value * factor
+  return value * factor;
 }
 
 function groupFactor(
   group: string,
-  baseSeed: number
+  baseSeed: number,
 ): { ttft: number; throughput: number; uptime: number } {
-  const rand = seededRandom(baseSeed ^ hashStringToSeed(group || 'default'))
+  const rand = seededRandom(baseSeed ^ hashStringToSeed(group || "default"));
   return {
     ttft: 0.85 + rand() * 0.55,
     throughput: 0.85 + rand() * 0.4,
     uptime: 0.997 + rand() * 0.003,
-  }
+  };
 }
 
 /**
@@ -310,31 +310,31 @@ function groupFactor(
  * row for each enabled group, sorted alphabetically.
  */
 export function buildGroupPerformance(model: PricingModel): GroupPerformance[] {
-  const groups = (model.enable_groups ?? []).filter((g) => g && g !== 'auto')
-  const targets = groups.length > 0 ? groups : ['default']
-  const profile = PROFILE_BY_NAME(model.model_name)
-  const spec = PROFILE_SPECS[profile]
-  const baseSeed = hashStringToSeed(model.model_name)
+  const groups = (model.enable_groups ?? []).filter((g) => g && g !== "auto");
+  const targets = groups.length > 0 ? groups : ["default"];
+  const profile = PROFILE_BY_NAME(model.model_name);
+  const spec = PROFILE_SPECS[profile];
+  const baseSeed = hashStringToSeed(model.model_name);
 
   return targets
     .slice()
     .sort((a, b) => a.localeCompare(b))
     .map<GroupPerformance>((group) => {
-      const rand = seededRandom(baseSeed ^ hashStringToSeed(group))
-      const factor = groupFactor(group, baseSeed)
+      const rand = seededRandom(baseSeed ^ hashStringToSeed(group));
+      const factor = groupFactor(group, baseSeed);
       const ttftP50 = applyGroupFactor(
         rangeFromSeed(rand, spec.ttftRange),
-        factor.ttft
-      )
+        factor.ttft,
+      );
       const throughput = applyGroupFactor(
         rangeFromSeed(rand, spec.throughputRange),
-        factor.throughput
-      )
+        factor.throughput,
+      );
       const uptimePct = Math.min(
         99.99,
-        rangeFromSeed(rand, spec.uptimeRange) * factor.uptime
-      )
-      const requestVolume = randomIntInRange(rand, 18_000, 480_000)
+        rangeFromSeed(rand, spec.uptimeRange) * factor.uptime,
+      );
+      const requestVolume = randomIntInRange(rand, 18_000, 480_000);
       return {
         group,
         ttft_p50_ms: Math.round(ttftP50),
@@ -343,8 +343,8 @@ export function buildGroupPerformance(model: PricingModel): GroupPerformance[] {
         throughput_tps: throughput === 0 ? 0 : Math.round(throughput * 10) / 10,
         uptime_30d_pct: Math.round(uptimePct * 100) / 100,
         request_volume_24h: requestVolume,
-      }
-    })
+      };
+    });
 }
 
 /**
@@ -352,31 +352,31 @@ export function buildGroupPerformance(model: PricingModel): GroupPerformance[] {
  * (24 buckets), oldest first.
  */
 export function buildLatencyTimeSeries(
-  model: PricingModel
+  model: PricingModel,
 ): LatencyTimePoint[] {
-  const performances = buildGroupPerformance(model)
-  if (performances.length === 0) return []
+  const performances = buildGroupPerformance(model);
+  if (performances.length === 0) return [];
 
-  const now = new Date()
-  now.setMinutes(0, 0, 0)
-  const baseSeed = hashStringToSeed(`${model.model_name}:lat`)
-  const points: LatencyTimePoint[] = []
+  const now = new Date();
+  now.setMinutes(0, 0, 0);
+  const baseSeed = hashStringToSeed(`${model.model_name}:lat`);
+  const points: LatencyTimePoint[] = [];
 
   for (const perf of performances) {
-    const rand = seededRandom(baseSeed ^ hashStringToSeed(perf.group))
+    const rand = seededRandom(baseSeed ^ hashStringToSeed(perf.group));
     for (let i = 23; i >= 0; i--) {
-      const ts = new Date(now.getTime() - i * 3_600_000)
-      const noise = 0.7 + rand() * 0.7
-      const trend = 0.85 + Math.sin(i / 3) * 0.1
-      const value = Math.max(50, Math.round(perf.ttft_p50_ms * noise * trend))
+      const ts = new Date(now.getTime() - i * 3_600_000);
+      const noise = 0.7 + rand() * 0.7;
+      const trend = 0.85 + Math.sin(i / 3) * 0.1;
+      const value = Math.max(50, Math.round(perf.ttft_p50_ms * noise * trend));
       points.push({
         timestamp: ts.toISOString(),
         group: perf.group,
         ttft_ms: value,
-      })
+      });
     }
   }
-  return points
+  return points;
 }
 
 /**
@@ -388,40 +388,42 @@ export function buildLatencyTimeSeries(
  */
 export function buildUptimeSeries(
   model: PricingModel,
-  group?: string
+  group?: string,
 ): UptimeDayPoint[] {
-  const performances = buildGroupPerformance(model)
-  if (performances.length === 0) return []
+  const performances = buildGroupPerformance(model);
+  if (performances.length === 0) return [];
 
-  const target = group ? performances.find((p) => p.group === group) : null
+  const target = group ? performances.find((p) => p.group === group) : null;
   const baseUptime = target
     ? target.uptime_30d_pct
     : performances.reduce((s, p) => s + p.uptime_30d_pct, 0) /
-      performances.length
-  const baseSeed = hashStringToSeed(`${model.model_name}:up:${group ?? '_all'}`)
-  const rand = seededRandom(baseSeed)
+      performances.length;
+  const baseSeed = hashStringToSeed(
+    `${model.model_name}:up:${group ?? "_all"}`,
+  );
+  const rand = seededRandom(baseSeed);
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const points: UptimeDayPoint[] = []
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const points: UptimeDayPoint[] = [];
 
   for (let i = 29; i >= 0; i--) {
-    const date = new Date(today.getTime() - i * 86_400_000)
-    const isoDate = date.toISOString().slice(0, 10)
-    const incidentChance = rand()
-    const incidents = incidentChance > 0.92 ? 1 : 0
-    const outageMinutes = incidents > 0 ? Math.round(rand() * 30 + 5) : 0
-    const downtimePct = (outageMinutes / 1_440) * 100
-    const dayUptime = Math.max(85, Math.min(100, baseUptime - downtimePct))
+    const date = new Date(today.getTime() - i * 86_400_000);
+    const isoDate = date.toISOString().slice(0, 10);
+    const incidentChance = rand();
+    const incidents = incidentChance > 0.92 ? 1 : 0;
+    const outageMinutes = incidents > 0 ? Math.round(rand() * 30 + 5) : 0;
+    const downtimePct = (outageMinutes / 1_440) * 100;
+    const dayUptime = Math.max(85, Math.min(100, baseUptime - downtimePct));
     points.push({
       date: isoDate,
       uptime_pct: Math.round(dayUptime * 100) / 100,
       incidents,
       outage_minutes: outageMinutes,
-    })
+    });
   }
 
-  return points
+  return points;
 }
 
 /**
@@ -431,25 +433,27 @@ export function buildUptimeSeries(
  */
 export function buildAppRankings(
   model: PricingModel,
-  count = 12
+  count = 12,
 ): AppRanking[] {
-  const baseSeed = hashStringToSeed(`${model.model_name}:apps`)
-  const rand = seededRandom(baseSeed)
-  const candidates = [...APP_TEMPLATES]
+  const baseSeed = hashStringToSeed(`${model.model_name}:apps`);
+  const rand = seededRandom(baseSeed);
+  const candidates = [...APP_TEMPLATES];
   // Fisher–Yates shuffle.
   for (let i = candidates.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1))
-    ;[candidates[i], candidates[j]] = [candidates[j], candidates[i]]
+    const j = Math.floor(rand() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
   }
 
-  const top = candidates.slice(0, count)
-  const baseTokens = randomInRange(rand, 90_000_000, 320_000_000)
+  const top = candidates.slice(0, count);
+  const baseTokens = randomInRange(rand, 90_000_000, 320_000_000);
 
   return top.map((app, idx) => {
-    const decay = Math.pow(0.78, idx)
-    const monthlyTokens = Math.round(baseTokens * decay * (0.85 + rand() * 0.3))
-    const growthPctRaw = randomInRange(rand, -28, 84)
-    const growthPct = Math.round(growthPctRaw * 10) / 10
+    const decay = Math.pow(0.78, idx);
+    const monthlyTokens = Math.round(
+      baseTokens * decay * (0.85 + rand() * 0.3),
+    );
+    const growthPctRaw = randomInRange(rand, -28, 84);
+    const growthPct = Math.round(growthPctRaw * 10) / 10;
     return {
       rank: idx + 1,
       name: app.name,
@@ -459,37 +463,37 @@ export function buildAppRankings(
       growth_pct: growthPct,
       monthly_tokens: monthlyTokens,
       initial: app.name.charAt(0).toUpperCase(),
-    }
-  })
+    };
+  });
 }
 
 /** Aggregate uptime over the most recent 30 days. */
 export function aggregateUptime(points: UptimeDayPoint[]): {
-  uptime_pct: number
-  incidents: number
-  outage_minutes: number
+  uptime_pct: number;
+  incidents: number;
+  outage_minutes: number;
 } {
   if (points.length === 0) {
-    return { uptime_pct: 0, incidents: 0, outage_minutes: 0 }
+    return { uptime_pct: 0, incidents: 0, outage_minutes: 0 };
   }
-  const incidents = points.reduce((s, p) => s + p.incidents, 0)
-  const outageMinutes = points.reduce((s, p) => s + p.outage_minutes, 0)
-  const totalMinutes = points.length * 1_440
-  const uptimePct = ((totalMinutes - outageMinutes) / totalMinutes) * 100
+  const incidents = points.reduce((s, p) => s + p.incidents, 0);
+  const outageMinutes = points.reduce((s, p) => s + p.outage_minutes, 0);
+  const totalMinutes = points.length * 1_440;
+  const uptimePct = ((totalMinutes - outageMinutes) / totalMinutes) * 100;
   return {
     incidents,
     outage_minutes: outageMinutes,
     uptime_pct: Math.round(uptimePct * 1000) / 1000,
-  }
+  };
 }
 
 /** Compact integer formatter for token counts in apps tab. */
 export function formatTokenVolume(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return '0'
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return n.toString()
+  if (!Number.isFinite(n) || n <= 0) return "0";
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toString();
 }
 
 // ---------------------------------------------------------------------------
@@ -497,218 +501,212 @@ export function formatTokenVolume(n: number): string {
 // ---------------------------------------------------------------------------
 
 export type SupportedParameter = {
-  name: string
+  name: string;
   type:
-    | 'number'
-    | 'integer'
-    | 'boolean'
-    | 'string'
-    | 'object'
-    | 'array'
-    | 'enum'
-  defaultValue?: string | number | boolean
-  range?: string
-  enumValues?: string[]
-  descriptionKey: string
-  required?: boolean
-}
+    "number" | "integer" | "boolean" | "string" | "object" | "array" | "enum";
+  defaultValue?: string | number | boolean;
+  range?: string;
+  enumValues?: string[];
+  descriptionKey: string;
+  required?: boolean;
+};
 
 // The parameters Bedrock itself accepts on this Gateway's routes: Converse carries only
 // maxTokens, temperature, topP, stopSequences and a tool config, so a parameter the adaptor
 // drops or refuses is not listed as supported.
 const COMMON_CHAT_PARAMS: SupportedParameter[] = [
   {
-    name: 'temperature',
-    type: 'number',
+    name: "temperature",
+    type: "number",
     defaultValue: 1,
-    range: '0 ~ 2',
-    descriptionKey: 'Sampling temperature; lower is more deterministic',
+    range: "0 ~ 2",
+    descriptionKey: "Sampling temperature; lower is more deterministic",
   },
   {
-    name: 'top_p',
-    type: 'number',
+    name: "top_p",
+    type: "number",
     defaultValue: 1,
-    range: '0 ~ 1',
-    descriptionKey: 'Nucleus sampling probability mass',
+    range: "0 ~ 1",
+    descriptionKey: "Nucleus sampling probability mass",
   },
   {
-    name: 'max_tokens',
-    type: 'integer',
-    range: '>= 1',
-    descriptionKey: 'Maximum number of tokens in the response',
+    name: "max_tokens",
+    type: "integer",
+    range: ">= 1",
+    descriptionKey: "Maximum number of tokens in the response",
   },
   {
-    name: 'stop',
-    type: 'array',
-    descriptionKey: 'Up to 4 strings that stop generation',
+    name: "stop",
+    type: "array",
+    descriptionKey: "Up to 4 strings that stop generation",
   },
   {
-    name: 'stream',
-    type: 'boolean',
+    name: "stream",
+    type: "boolean",
     defaultValue: false,
-    descriptionKey: 'Stream tokens via Server-Sent Events',
+    descriptionKey: "Stream tokens via Server-Sent Events",
   },
   {
-    name: 'tools',
-    type: 'array',
-    descriptionKey: 'Tool / function declarations the model may call',
+    name: "tools",
+    type: "array",
+    descriptionKey: "Tool / function declarations the model may call",
   },
   {
-    name: 'tool_choice',
-    type: 'string',
-    enumValues: ['auto', 'none', 'required'],
-    descriptionKey: 'Tool-choice policy or specific tool name',
+    name: "tool_choice",
+    type: "string",
+    enumValues: ["auto", "none", "required"],
+    descriptionKey: "Tool-choice policy or specific tool name",
   },
-]
+];
 
 const REASONING_PARAMS: SupportedParameter[] = [
   {
-    name: 'reasoning_effort',
-    type: 'enum',
-    enumValues: ['low', 'medium', 'high'],
-    defaultValue: 'medium',
-    descriptionKey: 'Controls how much the model thinks before answering',
+    name: "reasoning_effort",
+    type: "enum",
+    enumValues: ["low", "medium", "high"],
+    defaultValue: "medium",
+    descriptionKey: "Controls how much the model thinks before answering",
   },
   {
-    name: 'max_completion_tokens',
-    type: 'integer',
-    range: '>= 1',
-    descriptionKey: 'Maximum tokens including hidden reasoning tokens',
+    name: "max_completion_tokens",
+    type: "integer",
+    range: ">= 1",
+    descriptionKey: "Maximum tokens including hidden reasoning tokens",
   },
   {
-    name: 'temperature',
-    type: 'number',
+    name: "temperature",
+    type: "number",
     defaultValue: 1,
-    range: '0 ~ 2',
-    descriptionKey: 'Sampling temperature; lower is more deterministic',
+    range: "0 ~ 2",
+    descriptionKey: "Sampling temperature; lower is more deterministic",
   },
   {
-    name: 'top_p',
-    type: 'number',
+    name: "top_p",
+    type: "number",
     defaultValue: 1,
-    range: '0 ~ 1',
-    descriptionKey: 'Nucleus sampling probability mass',
+    range: "0 ~ 1",
+    descriptionKey: "Nucleus sampling probability mass",
   },
   {
-    name: 'stop',
-    type: 'array',
-    descriptionKey: 'Up to 4 strings that stop generation',
+    name: "stop",
+    type: "array",
+    descriptionKey: "Up to 4 strings that stop generation",
   },
   {
-    name: 'stream',
-    type: 'boolean',
+    name: "stream",
+    type: "boolean",
     defaultValue: false,
-    descriptionKey: 'Stream tokens via Server-Sent Events',
+    descriptionKey: "Stream tokens via Server-Sent Events",
   },
   {
-    name: 'tools',
-    type: 'array',
-    descriptionKey: 'Tool / function declarations the model may call',
+    name: "tools",
+    type: "array",
+    descriptionKey: "Tool / function declarations the model may call",
   },
   {
-    name: 'tool_choice',
-    type: 'string',
-    enumValues: ['auto', 'none', 'required'],
-    descriptionKey: 'Tool-choice policy or specific tool name',
+    name: "tool_choice",
+    type: "string",
+    enumValues: ["auto", "none", "required"],
+    descriptionKey: "Tool-choice policy or specific tool name",
   },
-]
+];
 
 const EMBEDDING_PARAMS: SupportedParameter[] = [
   {
-    name: 'input',
-    type: 'string',
+    name: "input",
+    type: "string",
     required: true,
-    descriptionKey: 'Text or array of texts to embed',
+    descriptionKey: "Text or array of texts to embed",
   },
   {
-    name: 'dimensions',
-    type: 'integer',
-    range: '>= 1',
-    descriptionKey: 'Truncate embeddings to this many dimensions',
+    name: "dimensions",
+    type: "integer",
+    range: ">= 1",
+    descriptionKey: "Truncate embeddings to this many dimensions",
   },
   {
-    name: 'encoding_format',
-    type: 'enum',
-    enumValues: ['float', 'base64'],
-    defaultValue: 'float',
-    descriptionKey: 'Wire encoding for the embedding vectors',
+    name: "encoding_format",
+    type: "enum",
+    enumValues: ["float", "base64"],
+    defaultValue: "float",
+    descriptionKey: "Wire encoding for the embedding vectors",
   },
-]
+];
 
 const IMAGE_PARAMS: SupportedParameter[] = [
   {
-    name: 'prompt',
-    type: 'string',
+    name: "prompt",
+    type: "string",
     required: true,
-    descriptionKey: 'Text description of the desired image',
+    descriptionKey: "Text description of the desired image",
   },
   {
-    name: 'size',
-    type: 'enum',
-    enumValues: ['256x256', '512x512', '1024x1024', '1024x1792', '1792x1024'],
-    defaultValue: '1024x1024',
-    descriptionKey: 'Output image size',
+    name: "size",
+    type: "enum",
+    enumValues: ["256x256", "512x512", "1024x1024", "1024x1792", "1792x1024"],
+    defaultValue: "1024x1024",
+    descriptionKey: "Output image size",
   },
   {
-    name: 'quality',
-    type: 'enum',
-    enumValues: ['standard', 'hd'],
-    defaultValue: 'standard',
-    descriptionKey: 'Generation quality preset',
+    name: "quality",
+    type: "enum",
+    enumValues: ["standard", "hd"],
+    defaultValue: "standard",
+    descriptionKey: "Generation quality preset",
   },
   {
-    name: 'style',
-    type: 'enum',
-    enumValues: ['vivid', 'natural'],
-    defaultValue: 'vivid',
-    descriptionKey: 'Aesthetic style',
+    name: "style",
+    type: "enum",
+    enumValues: ["vivid", "natural"],
+    defaultValue: "vivid",
+    descriptionKey: "Aesthetic style",
   },
   {
-    name: 'n',
-    type: 'integer',
+    name: "n",
+    type: "integer",
     defaultValue: 1,
-    range: '1 ~ 10',
-    descriptionKey: 'Number of images to generate',
+    range: "1 ~ 10",
+    descriptionKey: "Number of images to generate",
   },
   {
-    name: 'response_format',
-    type: 'enum',
-    enumValues: ['url', 'b64_json'],
-    defaultValue: 'url',
-    descriptionKey: 'How to deliver the resulting image',
+    name: "response_format",
+    type: "enum",
+    enumValues: ["url", "b64_json"],
+    defaultValue: "url",
+    descriptionKey: "How to deliver the resulting image",
   },
-]
+];
 
 const VIDEO_PARAMS: SupportedParameter[] = [
   {
-    name: 'prompt',
-    type: 'string',
+    name: "prompt",
+    type: "string",
     required: true,
-    descriptionKey: 'Text description of the desired video',
+    descriptionKey: "Text description of the desired video",
   },
   {
-    name: 'duration',
-    type: 'integer',
-    range: '1 ~ 60',
-    descriptionKey: 'Video length in seconds',
+    name: "duration",
+    type: "integer",
+    range: "1 ~ 60",
+    descriptionKey: "Video length in seconds",
   },
   {
-    name: 'aspect_ratio',
-    type: 'enum',
-    enumValues: ['16:9', '9:16', '1:1'],
-    defaultValue: '16:9',
-    descriptionKey: 'Output aspect ratio',
+    name: "aspect_ratio",
+    type: "enum",
+    enumValues: ["16:9", "9:16", "1:1"],
+    defaultValue: "16:9",
+    descriptionKey: "Output aspect ratio",
   },
   {
-    name: 'fps',
-    type: 'integer',
-    range: '8 ~ 60',
+    name: "fps",
+    type: "integer",
+    range: "8 ~ 60",
     defaultValue: 24,
-    descriptionKey: 'Frames per second',
+    descriptionKey: "Frames per second",
   },
-]
+];
 
-type ApiCategory = 'reasoning' | 'embedding' | 'image' | 'video' | 'chat'
+type ApiCategory = "reasoning" | "embedding" | "image" | "video" | "chat";
 
 /**
  * Refine the broad PROFILE_BY_NAME bucket into an API-shape category. The
@@ -717,14 +715,29 @@ type ApiCategory = 'reasoning' | 'embedding' | 'image' | 'video' | 'chat'
  * need to distinguish them so the request-parameter table is accurate.
  */
 function apiCategoryOf(model: PricingModel): ApiCategory {
-  const profile = PROFILE_BY_NAME(model.model_name)
-  if (profile === 'embedding' || profile === 'reasoning') return profile
-  if (profile === 'image') {
+  const profile = PROFILE_BY_NAME(model.model_name);
+  if (profile === "embedding" || profile === "reasoning") return profile;
+  if (profile === "image") {
     return /sora|veo|kling|pika|video|wan-|hunyuanvideo/i.test(model.model_name)
-      ? 'video'
-      : 'image'
+      ? "video"
+      : "image";
   }
-  return 'chat'
+  return "chat";
+}
+
+// 'function' in tool_choices stands for naming one function.
+function toolChoiceParameter(
+  parameter: SupportedParameter,
+  choices: string[],
+): SupportedParameter {
+  const namesFunction = choices.includes("function");
+  return {
+    ...parameter,
+    enumValues: choices.filter((choice) => choice !== "function"),
+    descriptionKey: namesFunction
+      ? parameter.descriptionKey
+      : "Tool-choice policy; this model cannot be made to call a tool by name",
+  };
 }
 
 /**
@@ -733,63 +746,71 @@ function apiCategoryOf(model: PricingModel): ApiCategory {
  * each show their relevant parameter set.
  */
 export function buildSupportedParameters(
-  model: PricingModel
+  model: PricingModel,
 ): SupportedParameter[] {
   // Essera: a managed gateway lists the parameters it measured for the model.
   if (model.supported_parameters) {
-    const known = [...EMBEDDING_PARAMS, ...REASONING_PARAMS, ...COMMON_CHAT_PARAMS]
+    const known = [
+      ...EMBEDDING_PARAMS,
+      ...REASONING_PARAMS,
+      ...COMMON_CHAT_PARAMS,
+    ];
     return model.supported_parameters.flatMap((name) => {
-      const parameter = known.find((item) => item.name === name)
-      return parameter ? [parameter] : []
-    })
+      const parameter = known.find((item) => item.name === name);
+      if (!parameter) return [];
+      if (name === "tool_choice" && model.tool_choices) {
+        return [toolChoiceParameter(parameter, model.tool_choices)];
+      }
+      return [parameter];
+    });
   }
-  const cat = apiCategoryOf(model)
-  if (cat === 'reasoning') return REASONING_PARAMS
-  if (cat === 'embedding') return EMBEDDING_PARAMS
-  if (cat === 'image') return IMAGE_PARAMS
-  if (cat === 'video') return VIDEO_PARAMS
-  return COMMON_CHAT_PARAMS
+  const cat = apiCategoryOf(model);
+  if (cat === "reasoning") return REASONING_PARAMS;
+  if (cat === "embedding") return EMBEDDING_PARAMS;
+  if (cat === "image") return IMAGE_PARAMS;
+  if (cat === "video") return VIDEO_PARAMS;
+  return COMMON_CHAT_PARAMS;
 }
 
 export type RateLimit = {
-  group: string
-  rpm: number
-  tpm: number
-  rpd: number
-}
+  group: string;
+  rpm: number;
+  tpm: number;
+  rpd: number;
+};
 
 /** Build per-group RPM / TPM / RPD limits for the model. */
 export function buildRateLimits(model: PricingModel): RateLimit[] {
-  const groups = (model.enable_groups ?? []).filter((g) => g && g !== 'auto')
-  const targets = groups.length > 0 ? groups : ['default']
-  const cat = apiCategoryOf(model)
-  const baseSeed = hashStringToSeed(`${model.model_name}:rl`)
-  const isHeavy = cat === 'image' || cat === 'video'
-  const isLight = cat === 'embedding'
-  const baseRpm = isHeavy ? 60 : isLight ? 5_000 : 500
-  const baseTpm = isHeavy ? 0 : isLight ? 1_000_000 : 200_000
-  const baseRpd = isHeavy ? 1_000 : isLight ? 100_000 : 10_000
+  const groups = (model.enable_groups ?? []).filter((g) => g && g !== "auto");
+  const targets = groups.length > 0 ? groups : ["default"];
+  const cat = apiCategoryOf(model);
+  const baseSeed = hashStringToSeed(`${model.model_name}:rl`);
+  const isHeavy = cat === "image" || cat === "video";
+  const isLight = cat === "embedding";
+  const baseRpm = isHeavy ? 60 : isLight ? 5_000 : 500;
+  const baseTpm = isHeavy ? 0 : isLight ? 1_000_000 : 200_000;
+  const baseRpd = isHeavy ? 1_000 : isLight ? 100_000 : 10_000;
 
   return targets
     .slice()
     .sort((a, b) => a.localeCompare(b))
     .map((group) => {
-      const rand = seededRandom(baseSeed ^ hashStringToSeed(group))
-      const tier = 0.6 + rand() * 1.4
+      const rand = seededRandom(baseSeed ^ hashStringToSeed(group));
+      const tier = 0.6 + rand() * 1.4;
       return {
         group,
         rpm: Math.round((baseRpm * tier) / 10) * 10,
         tpm: baseTpm === 0 ? 0 : Math.round((baseTpm * tier) / 1_000) * 1_000,
         rpd: Math.round((baseRpd * tier) / 100) * 100,
-      }
-    })
+      };
+    });
 }
 
 /** Format an integer rate-limit value compactly. */
 export function formatRateLimit(value: number): string {
-  if (value <= 0) return '—'
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+  if (value <= 0) return "—";
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000)
-    return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}K`
-  return value.toLocaleString()
+    return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}K`;
+  return value.toLocaleString();
 }

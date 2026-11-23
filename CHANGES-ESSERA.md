@@ -331,3 +331,7 @@ The OpenAI-to-Claude converter now recognises Bedrock's Claude ids (`anthropic.c
 | `relaykit/relayconvert/reasoning/claude.go`, `suffix.go` | The capability table and the known-model check read Bedrock ids |
 | `relaykit/relayconvert/internal/shared/claude/reasoning.go` | On models that refuse sampling controls, a temperature, top_p or top_k the caller sent is no longer dropped; Bedrock refuses it |
 | `essera/modelparams/` | The Claude models from Opus 4.7 on list `reasoning_effort` |
+
+## Tools in the supported parameters (2026-11)
+
+Every chat model in `essera/modelparams` lists `tools` and `tool_choice`, measured with one Converse call per model and `toolChoice` mode on 2026-11-23. `/api/pricing` carries the `tool_choice` values each model accepts (`tool_choices`): Claude Fable 5.1 and 5.2, Opus 5.5 and Sonnet 5.5 take `auto` and `none` only; Mistral Large and Pixtral Large cannot be made to call a tool by name. The Model Square's `tool_choice` row shows those values (`web/src/features/pricing/lib/mock-stats.ts`, `types.ts`).
