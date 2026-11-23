@@ -97,7 +97,7 @@ func TestGuardIsOffUnlessManaged(t *testing.T) {
 }
 
 func TestCustomerRequestAllowed(t *testing.T) {
-	for _, path := range []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings", "/v1/embeddings/"} {
+	for _, path := range []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings", "/v1/embeddings/", "/v1/rerank", "/v1/images/edits"} {
 		assert.True(t, CustomerRequestAllowed(http.MethodPost, path), path)
 	}
 	for _, path := range []string{"/v1/models", "/v1/models/eu.amazon.nova-lite-v1:0"} {
@@ -105,11 +105,9 @@ func TestCustomerRequestAllowed(t *testing.T) {
 	}
 	closed := map[string]string{
 		"/v1/completions":                       "legacy completions: the Bedrock adaptor serves none",
-		"/v1/images/generations":                "no image model in the Console's region",
-		"/v1/images/edits":                      "no image model in the Console's region",
+		"/v1/images/generations":                "no text-to-image model in the Console's region",
 		"/v1/audio/speech":                      "no speech model in the Console's region",
 		"/v1/audio/transcriptions":              "audio goes in as chat input, not here",
-		"/v1/rerank":                            "no rerank model in the Console's region",
 		"/v1/moderations":                       "Bedrock has no moderations",
 		"/v1/responses/compact":                 "a compaction, not a measured response",
 		"/v1/models/gemini:generateContent":     "Gemini's format is not converted for Bedrock",

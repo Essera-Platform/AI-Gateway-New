@@ -150,6 +150,21 @@ var awsModelCanCrossRegionMap = map[string]map[string]bool{
 	// through the us. and eu. inference profiles (list-foundation-models and
 	// list-inference-profiles). Other regions find out at the first call
 	// (essera_runtime.go).
+	// Modified by Essera, 2026-11: Stability AI's image services are invocable
+	// in us-east-1 only through the us. inference profile.
+	"stability.stable-conservative-upscale-v1:0":    {"us": true},
+	"stability.stable-creative-upscale-v1:0":        {"us": true},
+	"stability.stable-fast-upscale-v1:0":            {"us": true},
+	"stability.stable-image-control-sketch-v1:0":    {"us": true},
+	"stability.stable-image-control-structure-v1:0": {"us": true},
+	"stability.stable-image-erase-object-v1:0":      {"us": true},
+	"stability.stable-image-inpaint-v1:0":           {"us": true},
+	"stability.stable-image-remove-background-v1:0": {"us": true},
+	"stability.stable-image-search-replace-v1:0":    {"us": true},
+	"stability.stable-image-search-recolor-v1:0":    {"us": true},
+	"stability.stable-image-style-guide-v1:0":       {"us": true},
+	"stability.stable-outpaint-v1:0":                {"us": true},
+	"stability.stable-style-transfer-v1:0":          {"us": true},
 	"amazon.nova-2-lite-v1:0": {
 		"us": true,
 		"eu": true,

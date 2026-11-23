@@ -23,6 +23,13 @@ const (
 	EncodingFormat  = "encoding_format"
 	Tools           = "tools"
 	ToolChoice      = "tool_choice"
+	Query           = "query"
+	Documents       = "documents"
+	TopN            = "top_n"
+	ReturnDocuments = "return_documents"
+	Prompt          = "prompt"
+	Image           = "image"
+	Mask            = "mask"
 )
 
 // The tool_choice values a model may accept; ToolChoiceFunction stands for
@@ -144,11 +151,19 @@ var table = map[string]capability{
 	"cohere.embed-v4:0":             embedding | dimensions,
 	"cohere.embed-english-v3":       embedding,
 	"cohere.embed-multilingual-v3":  embedding,
+
+	"amazon.nova-2-multimodal-embeddings-v1:0": embedding | dimensions,
 }
 
 // Of returns the parameters model accepts; modality is the catalog's and
 // decides the set of a model missing from the table.
 func Of(model, modality string) Params {
+	switch strings.ToLower(modality) {
+	case "rerank":
+		return Params{Supported: []string{Query, Documents, TopN, ReturnDocuments}}
+	case "image":
+		return Params{Supported: []string{Prompt, Image, Mask}}
+	}
 	capabilities, known := table[model]
 	if !known && strings.EqualFold(modality, "embedding") {
 		capabilities = embedding

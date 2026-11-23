@@ -22,6 +22,8 @@ func TestOf(t *testing.T) {
 		{"embedding without dimensions", "cohere.embed-english-v3", "embedding", Params{Supported: []string{Input, EncodingFormat}}},
 		{"unmeasured text model", "vendor.new-model", "text", Params{Supported: []string{MaxTokens, Stream}}},
 		{"unmeasured embedding model", "vendor.new-embed", "embedding", Params{Supported: []string{Input, EncodingFormat}}},
+		{"rerank", "cohere.rerank-v3-5:0", "rerank", Params{Supported: []string{Query, Documents, TopN, ReturnDocuments}}},
+		{"image edit", "stability.stable-image-inpaint-v1:0", "image", Params{Supported: []string{Prompt, Image, Mask}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -15,12 +15,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// customerPaths are the relay routes a person's API key may POST to: the text and embedding
-// requests Bedrock serves in the Console's region, each producing one measured usage event.
-// Legacy completions, images, audio, rerank, moderations, realtime, Gemini's format, tasks,
-// video and plugin routes are not served: Bedrock offers none of them there, or they produce
-// no usage event.
-var customerPaths = []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings"}
+// customerPaths are the relay routes a person's API key may POST to: the text, embedding,
+// rerank and image edit requests Bedrock serves in the Console's region, each producing one
+// measured usage event. Legacy completions, image generation, audio, moderations, realtime,
+// Gemini's format, tasks, video and plugin routes are not served: Bedrock offers none of them
+// there, or they produce no usage event.
+var customerPaths = []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings", "/v1/rerank", "/v1/images/edits"}
 
 // modelsPath answers a GET with the models; nothing else a customer may GET: a GET on
 // /v1/responses opens a WebSocket whose calls are not accounted for.
