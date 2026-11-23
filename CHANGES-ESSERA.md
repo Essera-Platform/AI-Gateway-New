@@ -346,3 +346,7 @@ The Bedrock provider moves to us-east-1. Every model goes through the region's o
 | `relay/channel/aws/constants.go` | The models us-east-1 serves only through `us.` |
 | `relay/channel/aws/essera_embedding.go` | Titan Text Embeddings G1, at its 1536 dimensions only |
 | `essera/apidocs/` | Requests are processed in us-east-1 |
+
+## us-east-1 models: parameters and reasoning (2026-11)
+
+`essera/modelparams` lists the parameters of the models us-east-1 added, measured with one Converse call per parameter on 2026-11-23: GPT-5.4 to GPT-6.2, Kimi K3 and Grok refuse temperature, top_p and stop; DeepSeek V3.2, GLM 4.7 and 5, Kimi K2.5 and K2 Thinking, Qwen3 Coder Next and Mistral Large 3 refuse stop; Writer Palmyra Vision refuses tools; Mistral Small cannot be made to call a tool by name. `reasoning_effort` reaches GPT (gpt-oss included) and Kimi K3 as the Responses API's `reasoning.effort`, since GPT-5.6 and later refuse `reasoning_effort` (`relay/channel/aws/essera_converse.go`).

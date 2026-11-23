@@ -29,3 +29,19 @@ func TestOf(t *testing.T) {
 		})
 	}
 }
+
+func TestTheUsEast1ModelsListWhatBedrockAccepts(t *testing.T) {
+	gpt := Of("openai.gpt-5.6-sol", "text")
+	assert.Equal(t, []string{MaxTokens, Stream, ReasoningEffort, Tools, ToolChoice}, gpt.Supported)
+	assert.Equal(t, []string{ToolChoiceAuto, ToolChoiceNone, ToolChoiceRequired, ToolChoiceFunction}, gpt.ToolChoices)
+
+	assert.Equal(t, []string{MaxTokens, Stream, Tools, ToolChoice}, Of("xai.grok-4.7", "text").Supported)
+	assert.Equal(t, []string{Temperature, TopP, MaxTokens, Stream, Tools, ToolChoice}, Of("deepseek.v3.2", "text").Supported)
+
+	palmyra := Of("writer.palmyra-vision-7b", "text")
+	assert.Equal(t, []string{Temperature, TopP, MaxTokens, Stream}, palmyra.Supported)
+	assert.Empty(t, palmyra.ToolChoices)
+
+	assert.Equal(t, []string{ToolChoiceAuto, ToolChoiceNone, ToolChoiceRequired}, Of("mistral.mistral-small-2402-v1:0", "text").ToolChoices)
+	assert.Equal(t, []string{Input, EncodingFormat}, Of("amazon.titan-embed-text-v1", "embedding").Supported)
+}

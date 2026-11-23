@@ -1,6 +1,6 @@
 // Package modelparams lists the request parameters each Bedrock model of the
-// catalog accepts through the Gateway, as measured against Bedrock in
-// eu-west-1 on 2026-11-23 (the same model ids serve us-east-1) with the model ids the Bedrock adaptor calls.
+// catalog accepts through the Gateway, as measured against Bedrock with the
+// model ids the Bedrock adaptor calls (eu-west-1, then us-east-1, 2026-11-23).
 //
 // Every chat model in the table accepts tools (one Converse call each with a
 // toolConfig, 2026-11-23).
@@ -42,7 +42,7 @@ type Params struct {
 	ToolChoices       []string `json:"tool_choices,omitempty"`
 }
 
-type capability uint8
+type capability uint16
 
 const (
 	sampling capability = 1 << iota
@@ -55,6 +55,8 @@ const (
 	toolChoiceAutoOnly
 	// Bedrock refuses toolChoice tool (a named function) for these models.
 	noNamedToolChoice
+	// Bedrock refuses toolConfig for these models.
+	noTools
 )
 
 // Claude models released from Opus 4.7 on reject temperature, top_p and
@@ -62,11 +64,10 @@ const (
 // Bedrock drops frequency_penalty, presence_penalty and seed on every path,
 // so no model lists them.
 var table = map[string]capability{
-	"amazon.nova-2-lite-v1:0":  sampling | stop | reasoning,
-	"amazon.nova-lite-v1:0":    sampling | stop,
-	"amazon.nova-micro-v1:0":   sampling | stop,
-	"amazon.nova-pro-v1:0":     sampling | stop,
-	"eu.amazon.nova-lite-v1:0": sampling | stop,
+	"amazon.nova-2-lite-v1:0": sampling | stop | reasoning,
+	"amazon.nova-lite-v1:0":   sampling | stop,
+	"amazon.nova-micro-v1:0":  sampling | stop,
+	"amazon.nova-pro-v1:0":    sampling | stop,
 
 	"anthropic.claude-fable-5":                 stop | reasoning,
 	"anthropic.claude-fable-5-1":               stop | reasoning | toolChoiceAutoOnly,
@@ -84,41 +85,65 @@ var table = map[string]capability{
 	"anthropic.claude-sonnet-4-6":              sampling | samplingExclusive | stop | reasoning,
 
 	"mistral.mistral-large-2402-v1:0": sampling | stop | noNamedToolChoice,
+	"mistral.mistral-small-2402-v1:0": sampling | stop | noNamedToolChoice,
 	"mistral.pixtral-large-2502-v1:0": sampling | stop | noNamedToolChoice,
 
-	// Bedrock refuses stopSequences for these models.
-	"google.gemma-3-12b-it":            sampling,
-	"google.gemma-3-27b-it":            sampling,
-	"google.gemma-3-4b-it":             sampling,
-	"minimax.minimax-m2":               sampling,
-	"minimax.minimax-m2.1":             sampling,
-	"minimax.minimax-m2.5":             sampling,
-	"mistral.devstral-2-123b":          sampling,
-	"mistral.magistral-small-2509":     sampling,
-	"mistral.ministral-3-14b-instruct": sampling,
-	"mistral.ministral-3-3b-instruct":  sampling,
-	"mistral.ministral-3-8b-instruct":  sampling,
-	"mistral.voxtral-mini-3b-2507":     sampling,
-	"mistral.voxtral-small-24b-2507":   sampling,
-	"nvidia.nemotron-nano-12b-v2":      sampling,
-	"nvidia.nemotron-nano-3-30b":       sampling,
-	"nvidia.nemotron-nano-9b-v2":       sampling,
-	"nvidia.nemotron-super-3-120b":     sampling,
-	"openai.gpt-oss-120b-1:0":          sampling | reasoning,
-	"openai.gpt-oss-20b-1:0":           sampling | reasoning,
-	"openai.gpt-oss-safeguard-120b":    sampling | reasoning,
-	"openai.gpt-oss-safeguard-20b":     sampling | reasoning,
-	"qwen.qwen3-32b-v1:0":              sampling,
-	"qwen.qwen3-coder-30b-a3b-v1:0":    sampling,
-	"qwen.qwen3-next-80b-a3b":          sampling,
-	"qwen.qwen3-vl-235b-a22b":          sampling,
-	"zai.glm-4.7-flash":                sampling,
+	// Bedrock refuses temperature, top_p and stopSequences for these models.
+	"moonshotai.kimi-k3":       reasoning,
+	"moonshotai.kimi-k3.1":     reasoning,
+	"openai.gpt-5.4":           reasoning,
+	"openai.gpt-5.5":           reasoning,
+	"openai.gpt-5.6-luna":      reasoning,
+	"openai.gpt-5.6-sol":       reasoning,
+	"openai.gpt-5.6-terra":     reasoning,
+	"openai.gpt-6-astra":       reasoning,
+	"openai.gpt-6.2-sol":       reasoning,
+	"xai.grok-4.6":             0,
+	"xai.grok-4.7":             0,
+	"writer.palmyra-vision-7b": sampling | noTools,
 
-	"amazon.titan-embed-image-v1":  embedding | dimensions,
-	"amazon.titan-embed-text-v2:0": embedding | dimensions,
-	"cohere.embed-v4:0":            embedding | dimensions,
-	"cohere.embed-english-v3":      embedding,
-	"cohere.embed-multilingual-v3": embedding,
+	// Bedrock refuses stopSequences for these models.
+	"deepseek.v3.2":                         sampling,
+	"google.gemma-3-12b-it":                 sampling,
+	"google.gemma-3-27b-it":                 sampling,
+	"google.gemma-3-4b-it":                  sampling,
+	"minimax.minimax-m2":                    sampling,
+	"minimax.minimax-m2.1":                  sampling,
+	"minimax.minimax-m2.5":                  sampling,
+	"mistral.mistral-large-3-675b-instruct": sampling,
+	"moonshot.kimi-k2-thinking":             sampling,
+	"moonshotai.kimi-k2.5":                  sampling,
+	"mistral.devstral-2-123b":               sampling,
+	"mistral.magistral-small-2509":          sampling,
+	"mistral.ministral-3-14b-instruct":      sampling,
+	"mistral.ministral-3-3b-instruct":       sampling,
+	"mistral.ministral-3-8b-instruct":       sampling,
+	"mistral.voxtral-mini-3b-2507":          sampling,
+	"mistral.voxtral-small-24b-2507":        sampling,
+	"nvidia.nemotron-nano-12b-v2":           sampling,
+	"nvidia.nemotron-nano-3-30b":            sampling,
+	"nvidia.nemotron-nano-9b-v2":            sampling,
+	"nvidia.nemotron-super-3-120b":          sampling,
+	"openai.gpt-oss-120b-1:0":               sampling | reasoning,
+	"openai.gpt-oss-20b-1:0":                sampling | reasoning,
+	"openai.gpt-oss-safeguard-120b":         sampling | reasoning,
+	"openai.gpt-oss-safeguard-20b":          sampling | reasoning,
+	"qwen.qwen3-32b-v1:0":                   sampling,
+	"qwen.qwen3-coder-30b-a3b-v1:0":         sampling,
+	"qwen.qwen3-coder-next":                 sampling,
+	"qwen.qwen3-next-80b-a3b":               sampling,
+	"qwen.qwen3-vl-235b-a22b":               sampling,
+	"zai.glm-4.7":                           sampling,
+	"zai.glm-4.7-flash":                     sampling,
+	"zai.glm-5":                             sampling,
+
+	"amazon.titan-embed-image-v1":   embedding | dimensions,
+	"amazon.titan-embed-text-v1":    embedding,
+	"amazon.titan-embed-g1-text-02": embedding,
+	"amazon.titan-embed-text-v2:0":  embedding | dimensions,
+	"cohere.embed-v4:0":             embedding | dimensions,
+	"cohere.embed-english-v3":       embedding,
+	"cohere.embed-multilingual-v3":  embedding,
 }
 
 // Of returns the parameters model accepts; modality is the catalog's and
@@ -148,7 +173,7 @@ func Of(model, modality string) Params {
 		supported = append(supported, ReasoningEffort)
 	}
 	params := Params{Supported: supported, SamplingExclusive: capabilities&samplingExclusive != 0}
-	if known {
+	if known && capabilities&noTools == 0 {
 		params.Supported = append(params.Supported, Tools, ToolChoice)
 		switch {
 		case capabilities&toolChoiceAutoOnly != 0:
