@@ -531,8 +531,10 @@ func converseReasoningFields(modelID, effort string) map[string]any {
 		return nil
 	}
 	switch {
-	case strings.Contains(modelID, "openai."):
-		return map[string]any{"reasoning_effort": effort}
+	// GPT-5.6 and later refuse reasoning_effort; every GPT, gpt-oss and Kimi K3
+	// take the Responses API's reasoning.effort (checked on Bedrock, 2026-11-23).
+	case strings.Contains(modelID, "openai."), strings.Contains(modelID, "moonshotai.kimi-k3"):
+		return map[string]any{"reasoning": map[string]any{"effort": effort}}
 	case strings.Contains(modelID, "amazon.nova-2"):
 		return map[string]any{"reasoningConfig": map[string]any{"type": "enabled", "maxReasoningEffort": effort}}
 	}
