@@ -130,10 +130,12 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 		category := string(apiErr.GetErrorCode())
 		event.ErrorCategory = &category
 	}
-	if units, ok := metering.Recorded(c); ok {
+	units, metered := metering.Recorded(c)
+	if metered {
 		event.InputUnits, event.OutputUnits = units.Input, units.Output
 		event.CacheReadUnits, event.CacheWriteUnits, event.CacheWrite1hUnits = units.CacheRead, units.CacheWrite, units.CacheWrite1h
 		event.InputImageUnits = units.InputImages
+		event.GeneratedUnits = units.Generated
 	} else if consumed, ok := common.GetContextKey(c, constant.ContextKeyConsumeLog); ok {
 		if params, ok := consumed.(*model.RecordConsumeLogParams); ok {
 			event.InputUnits = int64(params.PromptTokens)
@@ -141,7 +143,7 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 		}
 	}
 	if event.Status == "succeeded" {
-		measureGenerated(&event, info)
+		measureGenerated(&event, info, metered)
 	}
 	return event
 }
@@ -170,8 +172,10 @@ func ProviderOf(channelID int) string {
 
 func modalityOf(mode int) string {
 	switch mode {
-	case relayconstant.RelayModeEmbeddings, relayconstant.RelayModeRerank:
+	case relayconstant.RelayModeEmbeddings:
 		return "embedding"
+	case relayconstant.RelayModeRerank:
+		return "rerank"
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
 		return "image"
 	case relayconstant.RelayModeAudioSpeech, relayconstant.RelayModeAudioTranscription, relayconstant.RelayModeAudioTranslation:
@@ -185,14 +189,18 @@ func modalityOf(mode int) string {
 const audioTokensPerMinute = 1000
 
 // measureGenerated turns new-api's counts into the units the Console prices.
-//   - Images: the images actually settled, not the n asked for. new-api writes one prompt token
-//     when the provider reports no usage; that is no token at all.
+//   - Images: the images the provider billed when the adaptor metered them, else the images
+//     actually settled, not the n asked for. new-api writes one prompt token when the provider
+//     reports no usage; that is no token at all.
 //   - Audio: minutes of sound, rounded up, from new-api's per-minute tokens. They are not tokens,
 //     so the token units are cleared.
-func measureGenerated(event *Event, info *relaycommon.RelayInfo) {
+//   - Rerank: the search units the adaptor metered, as they are.
+func measureGenerated(event *Event, info *relaycommon.RelayInfo, metered bool) {
 	switch event.Modality {
 	case "image":
-		event.GeneratedUnits = imagesSettled(info)
+		if !metered {
+			event.GeneratedUnits = imagesSettled(info)
+		}
 		if event.InputUnits <= 1 && event.OutputUnits == 0 {
 			event.InputUnits = 0
 		}

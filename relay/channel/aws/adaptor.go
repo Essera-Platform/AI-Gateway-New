@@ -1,6 +1,7 @@
 // Modified by Essera, 2026-11: every Bedrock model through Converse and ConverseStream,
-// /v1/responses, embeddings, Bedrock error mapping and the inference profile retry (see essera_*.go),
-// and the units Bedrock billed recorded for the Console (essera/metering).
+// /v1/responses, embeddings, rerank, Stability image edits, Bedrock error mapping and the
+// inference profile retry (see essera_*.go), and the units Bedrock billed recorded for the
+// Console (essera/metering).
 package aws
 
 import (
@@ -35,6 +36,8 @@ type Adaptor struct {
 	stream         *http.Response
 	embeddingPlan  *embeddingPlan
 	encodingFormat string
+	rerankPlan     *rerankPlan
+	generated      int64
 }
 
 func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeminiChatRequest) (any, error) {
@@ -103,8 +106,8 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-	//TODO implement me
-	return nil, errors.New("not implemented")
+	// Modified by Essera, 2026-11: Stability AI's image services (essera_image.go).
+	return convertStabilityRequest(c, info.RelayMode, getAwsModelID(info.UpstreamModelName), request)
 }
 
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
@@ -153,9 +156,13 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
-	// Modified by Essera, 2026-11: Amazon Rerank and Cohere Rerank are not
-	// offered in eu-west-1, the region Essera serves, so rerank is refused.
-	return nil, types.NewErrorWithStatusCode(errors.New("rerank is not supported on AWS Bedrock channels"), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	// Modified by Essera, 2026-11: Cohere Rerank 3.5 (essera_rerank.go).
+	body, plan, err := convertRerankRequest(request)
+	if err != nil {
+		return nil, err
+	}
+	a.rerankPlan = plan
+	return body, nil
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.EmbeddingRequest) (any, error) {
@@ -253,11 +260,22 @@ func (a *Adaptor) doRuntimeRequest(c *gin.Context, info *relaycommon.RelayInfo, 
 			return nil
 		}
 	}
-	if a.route == routeConverse {
+	switch a.route {
+	case routeConverse:
 		if info.IsStream {
 			return send("converse-stream", body, true)
 		}
 		return send("converse", body, false)
+	case routeRerank:
+		if !isRerankModel(a.modelID) {
+			return newBadRequest("model %s does not rerank on AWS Bedrock", info.UpstreamModelName)
+		}
+		if a.rerankPlan == nil {
+			return newBadRequest("invalid AWS Bedrock rerank request")
+		}
+		return send("invoke", body, false)
+	case routeImage:
+		return send("invoke", body, false)
 	}
 	var plan embeddingPlan
 	if err := common.Unmarshal(body, &plan); err != nil || len(plan.Calls) == 0 {
@@ -281,6 +299,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	if settled, ok := usage.(*dto.Usage); ok && err == nil {
 		units := metering.FromUsage(settled)
 		units.InputImages = imagesPricedApart(embeddingFamilyOf(a.modelID), a.embeddingPlan)
+		units.Generated = a.generated
 		metering.Record(c, units)
 	}
 	return usage, err
@@ -306,6 +325,24 @@ func (a *Adaptor) doResponse(c *gin.Context, resp *http.Response, info *relaycom
 			return nil, bedrockReplyError(reply)
 		}
 	}
+	switch route {
+	case routeRerank:
+		response, apiErr := rerankResponseFromReply(a.rerankPlan, a.replies[0])
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		a.generated = rerankSearchUnits(len(a.rerankPlan.documents))
+		c.JSON(http.StatusOK, response)
+		return &response.Usage, nil
+	case routeImage:
+		response, images, apiErr := stabilityImageResponse(a.replies[0])
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		a.generated = images
+		c.JSON(http.StatusOK, response)
+		return &dto.Usage{}, nil
+	}
 	if route == routeConverse {
 		var chat *http.Response
 		if a.stream != nil {
@@ -318,11 +355,11 @@ func (a *Adaptor) doResponse(c *gin.Context, resp *http.Response, info *relaycom
 		}
 		return serveOpenAIChat(c, info, chat)
 	}
-	response, apiErr := embeddingResponseFromReplies(info.UpstreamModelName, embeddingFamilyOf(a.modelID), a.embeddingPlan, a.replies, a.encodingFormat)
+	response, reported, apiErr := embeddingResponseFromReplies(info.UpstreamModelName, embeddingFamilyOf(a.modelID), a.embeddingPlan, a.replies, a.encodingFormat)
 	if apiErr != nil {
 		return nil, apiErr
 	}
-	if response.Usage.PromptTokens == 0 {
+	if !reported {
 		estimate := info.GetEstimatePromptTokens()
 		response.Usage = dto.Usage{PromptTokens: estimate, TotalTokens: estimate}
 	}

@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"io"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -773,6 +774,18 @@ func TestBedrockEmbeddings(t *testing.T) {
 			wantFirst: []float64{5, 6}, wantCount: 1, wantUsage: 4,
 		},
 		{
+			family: "Nova Multimodal: a text, its tokens from the header", model: "amazon.nova-2-multimodal-embeddings-v1:0", request: `{"input":"a","dimensions":256}`,
+			replies:  []bedrockReplyFixture{{header: tokens, body: []byte(`{"embeddings":[{"embeddingType":"TEXT","embedding":[1,2]}]}`)}},
+			wantPath: "/model/amazon.nova-2-multimodal-embeddings-v1%3A0/invoke", wantBody: []string{`{"taskType":"SINGLE_EMBEDDING","singleEmbeddingParams":{"embeddingPurpose":"GENERIC_INDEX","embeddingDimension":256,"text":{"truncationMode":"END","value":"a"}}}`},
+			wantFirst: []float64{1, 2}, wantCount: 1, wantUsage: 4,
+		},
+		{
+			family: "Nova Multimodal: an image is a standard image, priced per image, with no tokens", model: "amazon.nova-2-multimodal-embeddings-v1:0", request: `{"input":"data:image/jpg;base64,aW1n"}`,
+			replies:  []bedrockReplyFixture{{header: map[string]string{bedrockInputTokenHeader: "0"}, body: []byte(`{"embeddings":[{"embeddingType":"IMAGE","embedding":[3]}]}`)}},
+			wantPath: "/model/amazon.nova-2-multimodal-embeddings-v1%3A0/invoke", wantBody: []string{`{"taskType":"SINGLE_EMBEDDING","singleEmbeddingParams":{"embeddingPurpose":"GENERIC_INDEX","image":{"format":"jpeg","detailLevel":"STANDARD_IMAGE","source":{"bytes":"aW1n"}}}}`},
+			wantFirst: []float64{3}, wantCount: 1, wantUsage: 0, wantImages: 1,
+		},
+		{
 			family: "Cohere Embed v3: one batched call", model: "cohere.embed-multilingual-v3", request: `{"input":["a","b"]}`,
 			replies:  []bedrockReplyFixture{{header: tokens, body: []byte(`{"id":"x","response_type":"embeddings_by_type","embeddings":{"float":[[1,1],[2,2]]},"texts":["a","b"]}`)}},
 			wantPath: "/model/cohere.embed-multilingual-v3/invoke", wantBody: []string{`{"texts":["a","b"],"input_type":"search_document","embedding_types":["float"]}`},
@@ -791,6 +804,7 @@ func TestBedrockEmbeddings(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			c := newAwsTestContext(recorder, context.Background())
 			info := newBedrockTestInfo(server, relayconstant.RelayModeEmbeddings, relaytypes.RelayFormatEmbedding, test.model, false)
+			info.SetEstimatePromptTokens(99)
 			var request dto.EmbeddingRequest
 			require.NoError(t, common.Unmarshal([]byte(test.request), &request))
 
@@ -852,12 +866,140 @@ func TestBedrockEmbeddings(t *testing.T) {
 	})
 }
 
-func TestBedrockRerankIsRefused(t *testing.T) {
-	_, err := (&Adaptor{}).ConvertRerankRequest(nil, relayconstant.RelayModeRerank, dto.RerankRequest{})
-	var apiErr *relaytypes.NewAPIError
-	require.ErrorAs(t, err, &apiErr)
-	assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
-	assert.True(t, relaytypes.IsSkipRetryError(apiErr))
+func TestBedrockRerank(t *testing.T) {
+	const model = "cohere.rerank-v3-5:0"
+	t.Run("Cohere Rerank 3.5: best first, documents returned, search units per 100 documents", func(t *testing.T) {
+		server, captured := startBedrockStub(t, jsonFixture(`{"results":[{"index":2,"relevance_score":0.1},{"index":0,"relevance_score":0.9}]}`))
+		recorder := httptest.NewRecorder()
+		c := newAwsTestContext(recorder, context.Background())
+		info := newBedrockTestInfo(server, relayconstant.RelayModeRerank, relaytypes.RelayFormatRerank, model, false)
+		documents := make([]any, 150)
+		for i := range documents {
+			documents[i] = "doc"
+		}
+		documents[0] = map[string]any{"text": "Paris"}
+		topN, returnDocuments := 2, true
+		request := dto.RerankRequest{Model: model, Query: "capital of France", Documents: documents, TopN: &topN, ReturnDocuments: &returnDocuments}
+
+		_, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertRerankRequest(c, info.RelayMode, request) })
+		require.Nil(t, apiErr)
+
+		requests := captured()
+		require.Len(t, requests, 1)
+		assert.Equal(t, "/model/cohere.rerank-v3-5%3A0/invoke", requests[0].path)
+		assert.Equal(t, "capital of France", ojson.GetBytes(requests[0].body, "query").String())
+		assert.Equal(t, "Paris", ojson.GetBytes(requests[0].body, "documents.0").String())
+		assert.EqualValues(t, 150, ojson.GetBytes(requests[0].body, "documents.#").Int())
+		assert.EqualValues(t, 2, ojson.GetBytes(requests[0].body, "top_n").Int())
+		assert.EqualValues(t, 2, ojson.GetBytes(requests[0].body, "api_version").Int())
+		assert.JSONEq(t, `[{"index":0,"relevance_score":0.9,"document":{"text":"Paris"}},{"index":2,"relevance_score":0.1,"document":{"text":"doc"}}]`, ojson.GetBytes(recorder.Body.Bytes(), "results").Raw)
+		units, ok := metering.Recorded(c)
+		require.True(t, ok)
+		assert.Equal(t, metering.Units{Generated: 2}, units)
+	})
+
+	long := strings.Repeat("a", 480)
+	refused := map[string]dto.RerankRequest{
+		"no query":                          {Documents: []any{"a"}},
+		"no documents":                      {Query: "q"},
+		"over 1000 documents":               {Query: "q", Documents: make([]any, 1001)},
+		"a document that is not text":       {Query: "q", Documents: []any{42}},
+		"top_n over the documents":          {Query: "q", Documents: []any{"a"}, TopN: common.GetPointer(2)},
+		"a pair AWS would split and bill":   {Query: strings.Repeat("q", 21), Documents: []any{long}},
+		"a pair that grows when normalized": {Query: "q", Documents: []any{strings.Repeat("ﷺ", 30)}},
+	}
+	for name, request := range refused {
+		t.Run(name, func(t *testing.T) {
+			_, err := (&Adaptor{}).ConvertRerankRequest(nil, relayconstant.RelayModeRerank, request)
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+			assert.True(t, relaytypes.IsSkipRetryError(apiErr))
+		})
+	}
+	t.Run("a pair of 500 bytes is served", func(t *testing.T) {
+		_, err := (&Adaptor{}).ConvertRerankRequest(nil, relayconstant.RelayModeRerank, dto.RerankRequest{Query: strings.Repeat("q", 20), Documents: []any{long}})
+		require.NoError(t, err)
+	})
+}
+
+func TestBedrockStabilityImageEdits(t *testing.T) {
+	const inpaint = "stability.stable-image-inpaint-v1:0"
+	relayImage := func(t *testing.T, c *gin.Context, model string, mode int, request dto.ImageRequest) (*httptest.Server, func() []capturedBedrockRequest, *relaytypes.NewAPIError) {
+		server, captured := startBedrockStub(t, jsonFixture(`{"seeds":[1],"finish_reasons":[null],"images":["aW1hZ2U="]}`))
+		info := newBedrockTestInfo(server, mode, relaytypes.RelayFormatOpenAIImage, model, false)
+		info.ApiKey = "test-api-key|us-east-1"
+		_, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertImageRequest(c, info, request) })
+		return server, captured, apiErr
+	}
+
+	t.Run("multipart: image, mask and the service's own fields, through the us. profile", func(t *testing.T) {
+		var form bytes.Buffer
+		writer := multipart.NewWriter(&form)
+		for name, content := range map[string]string{"image": "img", "mask": "msk"} {
+			part, err := writer.CreateFormFile(name, name+".png")
+			require.NoError(t, err)
+			_, _ = part.Write([]byte(content))
+		}
+		for name, value := range map[string]string{"model": inpaint, "prompt": "a cat", "seed": "7", "negative_prompt": "dog", "output_format": "jpeg", "ignored": "x"} {
+			require.NoError(t, writer.WriteField(name, value))
+		}
+		require.NoError(t, writer.Close())
+		recorder := httptest.NewRecorder()
+		c := newAwsTestContext(recorder, context.Background())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", &form)
+		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+		require.NoError(t, c.Request.ParseMultipartForm(1<<20))
+
+		_, captured, apiErr := relayImage(t, c, inpaint, relayconstant.RelayModeImagesEdits, dto.ImageRequest{Model: inpaint, Prompt: "a cat"})
+		require.Nil(t, apiErr)
+		requests := captured()
+		require.Len(t, requests, 1)
+		assert.Equal(t, "/model/us.stability.stable-image-inpaint-v1%3A0/invoke", requests[0].path)
+		assert.JSONEq(t, `{"prompt":"a cat","image":"aW1n","mask":"bXNr","seed":7,"negative_prompt":"dog","output_format":"jpeg"}`, string(requests[0].body))
+		assert.Equal(t, "aW1hZ2U=", ojson.GetBytes(recorder.Body.Bytes(), "data.0.b64_json").String())
+		units, ok := metering.Recorded(c)
+		require.True(t, ok)
+		assert.Equal(t, metering.Units{Generated: 1}, units)
+	})
+
+	t.Run("JSON: style transfer takes its two images", func(t *testing.T) {
+		const model = "stability.stable-style-transfer-v1:0"
+		recorder := httptest.NewRecorder()
+		c := newAwsTestContext(recorder, context.Background())
+		var request dto.ImageRequest
+		require.NoError(t, common.Unmarshal([]byte(`{"model":"`+model+`","prompt":"","images":[{"image_url":"data:image/png;base64,aW5pdA=="},{"image_url":"c3R5bGU="}],"style_strength":0.5}`), &request))
+
+		_, captured, apiErr := relayImage(t, c, model, relayconstant.RelayModeImagesEdits, request)
+		require.Nil(t, apiErr)
+		assert.JSONEq(t, `{"init_image":"aW5pdA==","style_image":"c3R5bGU=","style_strength":0.5}`, string(captured()[0].body))
+	})
+
+	refused := map[string]struct {
+		model   string
+		mode    int
+		request string
+	}{
+		"text to image":               {inpaint, relayconstant.RelayModeImagesGenerations, `{"prompt":"a cat"}`},
+		"more than one image":         {inpaint, relayconstant.RelayModeImagesEdits, `{"prompt":"a cat","n":2,"image":"aW1n"}`},
+		"a URL answer":                {inpaint, relayconstant.RelayModeImagesEdits, `{"prompt":"a cat","response_format":"url","image":"aW1n"}`},
+		"a linked image":              {inpaint, relayconstant.RelayModeImagesEdits, `{"prompt":"a cat","image":"https://example.com/a.png"}`},
+		"no image":                    {inpaint, relayconstant.RelayModeImagesEdits, `{"prompt":"a cat"}`},
+		"style transfer one":          {"stability.stable-style-transfer-v1:0", relayconstant.RelayModeImagesEdits, `{"prompt":"","image":"aW1n"}`},
+		"a field that is no number":   {inpaint, relayconstant.RelayModeImagesEdits, `{"prompt":"a cat","image":"aW1n","seed":"x"}`},
+		"a model that makes no image": {"amazon.nova-lite-v1:0", relayconstant.RelayModeImagesEdits, `{"prompt":"a cat","image":"aW1n"}`},
+	}
+	for name, test := range refused {
+		t.Run(name, func(t *testing.T) {
+			c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+			var request dto.ImageRequest
+			require.NoError(t, common.Unmarshal([]byte(test.request), &request))
+			_, err := convertStabilityRequest(c, test.mode, test.model, request)
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+		})
+	}
 }
 
 // onDemandRefusal is Bedrock's answer for a model that a region serves only

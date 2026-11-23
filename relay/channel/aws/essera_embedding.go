@@ -1,6 +1,6 @@
 // Essera fork: OpenAI embeddings for the Bedrock embedding models (Titan Text
-// Embeddings G1 and v2, Titan Multimodal Embeddings, Cohere Embed v3 and v4)
-// through InvokeModel with each model's native body.
+// Embeddings G1 and v2, Titan Multimodal Embeddings, Cohere Embed v3 and v4,
+// Nova Multimodal Embeddings) through InvokeModel with each model's native body.
 package aws
 
 import (
@@ -25,6 +25,7 @@ const (
 	embeddingTitanMultimodal
 	embeddingCohere
 	embeddingCohereV4
+	embeddingNovaMultimodal
 )
 
 const (
@@ -45,6 +46,8 @@ func embeddingFamilyOf(modelID string) embeddingFamily {
 		return embeddingTitanTextV2
 	case strings.Contains(modelID, "titan-embed-text-v1"), strings.Contains(modelID, "titan-embed-g1-text"):
 		return embeddingTitanTextG1
+	case strings.Contains(modelID, "nova-2-multimodal-embeddings"):
+		return embeddingNovaMultimodal
 	case strings.Contains(modelID, "cohere.embed-v4"):
 		return embeddingCohereV4
 	case strings.Contains(modelID, "cohere.embed"):
@@ -68,13 +71,23 @@ type embeddingPlan struct {
 
 // embeddingImage returns the base64 data of an input given as an image data URL.
 func embeddingImage(input string) (string, bool) {
-	rest, found := strings.CutPrefix(input, "data:image/")
-	if !found {
-		return "", false
-	}
-	_, data, found := strings.Cut(rest, ";base64,")
+	_, data, found := embeddingImageOf(input)
 	return data, found
 }
+
+// embeddingImageOf returns the image subtype ("png") and base64 data of an
+// input given as an image data URL.
+func embeddingImageOf(input string) (string, string, bool) {
+	rest, found := strings.CutPrefix(input, "data:image/")
+	if !found {
+		return "", "", false
+	}
+	format, data, found := strings.Cut(rest, ";base64,")
+	return format, data, found
+}
+
+// novaImageFormats are the image formats Nova Multimodal Embeddings reads.
+var novaImageFormats = map[string]string{"png": "png", "jpeg": "jpeg", "jpg": "jpeg", "gif": "gif", "webp": "webp"}
 
 // convertEmbeddingRequest plans the calls for an OpenAI embedding request.
 // An input that is an image data URL embeds the image on the multimodal
@@ -136,7 +149,7 @@ func convertEmbeddingRequest(modelID string, request dto.EmbeddingRequest) (*emb
 
 	for i, input := range inputs {
 		image, isImage := embeddingImage(input)
-		if isImage && family != embeddingTitanMultimodal {
+		if isImage && family != embeddingTitanMultimodal && family != embeddingNovaMultimodal {
 			return nil, newBadRequest("model %s embeds text only", modelID)
 		}
 		var body map[string]any
@@ -151,6 +164,22 @@ func convertEmbeddingRequest(modelID string, request dto.EmbeddingRequest) (*emb
 				return nil, newBadRequest("model %s embeds at %d dimensions only", modelID, titanTextG1Dimensions)
 			}
 			body = map[string]any{"inputText": input}
+		case embeddingNovaMultimodal:
+			params := map[string]any{"embeddingPurpose": "GENERIC_INDEX"}
+			if request.Dimensions != nil {
+				params["embeddingDimension"] = *request.Dimensions
+			}
+			if isImage {
+				subtype, _, _ := embeddingImageOf(input)
+				format, known := novaImageFormats[subtype]
+				if !known {
+					return nil, newBadRequest("model %s embeds png, jpeg, gif and webp images", modelID)
+				}
+				params["image"] = map[string]any{"format": format, "detailLevel": "STANDARD_IMAGE", "source": map[string]any{"bytes": image}}
+			} else {
+				params["text"] = map[string]any{"truncationMode": "END", "value": input}
+			}
+			body = map[string]any{"taskType": "SINGLE_EMBEDDING", "singleEmbeddingParams": params}
 		case embeddingTitanMultimodal:
 			if isImage {
 				body = map[string]any{"inputImage": image}
@@ -170,10 +199,10 @@ func convertEmbeddingRequest(modelID string, request dto.EmbeddingRequest) (*emb
 }
 
 // imagesPricedApart counts the images of the plan Bedrock prices per image:
-// Titan Multimodal's and Cohere Embed v3's. Cohere Embed v4 prices an image
-// by its tokens.
+// Titan Multimodal's, Cohere Embed v3's and Nova Multimodal's (as standard
+// images). Cohere Embed v4 prices an image by its tokens.
 func imagesPricedApart(family embeddingFamily, plan *embeddingPlan) int64 {
-	if plan == nil || (family != embeddingTitanMultimodal && family != embeddingCohere) {
+	if plan == nil || (family != embeddingTitanMultimodal && family != embeddingCohere && family != embeddingNovaMultimodal) {
 		return 0
 	}
 	var images int64
@@ -205,6 +234,21 @@ func embeddingVectors(family embeddingFamily, body []byte) ([][]float64, int, er
 		var vectors [][]float64
 		if err := common.Unmarshal(native.Embeddings, &vectors); err != nil {
 			return nil, 0, err
+		}
+		return vectors, 0, nil
+	}
+	if family == embeddingNovaMultimodal {
+		var native struct {
+			Embeddings []struct {
+				Embedding []float64 `json:"embedding"`
+			} `json:"embeddings"`
+		}
+		if err := common.Unmarshal(body, &native); err != nil {
+			return nil, 0, err
+		}
+		vectors := make([][]float64, len(native.Embeddings))
+		for i, embedding := range native.Embeddings {
+			vectors[i] = embedding.Embedding
 		}
 		return vectors, 0, nil
 	}
@@ -247,20 +291,22 @@ func encodeEmbedding(vector []float64, encodingFormat string) any {
 // embeddingResponseFromReplies assembles the OpenAI response from the answers
 // to the plan's calls. Input tokens come from Bedrock's token-count header, or
 // the body's own count where the header is missing.
-func embeddingResponseFromReplies(model string, family embeddingFamily, plan *embeddingPlan, replies []bedrockReply, encodingFormat string) (*embeddingResponse, *types.NewAPIError) {
+// reported tells whether Bedrock gave a count at all: an image-only request is
+// counted as zero tokens, and billed by its images.
+func embeddingResponseFromReplies(model string, family embeddingFamily, plan *embeddingPlan, replies []bedrockReply, encodingFormat string) (*embeddingResponse, bool, *types.NewAPIError) {
 	inputs := 0
 	for _, call := range plan.Calls {
 		inputs += len(call.Inputs)
 	}
 	response := &embeddingResponse{Object: "list", Model: model, Data: make([]embeddingItem, inputs)}
-	tokens := 0
+	tokens, reported := 0, false
 	for i, call := range plan.Calls {
 		vectors, bodyTokens, err := embeddingVectors(family, replies[i].body)
 		if err == nil && len(vectors) != len(call.Inputs) {
 			err = fmt.Errorf("%d embeddings for %d inputs", len(vectors), len(call.Inputs))
 		}
 		if err != nil {
-			return nil, types.NewOpenAIError(fmt.Errorf("decode embedding response: %w", err), types.ErrorCodeBadResponseBody, http.StatusBadGateway)
+			return nil, false, types.NewOpenAIError(fmt.Errorf("decode embedding response: %w", err), types.ErrorCodeBadResponseBody, http.StatusBadGateway)
 		}
 		for j, position := range call.Inputs {
 			response.Data[position] = embeddingItem{Object: "embedding", Index: position, Embedding: encodeEmbedding(vectors[j], encodingFormat)}
@@ -269,8 +315,9 @@ func embeddingResponseFromReplies(model string, family embeddingFamily, plan *em
 		if callTokens == 0 && bodyTokens > 0 && bodyTokens <= maxBedrockTokenCount {
 			callTokens = bodyTokens
 		}
+		reported = reported || replies[i].header.Get(bedrockInputTokenHeader) != "" || bodyTokens > 0
 		tokens = min(tokens+callTokens, maxBedrockTokenCount)
 	}
 	response.Usage = dto.Usage{PromptTokens: tokens, TotalTokens: tokens}
-	return response, nil
+	return response, reported, nil
 }
