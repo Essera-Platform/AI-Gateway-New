@@ -32,6 +32,7 @@ import (
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
+	bedrockruntimeTypes "github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
 	"github.com/aws/smithy-go"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -729,8 +730,10 @@ func TestBedrockEmbeddings(t *testing.T) {
 		wantFirst []float64
 		wantCount int
 		wantUsage int
-		// Images Bedrock prices per image: Titan Multimodal's and Cohere v3's, not Cohere v4's.
+		// Images Bedrock prices per image: Titan Multimodal's, Cohere v3's and Marengo's, not
+		// Cohere v4's; texts it prices per request: Marengo's.
 		wantImages int64
+		wantTexts  int64
 	}{
 		{
 			family: "Titan Text v2: one call per input, dimensions", model: "amazon.titan-embed-text-v2:0", request: `{"input":["a","b"],"dimensions":256}`,
@@ -784,6 +787,16 @@ func TestBedrockEmbeddings(t *testing.T) {
 			wantPath: "/model/eu.cohere.embed-v4%3A0/invoke", wantBody: []string{`{"texts":["a"],"input_type":"search_document","embedding_types":["float"],"output_dimension":512}`},
 			wantFirst: []float64{7, 8}, wantCount: 1, wantUsage: 4,
 		},
+		{
+			family: "Marengo: a text and an image, one call each, priced per request and image, no tokens", model: "twelvelabs.marengo-embed-3-0-v1:0", request: `{"input":["a dog","data:image/png;base64,aW1n"],"dimensions":512}`,
+			replies: []bedrockReplyFixture{
+				{body: []byte(`{"data":[{"embedding":[0.25,0.5]}]}`)},
+				{body: []byte(`{"data":{"embedding":[0.75]}}`)},
+			},
+			wantPath:  "/model/twelvelabs.marengo-embed-3-0-v1%3A0/invoke",
+			wantBody:  []string{`{"inputType":"text","text":{"inputText":"a dog"}}`, `{"inputType":"image","image":{"mediaSource":{"base64String":"aW1n"}}}`},
+			wantFirst: []float64{0.25, 0.5}, wantCount: 2, wantUsage: 0, wantImages: 1, wantTexts: 1,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.family, func(t *testing.T) {
@@ -815,7 +828,7 @@ func TestBedrockEmbeddings(t *testing.T) {
 			assert.EqualValues(t, test.wantUsage, response.Usage.PromptTokens)
 			units, ok := metering.Recorded(c)
 			require.True(t, ok)
-			assert.Equal(t, metering.Units{Input: int64(test.wantUsage), InputImages: test.wantImages}, units)
+			assert.Equal(t, metering.Units{Input: int64(test.wantUsage), InputImages: test.wantImages, InputTexts: test.wantTexts}, units)
 		})
 	}
 
@@ -842,6 +855,16 @@ func TestBedrockEmbeddings(t *testing.T) {
 		var apiErr *relaytypes.NewAPIError
 		require.ErrorAs(t, err, &apiErr)
 		assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+	})
+
+	t.Run("Marengo refuses another vector length, and video or audio outside a task", func(t *testing.T) {
+		dimensions := 1024
+		for _, request := range []dto.EmbeddingRequest{{Input: "a", Dimensions: &dimensions}, {Input: "data:video/mp4;base64,dmlk"}, {Input: "data:audio/wav;base64,YXVk"}} {
+			_, err := convertEmbeddingRequest("twelvelabs.marengo-embed-3-0-v1:0", request)
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+		}
 	})
 
 	t.Run("a chat model is refused", func(t *testing.T) {
@@ -1026,4 +1049,152 @@ func TestBedrockInferenceProfiles(t *testing.T) {
 		assert.Equal(t, model, info.UpstreamModelName)
 		assert.Equal(t, "eu."+model, resolveBedrockModelID(9105, model, "eu-west-1"))
 	})
+}
+
+type fakeAsyncInvoker struct {
+	started []*bedrockruntime.StartAsyncInvokeInput
+	region  string
+}
+
+func (f *fakeAsyncInvoker) StartAsyncInvoke(_ context.Context, input *bedrockruntime.StartAsyncInvokeInput, _ ...func(*bedrockruntime.Options)) (*bedrockruntime.StartAsyncInvokeOutput, error) {
+	f.started = append(f.started, input)
+	return &bedrockruntime.StartAsyncInvokeOutput{InvocationArn: aws.String("arn:aws:bedrock:us-east-1:123456789012:async-invoke/inv1")}, nil
+}
+
+func (f *fakeAsyncInvoker) GetAsyncInvoke(context.Context, *bedrockruntime.GetAsyncInvokeInput, ...func(*bedrockruntime.Options)) (*bedrockruntime.GetAsyncInvokeOutput, error) {
+	return &bedrockruntime.GetAsyncInvokeOutput{
+		Status: bedrockruntimeTypes.AsyncInvokeStatusCompleted,
+		OutputDataConfig: &bedrockruntimeTypes.AsyncInvokeOutputDataConfigMemberS3OutputDataConfig{
+			Value: bedrockruntimeTypes.AsyncInvokeS3OutputDataConfig{S3Uri: aws.String("s3://out-bucket/embedding-tasks/embtask-1/inv1")},
+		},
+	}, nil
+}
+
+func TestMarengoEmbeddingTasks(t *testing.T) {
+	const marengo = "twelvelabs.marengo-embed-3-0-v1:0"
+	original := EmbeddingTaskStarted
+	t.Cleanup(func() { EmbeddingTaskStarted = original })
+	var kept []EmbeddingTask
+	EmbeddingTaskStarted = func(_ *gin.Context, _ *relaycommon.RelayInfo, task EmbeddingTask) (any, error) {
+		kept = append(kept, task)
+		return map[string]string{"task_id": task.ID, "status": "SUBMITTED"}, nil
+	}
+
+	t.Run("a video's options become Marengo's asynchronous input", func(t *testing.T) {
+		start, end := 1.5, 9.0
+		plan, err := convertEmbeddingTaskRequest(marengo, dto.EmbeddingRequest{Input: "data:video/mp4;base64,dmlk"}, embeddingTaskRequest{
+			StartSec: &start, EndSec: &end, EmbeddingOption: []string{"visual"}, EmbeddingScope: []string{"clip"},
+			Segmentation: map[string]any{"method": "fixed", "fixed": map[string]any{"durationSec": 6}},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "video", plan.Modality)
+		body, err := common.Marshal(plan.ModelInput)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"inputType":"video","video":{"mediaSource":{"base64String":"dmlk"},"startSec":1.5,"endSec":9,"embeddingOption":["visual"],"embeddingScope":["clip"],"segmentation":{"method":"fixed","fixed":{"durationSec":6}}}}`, string(body))
+	})
+
+	t.Run("a task takes one video or audio of Marengo, within its 4 hours", func(t *testing.T) {
+		start, end, tooLong := 5.0, 5.0, 4*60*60+1.0
+		refused := []struct {
+			model   string
+			request dto.EmbeddingRequest
+			options embeddingTaskRequest
+		}{
+			{marengo, dto.EmbeddingRequest{Input: "a dog"}, embeddingTaskRequest{}},
+			{marengo, dto.EmbeddingRequest{Input: "data:image/png;base64,aW1n"}, embeddingTaskRequest{}},
+			{marengo, dto.EmbeddingRequest{Input: []any{"data:audio/wav;base64,YQ==", "data:audio/wav;base64,Yg=="}}, embeddingTaskRequest{}},
+			{marengo, dto.EmbeddingRequest{Input: "data:audio/wav;base64,YQ=="}, embeddingTaskRequest{StartSec: &start, EndSec: &end}},
+			{marengo, dto.EmbeddingRequest{Input: "data:audio/wav;base64,YQ=="}, embeddingTaskRequest{EndSec: &tooLong}},
+			{"amazon.titan-embed-text-v2:0", dto.EmbeddingRequest{Input: "data:video/mp4;base64,dmlk"}, embeddingTaskRequest{}},
+		}
+		for _, test := range refused {
+			_, err := convertEmbeddingTaskRequest(test.model, test.request, test.options)
+			var apiErr *relaytypes.NewAPIError
+			require.ErrorAs(t, err, &apiErr, "%v", test.request.Input)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+		}
+	})
+
+	t.Run("the submission starts the invocation on the base model with the task role and keeps the task", func(t *testing.T) {
+		t.Setenv(OutputBucketEnv, "out-bucket")
+		invoker := &fakeAsyncInvoker{}
+		originalInvoker := newAsyncInvoker
+		t.Cleanup(func() { newAsyncInvoker = originalInvoker })
+		newAsyncInvoker = func(_ context.Context, region string) (asyncInvoker, error) {
+			invoker.region = region
+			return invoker, nil
+		}
+		recorder := httptest.NewRecorder()
+		c := newAwsTestContext(recorder, context.Background())
+		body := `{"model":"us.` + marengo + `","input":"data:audio/wav;base64,YXVk","embedding_option":["audio"]}`
+		c.Request = httptest.NewRequest(http.MethodPost, EmbeddingTaskPath, strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		unused := httptest.NewServer(http.NotFoundHandler())
+		t.Cleanup(unused.Close)
+		info := newBedrockTestInfo(unused, relayconstant.RelayModeEmbeddings, relaytypes.RelayFormatEmbedding, "us."+marengo, false)
+		info.ApiKey = "test-api-key|us-east-1"
+		info.RequestURLPath = EmbeddingTaskPath
+		var request dto.EmbeddingRequest
+		require.NoError(t, common.Unmarshal([]byte(body), &request))
+
+		usage, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertEmbeddingRequest(c, info, request) })
+		require.Nil(t, apiErr)
+		assert.Zero(t, usage.PromptTokens)
+		require.Len(t, invoker.started, 1)
+		started := invoker.started[0]
+		assert.Equal(t, "us-east-1", invoker.region)
+		assert.Equal(t, marengo, aws.ToString(started.ModelId), "Bedrock starts an invocation on the base model only")
+		taskID := aws.ToString(started.ClientRequestToken)
+		assert.True(t, strings.HasPrefix(taskID, "embtask-"))
+		output := started.OutputDataConfig.(*bedrockruntimeTypes.AsyncInvokeOutputDataConfigMemberS3OutputDataConfig)
+		assert.Equal(t, "s3://out-bucket/embedding-tasks/"+taskID+"/", aws.ToString(output.Value.S3Uri))
+		input, err := started.ModelInput.MarshalSmithyDocument()
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"inputType":"audio","audio":{"mediaSource":{"base64String":"YXVk"},"embeddingOption":["audio"]}}`, string(input))
+		require.Len(t, kept, 1)
+		assert.Equal(t, EmbeddingTask{ID: taskID, Model: "us." + marengo, Modality: "audio", InvocationARN: "arn:aws:bedrock:us-east-1:123456789012:async-invoke/inv1", Region: "us-east-1"}, kept[0])
+		assert.JSONEq(t, `{"task_id":"`+taskID+`","status":"SUBMITTED"}`, recorder.Body.String())
+		_, recorded := metering.Recorded(c)
+		assert.False(t, recorded, "a task's units are reported when it ends")
+	})
+
+	t.Run("a completed task's output is read from where Bedrock wrote it", func(t *testing.T) {
+		originalInvoker, originalReader := newAsyncInvoker, readTaskOutput
+		t.Cleanup(func() { newAsyncInvoker, readTaskOutput = originalInvoker, originalReader })
+		newAsyncInvoker = func(context.Context, string) (asyncInvoker, error) { return &fakeAsyncInvoker{}, nil }
+		var read string
+		readTaskOutput = func(_ context.Context, region, bucket, key string) ([]byte, error) {
+			read = region + " " + bucket + " " + key
+			return []byte(`{"data":[{"embedding":[0.5],"embeddingOption":"visual","embeddingScope":"asset","startSec":0.0,"endSec":4.6},{"embedding":[0.25],"embeddingOption":"visual","embeddingScope":"clip","startSec":0.0,"endSec":4.600000381469727}]}`), nil
+		}
+		state, err := PollEmbeddingTask(context.Background(), EmbeddingTask{InvocationARN: "arn", Region: "us-east-1"})
+		require.NoError(t, err)
+		assert.Equal(t, EmbeddingTaskState{Done: true, OutputURI: "s3://out-bucket/embedding-tasks/embtask-1/inv1"}, state)
+		items, err := EmbeddingTaskOutput(context.Background(), "us-east-1", state.OutputURI)
+		require.NoError(t, err)
+		assert.Equal(t, "us-east-1 out-bucket embedding-tasks/embtask-1/inv1/output.json", read)
+		require.Len(t, items, 2)
+		assert.Equal(t, EmbeddingTaskItem{Object: "embedding", Index: 1, Embedding: []float64{0.25}, EmbeddingOption: "visual", EmbeddingScope: "clip", StartSec: 0, EndSec: 4.600000381469727}, items[1])
+		assert.Equal(t, int64(5), MediaSeconds(items))
+	})
+}
+
+func TestMediaSecondsAreTheSpanRoundedUp(t *testing.T) {
+	span := func(start, end float64) EmbeddingTaskItem { return EmbeddingTaskItem{StartSec: start, EndSec: end} }
+	tests := []struct {
+		name  string
+		items []EmbeddingTaskItem
+		want  int64
+	}{
+		{"no embeddings", nil, 0},
+		{"a whole second", []EmbeddingTaskItem{span(0, 3)}, 3},
+		{"float noise past a whole second is no extra second", []EmbeddingTaskItem{span(0, 3.0000001)}, 3},
+		{"a part of a second is a second", []EmbeddingTaskItem{span(0, 3.4)}, 4},
+		{"clips from start_sec to end_sec", []EmbeddingTaskItem{span(10, 16), span(16, 21.5)}, 12},
+		{"at most 4 hours", []EmbeddingTaskItem{span(0, 1e9)}, 4 * 60 * 60},
+		{"an end before the start is nothing", []EmbeddingTaskItem{span(5, 2)}, 0},
+	}
+	for _, test := range tests {
+		assert.Equal(t, test.want, MediaSeconds(test.items), test.name)
+	}
 }

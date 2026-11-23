@@ -97,12 +97,16 @@ func TestGuardIsOffUnlessManaged(t *testing.T) {
 }
 
 func TestCustomerRequestAllowed(t *testing.T) {
-	for _, path := range []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings", "/v1/embeddings/"} {
+	for _, path := range []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings", "/v1/embeddings/", "/v1/embeddings/tasks"} {
 		assert.True(t, CustomerRequestAllowed(http.MethodPost, path), path)
 	}
-	for _, path := range []string{"/v1/models", "/v1/models/eu.amazon.nova-lite-v1:0"} {
+	for _, path := range []string{"/v1/models", "/v1/models/eu.amazon.nova-lite-v1:0", "/v1/embeddings/tasks/embtask-1"} {
 		assert.True(t, CustomerRequestAllowed(http.MethodGet, path), path)
 	}
+	for _, path := range []string{"/v1/embeddings/tasks", "/v1/embeddings/tasks/embtask-1/content", "/v1/embeddings"} {
+		assert.False(t, CustomerRequestAllowed(http.MethodGet, path), "only one task is read: %s", path)
+	}
+	assert.False(t, CustomerRequestAllowed(http.MethodPost, "/v1/embeddings/tasks/embtask-1"))
 	closed := map[string]string{
 		"/v1/completions":                       "legacy completions: the Bedrock adaptor serves none",
 		"/v1/images/generations":                "no image model in the Console's region",

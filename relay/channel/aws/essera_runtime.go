@@ -41,6 +41,7 @@ const (
 	routeMantle
 	routeConverse
 	routeEmbedding
+	routeEmbeddingTask
 )
 
 const bedrockInputTokenHeader = "X-Amzn-Bedrock-Input-Token-Count"
@@ -55,6 +56,9 @@ type bedrockReply struct {
 func selectBedrockRoute(info *relaycommon.RelayInfo) bedrockRoute {
 	switch info.RelayMode {
 	case relayconstant.RelayModeEmbeddings:
+		if isEmbeddingTaskPath(info.RequestURLPath) {
+			return routeEmbeddingTask
+		}
 		return routeEmbedding
 	case relayconstant.RelayModeResponses:
 		return routeConverse

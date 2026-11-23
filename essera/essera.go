@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/bootstrap"
 	"github.com/QuantumNous/new-api/essera/configsync"
+	"github.com/QuantumNous/new-api/essera/embeddingtasks"
 	"github.com/QuantumNous/new-api/essera/keys"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/secrets"
@@ -19,6 +20,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/stats"
 	"github.com/QuantumNous/new-api/essera/usage"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/aws"
 	"github.com/QuantumNous/new-api/service"
 )
 
@@ -29,6 +31,7 @@ func Start(ctx context.Context) error {
 		return nil
 	}
 	model.ResolveChannelKey = secrets.Resolve
+	aws.EmbeddingTaskStarted = embeddingtasks.Started
 	if common.IsMasterNode {
 		if err := records.Migrate(); err != nil {
 			return err
@@ -54,6 +57,7 @@ func Start(ctx context.Context) error {
 	if common.IsMasterNode {
 		go configsync.Consume(ctx)
 		go usage.Send(ctx)
+		go embeddingtasks.Run(ctx)
 	}
 	common.SysLog(common.LogText("essera: connected to the Console's %s environment", settings.Environment()))
 	return nil

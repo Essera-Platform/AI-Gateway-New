@@ -1,5 +1,5 @@
 // Modified by Essera, 2026-11: every Bedrock model through Converse and ConverseStream,
-// /v1/responses, embeddings, Bedrock error mapping and the inference profile retry (see essera_*.go),
+// /v1/responses, embeddings and Marengo embedding tasks, Bedrock error mapping and the inference profile retry (see essera_*.go),
 // and the units Bedrock billed recorded for the Console (essera/metering).
 package aws
 
@@ -35,6 +35,7 @@ type Adaptor struct {
 	stream         *http.Response
 	embeddingPlan  *embeddingPlan
 	encodingFormat string
+	embeddingTask  *EmbeddingTask
 }
 
 func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeminiChatRequest) (any, error) {
@@ -159,8 +160,16 @@ func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dt
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	// Modified by Essera, 2026-11: Titan Text v2, Titan Multimodal and Cohere Embed v3/v4.
+	// Modified by Essera, 2026-11: Titan Text v2, Titan Multimodal, Cohere Embed v3/v4 and
+	// Marengo; Marengo's video and audio as a task.
 	a.encodingFormat = request.EncodingFormat
+	if isEmbeddingTaskPath(info.RequestURLPath) {
+		var options embeddingTaskRequest
+		if err := common.UnmarshalBodyReusableNoCopy(c, &options); err != nil {
+			return nil, newBadRequest("invalid embedding task options: %s", err.Error())
+		}
+		return convertEmbeddingTaskRequest(getAwsModelID(info.UpstreamModelName), request, options)
+	}
 	return convertEmbeddingRequest(getAwsModelID(info.UpstreamModelName), request)
 }
 
@@ -228,6 +237,9 @@ func (a *Adaptor) doRuntimeRequest(c *gin.Context, info *relaycommon.RelayInfo, 
 	if err != nil {
 		return err
 	}
+	if a.route == routeEmbeddingTask {
+		return a.startEmbeddingTask(c, info, body)
+	}
 	send := func(action string, payload []byte, stream bool) error {
 		// At most two calls: a profile id never gets another retry.
 		for {
@@ -278,9 +290,14 @@ func (a *Adaptor) doRuntimeRequest(c *gin.Context, info *relaycommon.RelayInfo, 
 // DoResponse records the units Bedrock billed for the answer. Modified by Essera, 2026-11.
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (usage any, err *types.NewAPIError) {
 	usage, err = a.doResponse(c, resp, info)
-	if settled, ok := usage.(*dto.Usage); ok && err == nil {
+	if settled, ok := usage.(*dto.Usage); ok && err == nil && a.embeddingTask == nil {
+		family := embeddingFamilyOf(a.modelID)
 		units := metering.FromUsage(settled)
-		units.InputImages = imagesPricedApart(embeddingFamilyOf(a.modelID), a.embeddingPlan)
+		units.InputImages = imagesPricedApart(family, a.embeddingPlan)
+		units.InputTexts = textsPricedApart(family, a.embeddingPlan)
+		if family == embeddingMarengo {
+			units.Input = 0 // Bedrock prices Marengo per text request and image, not per token
+		}
 		metering.Record(c, units)
 	}
 	return usage, err
@@ -318,11 +335,19 @@ func (a *Adaptor) doResponse(c *gin.Context, resp *http.Response, info *relaycom
 		}
 		return serveOpenAIChat(c, info, chat)
 	}
+	if route == routeEmbeddingTask {
+		answer, err := EmbeddingTaskStarted(c, info, *a.embeddingTask)
+		if err != nil {
+			return nil, types.NewError(fmt.Errorf("keeping embedding task %s: %w", a.embeddingTask.ID, err), types.ErrorCodeBadResponse, types.ErrOptionWithSkipRetry())
+		}
+		c.JSON(http.StatusOK, answer)
+		return &dto.Usage{}, nil
+	}
 	response, apiErr := embeddingResponseFromReplies(info.UpstreamModelName, embeddingFamilyOf(a.modelID), a.embeddingPlan, a.replies, a.encodingFormat)
 	if apiErr != nil {
 		return nil, apiErr
 	}
-	if response.Usage.PromptTokens == 0 {
+	if response.Usage.PromptTokens == 0 && embeddingFamilyOf(a.modelID) != embeddingMarengo {
 		estimate := info.GetEstimatePromptTokens()
 		response.Usage = dto.Usage{PromptTokens: estimate, TotalTokens: estimate}
 	}
