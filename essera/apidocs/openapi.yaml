@@ -986,9 +986,13 @@ paths:
       description: |
         Opens a WebSocket in the OpenAI Realtime format with Amazon Nova Sonic (`amazon.nova-2-sonic-v1:0`,
         `amazon.nova-2-5-sonic`), named in `model`. Send `session.update` first (instructions, voice, tools), then
-        audio with `input_audio_buffer.append` (pcm16 at 24 kHz) or text with `conversation.item.create`; the model
-        detects turns itself and answers with audio, transcripts and function calls as Realtime server events. A
-        session is billed once it ends, in speech tokens and text tokens.
+        audio with `input_audio_buffer.append` (pcm16 at 24 kHz); the model detects turns itself and answers with
+        audio, transcripts and function calls as Realtime server events. A session is billed once it ends, in speech
+        tokens and text tokens.
+
+        Nova Sonic is a speech model and answers audio only. Text from `conversation.item.create` can only accompany
+        audio: text sent before the first audio is passed on with it. A `response.create` before any audio is
+        answered with an `error` event, code `audio_required`, and nothing is sent to Bedrock or billed.
       parameters:
         - name: model
           in: query

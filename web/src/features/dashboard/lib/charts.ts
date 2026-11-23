@@ -16,15 +16,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: micro amounts keep six decimals and their bars their height; the
+// hovered column is marked by a line, not a grey bar as tall as the axis.
 import { dataScheme as vchartDefaultDataScheme } from '@visactor/vchart/esm/theme/color-scheme/builtin/default'
 
 import { MAX_CHART_TREND_POINTS } from '@/features/dashboard/constants'
-import { ESSERA_CHART_SERIES } from '@/features/essera/brand/chart-theme'
 import type {
   QuotaDataItem,
   ProcessedChartData,
   ProcessedUserChartData,
 } from '@/features/dashboard/types'
+import { ESSERA_CHART_SERIES } from '@/features/essera/brand/chart-theme'
+import { toAmountFixed } from '@/features/essera/money'
 import { getCurrencyDisplay } from '@/lib/currency'
 import { formatChartTime, type TimeGranularity } from '@/lib/time'
 
@@ -42,7 +45,9 @@ type TooltipLineItem = {
 
 export function getDashboardChartColors(domainLength: number): string[] {
   // Modified by Essera, 2026-11: the designs' series colours.
-  if (domainLength <= ESSERA_CHART_SERIES.length) return [...ESSERA_CHART_SERIES]
+  if (domainLength <= ESSERA_CHART_SERIES.length) {
+    return [...ESSERA_CHART_SERIES]
+  }
   const scheme =
     vchartDefaultDataScheme.find(
       (item) => !item.maxDomainLength || domainLength <= item.maxDomainLength
@@ -60,11 +65,20 @@ function renderQuotaCompat(rawQuota: number, digits = 4): string {
   const rate = 'exchangeRate' in meta ? meta.exchangeRate : 1
   const symbol = 'symbol' in meta ? meta.symbol : '$'
   const value = usd * rate
-  const fixed = value.toFixed(digits)
+  const fixed = toAmountFixed(value, digits)
   if (Number.parseFloat(fixed) === 0 && rawQuota > 0 && value > 0) {
-    return symbol + Math.pow(10, -digits).toFixed(digits)
+    return symbol + toAmountFixed(1e-6, digits)
   }
   return symbol + fixed
+}
+
+// VChart marks a hovered bar column with a grey rect as tall as the axis, which reads as a bar of
+// its own over a column of micro amounts.
+const COLUMN_CROSSHAIR = {
+  xField: {
+    visible: true,
+    line: { type: 'line', style: { lineWidth: 1, lineDash: [3, 3] } },
+  },
 }
 
 /**
@@ -336,9 +350,7 @@ export function processChartData(
     let timeData = sortedModels.map((model) => {
       const stats = timeModelMap.get(time)?.get(model)
       const rawQuota = Number(stats?.quota) || 0
-      const usd = rawQuota ? rawQuota / quotaPerUnit : 0
-      // Match legacy frontend getQuotaWithUnit(..., 4)
-      const usage = usd ? Number(usd.toFixed(4)) : 0
+      const usage = rawQuota ? rawQuota / quotaPerUnit : 0
       return {
         Time: time,
         Model: model,
@@ -374,14 +386,13 @@ export function processChartData(
     sortedModels.forEach((model) => {
       const stats = modelMap?.get(model)
       const rawQuota = Number(stats?.quota) || 0
-      const usd = rawQuota ? rawQuota / quotaPerUnit : 0
-      const usage = usd ? Number(usd.toFixed(4)) : 0
+      const usage = rawQuota ? rawQuota / quotaPerUnit : 0
       timeSum += rawQuota
       const key = topAreaModels.has(model) ? model : otherLabel
       const prev = buckets.get(key) || { rawQuota: 0, usage: 0 }
       buckets.set(key, {
         rawQuota: prev.rawQuota + rawQuota,
-        usage: Number((prev.usage + usage).toFixed(4)),
+        usage: prev.usage + usage,
       })
     })
     for (const [model, vals] of buckets) {
@@ -505,6 +516,7 @@ export function processChartData(
       stack: true,
       legends: { visible: true, selectMode: 'single' },
       color: modelColor,
+      crosshair: COLUMN_CROSSHAIR,
       bar: {
         state: {
           hover: { stroke: '#000', lineWidth: 1 },
@@ -543,6 +555,7 @@ export function processChartData(
       stack: false,
       legends: { visible: true, selectMode: 'single' },
       color: modelColor,
+      crosshair: COLUMN_CROSSHAIR,
       tooltip: {
         mark: {
           content: [

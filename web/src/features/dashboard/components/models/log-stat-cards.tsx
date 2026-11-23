@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the analytics design: one card per figure with a tinted icon tile, the last one highlighted in emerald; a card for each unit the Console measured that the token and cache cards do not show.
+// Modified by Essera, 2026-11: the analytics design: one card per figure with a tinted icon tile, the last one highlighted in emerald; a card for each unit the Console measured that the token and cache cards do not show; a micro amount keeps six decimals.
 import { Shapes } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -41,8 +41,14 @@ import {
   measuredUnits,
   TOKEN_FIGURE_UNITS,
 } from '@/features/essera/model-square-format'
+import { amountFractionDigits } from '@/features/essera/money'
 import { toIntlLocale } from '@/i18n/languages'
-import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
+import { formatQuotaWithCurrency } from '@/lib/currency'
+import {
+  formatCompactNumber,
+  formatNumber,
+  quotaUnitsToDollars,
+} from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -65,6 +71,15 @@ function formatStatNumber(value: number, locale: Intl.LocalesArgument) {
     displayValue,
     fullValue,
   }
+}
+
+function formatAmount(quota: number) {
+  const value = formatQuotaWithCurrency(quota, {
+    digitsLarge: 2,
+    digitsSmall: amountFractionDigits(quotaUnitsToDollars(quota), 4),
+    abbreviate: true,
+  })
+  return { displayValue: value, fullValue: value }
 }
 
 export function LogStatCards(props: LogStatCardsProps) {
@@ -135,10 +150,7 @@ export function LogStatCards(props: LogStatCardsProps) {
     const rawValue = config.getValue(adaptedStats, timeRangeMinutes)
     const formatted =
       config.key === 'quota'
-        ? {
-            displayValue: formatQuota(rawValue),
-            fullValue: formatQuota(rawValue),
-          }
+        ? formatAmount(rawValue)
         : formatStatNumber(rawValue, locale)
 
     return {

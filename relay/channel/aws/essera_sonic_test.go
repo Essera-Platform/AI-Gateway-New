@@ -384,3 +384,55 @@ func TestSonicRefusesOtherModels(t *testing.T) {
 	require.True(t, errors.As(err, &apiErr))
 	assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
 }
+
+// Bedrock bills a prompt before refusing it for having no audio, so text alone never reaches it.
+func TestSonicNeedsAudioBeforeAnAnswer(t *testing.T) {
+	t.Run("a response asked for with text only is refused and Bedrock is not called", func(t *testing.T) {
+		stream := newFakeSonicStream()
+		client := startSonicSession(t, stream)
+		client.until("session.created")
+		client.send(map[string]any{"type": "conversation.item.create", "item": map[string]any{
+			"type": "message", "role": "user", "content": []any{map[string]any{"type": "input_text", "text": "hi"}},
+		}})
+		client.until("conversation.item.created")
+		client.send(map[string]any{"type": "response.create", "event_id": "evt-1"})
+
+		events := client.until("error")
+		refusal := events[len(events)-1]["error"].(map[string]any)
+		assert.Equal(t, "audio_required", refusal["code"])
+		assert.Equal(t, sonicAudioRequired, refusal["message"])
+		assert.Equal(t, "evt-1", refusal["event_id"])
+
+		outcome := client.close()
+		require.Nil(t, outcome.apiErr)
+		assert.Empty(t, stream.sentEvents(), "no Bedrock session, nothing billed")
+		assert.Zero(t, outcome.units)
+	})
+
+	t.Run("text sent before the audio goes with it", func(t *testing.T) {
+		stream := newFakeSonicStream()
+		client := startSonicSession(t, stream)
+		client.until("session.created")
+		client.send(map[string]any{"type": "conversation.item.create", "item": map[string]any{
+			"type": "message", "role": "user", "content": []any{map[string]any{"type": "input_text", "text": "Answer in French."}},
+		}})
+		client.until("conversation.item.created")
+		client.send(map[string]any{"type": "input_audio_buffer.append", "audio": base64.StdEncoding.EncodeToString(make([]byte, 480))})
+		client.send(map[string]any{"type": "response.create"})
+		client.send(map[string]any{"type": "input_audio_buffer.commit"})
+		client.until("input_audio_buffer.committed")
+		require.Nil(t, client.close().apiErr)
+
+		var names []string
+		for _, event := range stream.sentEvents() {
+			names = append(names, event.name)
+		}
+		assert.Equal(t, []string{
+			"sessionStart", "promptStart",
+			"contentStart", "textInput", "contentEnd",
+			"contentStart", "audioInput",
+			"contentEnd", "promptEnd", "sessionEnd",
+		}, names)
+		assert.Equal(t, "Answer in French.", stream.sentEvents()[3].body["content"])
+	})
+}

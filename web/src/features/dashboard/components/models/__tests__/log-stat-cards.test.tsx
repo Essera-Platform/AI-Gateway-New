@@ -25,6 +25,17 @@ async function card(title: string) {
 }
 
 describe('the dashboard’s figures for a window', () => {
+  it('shows a micro amount to six decimals and a larger one to cents', async () => {
+    serve([{ created_at: 1795082400, quota: 105 }])
+    render(<LogStatCards />)
+    expect((await card('Total Quota')).getByText('$0.00021')).toBeVisible()
+    cleanup()
+
+    serve([{ created_at: 1795082400, quota: 1234567 }])
+    render(<LogStatCards />)
+    expect((await card('Total Quota')).getByText('$2.47')).toBeVisible()
+  })
+
   it('adds up the cache reads and writes the Console measured', async () => {
     serve([
       {

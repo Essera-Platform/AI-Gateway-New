@@ -56,15 +56,16 @@ describe('managed gateway appearance', () => {
     expect(i18next.language).toBe('fr')
   })
 
-  it('sends someone signed in Home to the Overview', () => {
+  it('keeps Home on the landing for someone signed in, with the Console beside it', () => {
     useAuthStore.getState().auth.setUser({ id: 7, username: 'person', role: 1 })
 
     const { result } = renderHook(() => useTopNavLinks(), {
       wrapper: withStatus({ essera_managed: true }),
     })
 
-    expect(result.current.find((link) => link.title === 'Home')?.href).toBe(
-      '/dashboard/overview'
+    expect(result.current.find((link) => link.title === 'Home')?.href).toBe('/')
+    expect(result.current.find((link) => link.title === 'Console')?.href).toBe(
+      '/dashboard'
     )
   })
 
