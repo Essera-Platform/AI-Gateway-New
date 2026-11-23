@@ -289,3 +289,20 @@ A side-by-side pass against the client's Stitch screens fixed what still differe
 - **Authentication:** the note names the API Keys page and the Console, which decide what a key may call. This gateway has no Tokens page, model groups or per-key IP scoping.
 - **Dashboard:** on a managed gateway the Flow tab is gone; the gateway keeps no new-api flow data, so it could only stand empty.
 - **Playground:** it asks `/api/user/models?modality=text`, and a managed gateway then lists only text models, so no embedding model is offered to a chat that cannot use it.
+
+## 2026-11 — English and Chinese
+
+A managed gateway offers two interface languages, English (the default) and Simplified Chinese, where it was English only. The other locales stay in the repository for upstream merges and are neither loaded nor offered.
+
+| File | Change |
+| --- | --- |
+| `web/src/components/language-switcher.tsx` | On a managed gateway the language menu offers English and 中文 only, as a button the size of the Light/Dark switch next to it in the top bar and the public header; the choice stays in the browser (`i18nextLng`), not on the account |
+| `web/src/i18n/config.ts`, `web/src/features/essera/language.ts`, `web/src/lib/status-query.ts` | A managed gateway loads the English and Chinese locales; a saved choice of either stays, anything else (another locale, or the browser's language on a first visit) reads English |
+| `web/src/features/profile/index.tsx`, `web/src/features/auth/hooks/use-auth-redirect.ts` | Comments only: the language is the browser's choice, not the account's |
+| `web/src/i18n/locales/en.json`, `web/src/i18n/locales/zh.json` | 89 interface strings that had no Chinese now have it (31 of them sat outside `en.json`'s `translation` block and are moved into it), with the gateway messages that reach the console and the usage logs; the Console is "Essera 运营控制台" throughout |
+| `web/src/features/essera/legal/open-source-notices.tsx` | The AGPLv3 §7(b) sentence "Frontend design and development by New API contributors." stays in English in every language; in Chinese a gloss follows it |
+| `web/src/styles/theme.css` | The interface and figure fonts fall back to the Chinese system fonts (PingFang SC, Microsoft YaHei, Noto Sans SC) |
+| `web/src/features/dashboard/index.tsx` | A duplicate import removed |
+| `web/scripts/essera-zh-gaps.mjs` | Lists the strings the Chinese locale lacks: `en.json` keys, `t('…')` keys and `labelKey`-style constants in `src/` (`node scripts/essera-zh-gaps.mjs`, exits 1 on a gap) |
+
+- **Translations:** this replaces the English-only rule of phase A. A new interface string goes into `en.json` and `zh.json` together; the other locales still fall back to English. Product and protocol names stay as they are (Essera, AI Gateway, AWS Bedrock, OpenAI, Anthropic, model IDs, API), and so do the API format tabs of the landing's sample request (Chat, Responses, Messages), the copyright and license notices on `/legal`, and the font and license names.
