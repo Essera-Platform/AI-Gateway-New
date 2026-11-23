@@ -43,7 +43,8 @@ type claudeCapabilities struct {
 }
 
 func claudeCapabilitiesFor(model string) claudeCapabilities {
-	model = strings.ToLower(model)
+	// Modified by Essera, 2026-11: Bedrock model and inference profile ids.
+	model = anthropicClaudeName(strings.ToLower(model))
 	capabilities := claudeCapabilities{supportsManual: true, supportsDisable: true, defaultEffort: EffortHigh}
 
 	switch {
