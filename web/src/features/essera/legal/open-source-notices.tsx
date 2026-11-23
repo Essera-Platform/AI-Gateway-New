@@ -67,7 +67,8 @@ function ExternalLink(props: { href: string; children: React.ReactNode }) {
 
 /** The Appropriate Legal Notices that NOTICE (AGPLv3 §7(b), §7(c)) asks the interface to show. */
 export function OpenSourceNotices() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const showGloss = (i18n.resolvedLanguage ?? i18n.language) !== 'en'
   return (
     <PublicLayout showMainContainer={false}>
       <main className='mx-auto max-w-3xl px-4 pt-32 pb-20 sm:px-6 sm:pt-36'>
@@ -93,6 +94,8 @@ export function OpenSourceNotices() {
 
           <Section title={t('Attribution')}>
             <p className='text-foreground'>{NEW_API_ATTRIBUTION}</p>
+            {/* The sentence above stays in English (AGPLv3 §7(b)); a translation only glosses it. */}
+            {showGloss && <p>{t('essera.legal.attributionGloss')}</p>}
             <p>
               {t('Original project')}:{' '}
               <ExternalLink href={NEW_API_REPOSITORY_URL}>

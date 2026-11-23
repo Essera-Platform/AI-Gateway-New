@@ -60,7 +60,7 @@ export function useAuthRedirect() {
       }
       applyAuthBundle(bundle)
       const savedLang = getSavedLanguage(bundle.user)
-      // Modified by Essera, 2026-11: a managed gateway stays in English.
+      // Modified by Essera, 2026-11: a managed gateway keeps the language chosen in this browser.
       if (
         savedLang &&
         savedLang !== i18n.language &&

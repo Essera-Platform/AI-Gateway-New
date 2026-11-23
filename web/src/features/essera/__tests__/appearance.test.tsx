@@ -5,7 +5,6 @@ import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { ConfigDrawer } from '@/components/config-drawer'
-import { LanguageSwitcher } from '@/components/language-switcher'
 import { useTopNavLinks } from '@/hooks/use-top-nav-links'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -33,14 +32,10 @@ function withStatus(status: Record<string, unknown>) {
 }
 
 describe('managed gateway appearance', () => {
-  it('offers neither theme settings nor a language choice', () => {
-    const { container } = render(
-      <>
-        <ConfigDrawer />
-        <LanguageSwitcher />
-      </>,
-      { wrapper: withStatus({ essera_managed: true }) }
-    )
+  it('offers no theme settings', () => {
+    const { container } = render(<ConfigDrawer />, {
+      wrapper: withStatus({ essera_managed: true }),
+    })
 
     expect(container).toBeEmptyDOMElement()
   })

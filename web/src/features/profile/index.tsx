@@ -89,7 +89,7 @@ export function Profile() {
                     quotaRemindThreshold={quotaRemindThreshold}
                   />
                 )}
-                {/* Modified by Essera, 2026-11: a managed gateway is English only. */}
+                {/* Modified by Essera, 2026-11: a managed gateway's language is chosen in the top bar and kept in the browser. */}
                 {!managed && (
                   <LanguagePreferencesCard
                     profile={profile}

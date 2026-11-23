@@ -16,14 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: a managed gateway is English only; its other locales are kept for upstream merges but not loaded.
+// Modified by Essera, 2026-11: a managed gateway offers English and Chinese only, English by default; its other locales are kept for upstream merges but not loaded.
 import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
 
 import {
   cachedStatusIsManaged,
-  ESSERA_LANGUAGE,
+  ESSERA_LANGUAGES,
 } from '@/features/essera/language'
 
 import { convertDetectedLanguage } from './languages'
@@ -45,17 +45,16 @@ export const resources = {
   zhTW,
 } as const
 
-const englishOnly = typeof window !== 'undefined' && cachedStatusIsManaged()
+const managed = typeof window !== 'undefined' && cachedStatusIsManaged()
 
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    resources: englishOnly ? { en } : resources,
-    ...(englishOnly ? { lng: ESSERA_LANGUAGE } : {}),
+    resources: managed ? { en, zhCN } : resources,
     fallbackLng: 'en',
-    supportedLngs: englishOnly
-      ? [ESSERA_LANGUAGE]
+    supportedLngs: managed
+      ? ESSERA_LANGUAGES
       : ['en', 'zhCN', 'fr', 'ru', 'ja', 'vi', 'zhTW'],
     load: 'currentOnly',
     nsSeparator: false, // Allow literal colons in keys (e.g., URLs, labels)
@@ -64,7 +63,7 @@ i18n
       escapeValue: false, // not needed for react as it escapes by default
     },
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: managed ? ['localStorage'] : ['localStorage', 'navigator'],
       caches: ['localStorage'],
       // Browsers report `zh-CN`/`zh-TW`/`zh`; map them onto our `zhCN`/`zhTW`
       // codes (non-Chinese codes pass through for normal supportedLngs matching).
