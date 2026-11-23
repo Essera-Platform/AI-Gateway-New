@@ -278,3 +278,57 @@ func TestRequestPolicyEventsReachLogAdminInfo(t *testing.T) {
 	AppendRelayLogAdminInfo(untouched, nil, other)
 	assert.NotContains(t, other.Snapshot()["admin_info"], "request_policy", "requests without decisions do not carry an empty record")
 }
+
+// AWS's "unable to process" is not retried on a channel that already failed:
+// with no other channel serving the model, the client gets the error after one
+// attempt. Throttling keeps its retries.
+func TestDecideRelayRetryUnavailableModelOnlyMovesToAnotherChannel(t *testing.T) {
+	previousDB, previousType := model.DB, common.MainDatabaseType()
+	previousCache, previousRedis := common.MemoryCacheEnabled, common.RedisEnabled
+	t.Cleanup(func() {
+		model.DB = previousDB
+		common.SetMainDatabaseType(previousType)
+		common.MemoryCacheEnabled, common.RedisEnabled = previousCache, previousRedis
+	})
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := database.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
+	require.NoError(t, database.AutoMigrate(&model.Channel{}, &model.Ability{}))
+	model.DB = database
+	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
+	common.RedisEnabled = false
+	for _, channel := range []*model.Channel{
+		{Name: "bedrock-us-east-1", Key: "k1", Type: constant.ChannelTypeAws, Status: common.ChannelStatusEnabled, Group: "default", Models: "anthropic.claude-fable-5,amazon.nova-lite-v1:0"},
+		{Name: "bedrock-us-west-2", Key: "k2", Type: constant.ChannelTypeAws, Status: common.ChannelStatusEnabled, Group: "default", Models: "amazon.nova-lite-v1:0"},
+	} {
+		require.NoError(t, channel.Insert())
+	}
+	unavailable := types.WithOpenAIError(types.OpenAIError{Message: "AWS Bedrock: Bedrock is unable to process your request.", Type: "server_error", Code: "service_unavailable"}, http.StatusServiceUnavailable)
+	throttled := types.WithOpenAIError(types.OpenAIError{Message: "AWS Bedrock: Too many requests", Type: "rate_limit_error", Code: "rate_limit_exceeded"}, http.StatusTooManyRequests)
+
+	for _, memoryCache := range []bool{true, false} {
+		common.MemoryCacheEnabled = memoryCache
+		model.InitChannelCache()
+		for _, test := range []struct {
+			name       string
+			model      string
+			err        *types.NewAPIError
+			wantAction string
+		}{
+			{name: "only channel already failed", model: "anthropic.claude-fable-5", err: unavailable, wantAction: "stop"},
+			{name: "another channel serves the model", model: "amazon.nova-lite-v1:0", err: unavailable, wantAction: "retry"},
+			{name: "throttling on the only channel", model: "anthropic.claude-fable-5", err: throttled, wantAction: "retry"},
+		} {
+			t.Run(fmt.Sprintf("%s/memory cache %v", test.name, memoryCache), func(t *testing.T) {
+				c, _ := gin.CreateTestContext(httptest.NewRecorder())
+				common.SetContextKey(c, constant.ContextKeyUsingGroup, "default")
+				common.SetContextKey(c, constant.ContextKeyOriginalModel, test.model)
+				AppendUsedChannel(c, 1)
+				assert.Equal(t, test.wantAction, DecideRelayRetry(c, test.err, 2).Action)
+			})
+		}
+	}
+}

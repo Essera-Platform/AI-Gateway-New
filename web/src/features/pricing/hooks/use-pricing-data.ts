@@ -63,7 +63,7 @@ export function usePricingData(enabled = true) {
       }
       // Modified by Essera, 2026-11: the Console's display name and type stand where new-api
       // shows a description and tags, so the cards and the tag filter keep working; no groups.
-      // Its prices and metrics come with them.
+      // Its prices, metrics and whether AWS could serve it lately come with them.
       if (!data.essera) return priced
       return {
         ...priced,
@@ -77,6 +77,7 @@ export function usePricingData(enabled = true) {
           modelType: model.model_type ?? '',
           prices: model.essera_prices ?? [],
           metrics: model.essera_metrics,
+          temporarilyUnavailable: model.temporarily_unavailable === true,
         },
       }
     })

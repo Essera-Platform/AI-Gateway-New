@@ -1,5 +1,6 @@
 // Modified by Essera, 2026-11: Nova left InvokeModel for Converse; SDK errors keep Bedrock's meaning;
-// a model served only through an inference profile is called through the region's profile.
+// a model served only through an inference profile is called through the region's profile;
+// the SDK does not retry ServiceUnavailableException.
 package aws
 
 import (
@@ -86,6 +87,7 @@ func newAwsClient(c *gin.Context, info *relaycommon.RelayInfo) (*bedrockruntime.
 			Region:                  region,
 			BearerAuthTokenProvider: bearer.StaticTokenProvider{Token: bearer.Token{Value: apiKey}},
 			HTTPClient:              httpClient,
+			Retryer:                 bedrockSDKRetryer(),
 		})
 	case 3:
 		ak := awsSecret[0]
@@ -95,6 +97,7 @@ func newAwsClient(c *gin.Context, info *relaycommon.RelayInfo) (*bedrockruntime.
 			Region:      region,
 			Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(ak, sk, "")),
 			HTTPClient:  httpClient,
+			Retryer:     bedrockSDKRetryer(),
 		})
 	default:
 		return nil, errors.New("invalid aws secret key")

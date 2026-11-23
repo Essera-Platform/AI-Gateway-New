@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: hideGroups leaves out the group choice where a gateway offers only one group.
+// Modified by Essera, 2026-11: hideGroups leaves out the group choice where a gateway offers only one group;
+// a model option's note shows under its name.
 import { ChevronsUpDown, Check, CpuIcon, LayersIcon } from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
@@ -74,6 +75,7 @@ interface ModelOption {
   value: string
   category?: string
   description?: string
+  note?: string
 }
 
 interface GroupOption {
@@ -777,6 +779,11 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
                   )}
                 >
                   {model.label}
+                  {model.note && (
+                    <span className='text-warning block truncate text-[11px] font-normal'>
+                      {model.note}
+                    </span>
+                  )}
                 </span>
                 <Check
                   className={cn(

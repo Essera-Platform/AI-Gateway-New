@@ -48,6 +48,9 @@ const (
 	// How long an answer's response.done waits for Bedrock's usage event, which follows the
 	// answer's last content.
 	sonicTurnUsageWait = time.Second
+	// Bedrock refuses a prompt without audio only after billing it, so a response asked for
+	// before any audio is refused here.
+	sonicAudioRequired = "Nova Sonic is a speech model: send audio with input_audio_buffer.append; text can only accompany audio."
 )
 
 // openAIVoices are the Realtime API's own voices; Nova Sonic has none of them, so a client
@@ -252,6 +255,8 @@ type sonicSession struct {
 	// Set by the client's events, before the session starts.
 	config       sonicConfig
 	audioContent string
+	// Items sent before the first audio, passed on when it opens Bedrock's session.
+	pending []func() *types.NewAPIError
 
 	// Read and written while reading Bedrock's events, and by the wait for an answer's usage,
 	// under stateMu; then read once Bedrock's events are done.
@@ -436,7 +441,10 @@ func (s *sonicSession) clientEvent(message []byte) *types.NewAPIError {
 		}
 		return s.createItem(event.EventID, *event.Item)
 	case "response.create":
-		return s.start()
+		if s.upstream == nil {
+			s.emitError(event.EventID, "audio_required", sonicAudioRequired)
+		}
+		return nil
 	case "response.cancel":
 		return nil
 	}
@@ -450,7 +458,7 @@ func (s *sonicSession) updateSession(update *sonicSessionUpdate) string {
 		return "session is required."
 	}
 	if s.upstream != nil {
-		return "Amazon Nova Sonic sets up the session when it starts: send session.update before the first audio or item."
+		return "Amazon Nova Sonic sets up the session when it starts: send session.update before the first audio."
 	}
 	for _, format := range []*string{update.InputAudioFormat, update.OutputAudioFormat} {
 		if format != nil && *format != "pcm16" {
@@ -493,6 +501,16 @@ func (s *sonicSession) updateSession(update *sonicSessionUpdate) string {
 	}
 	s.config = config
 	return ""
+}
+
+// afterAudio sends an item to Bedrock, or keeps it until the first audio opens the session:
+// Nova Sonic answers speech only.
+func (s *sonicSession) afterAudio(send func() *types.NewAPIError) *types.NewAPIError {
+	if s.upstream == nil {
+		s.pending = append(s.pending, send)
+		return nil
+	}
+	return send()
 }
 
 // start opens Bedrock's stream and its session with the client's configuration, once.
@@ -572,8 +590,16 @@ func (s *sonicSession) sendText(role, text string, interactive bool) *types.NewA
 }
 
 func (s *sonicSession) appendAudio(audio []byte) *types.NewAPIError {
-	if apiErr := s.start(); apiErr != nil {
-		return apiErr
+	if s.upstream == nil {
+		if apiErr := s.start(); apiErr != nil {
+			return apiErr
+		}
+		for _, send := range s.pending {
+			if apiErr := send(); apiErr != nil {
+				return apiErr
+			}
+		}
+		s.pending = nil
 	}
 	if s.audioContent == "" {
 		s.audioContent = "audio_" + common.GetUUID()
@@ -598,8 +624,8 @@ func (s *sonicSession) appendAudio(audio []byte) *types.NewAPIError {
 	return nil
 }
 
-// createItem passes on a conversation item: a person's text, which Nova Sonic answers, an
-// earlier answer of the assistant as history, or a function call's output.
+// createItem passes on a conversation item: a person's text, which Nova Sonic answers with the
+// audio it accompanies, an earlier answer of the assistant as history, or a function call's output.
 func (s *sonicSession) createItem(clientEventID string, item sonicClientItem) *types.NewAPIError {
 	itemID := "item_" + common.GetUUID()
 	switch {
@@ -608,10 +634,7 @@ func (s *sonicSession) createItem(clientEventID string, item sonicClientItem) *t
 			s.emitError(clientEventID, "missing_required_parameter", "call_id is required.")
 			return nil
 		}
-		if apiErr := s.start(); apiErr != nil {
-			return apiErr
-		}
-		if apiErr := s.sendToolResult(item.CallID, item.Output); apiErr != nil {
+		if apiErr := s.afterAudio(func() *types.NewAPIError { return s.sendToolResult(item.CallID, item.Output) }); apiErr != nil {
 			return apiErr
 		}
 		s.emit(map[string]any{"type": "conversation.item.created", "item": map[string]any{
@@ -631,14 +654,11 @@ func (s *sonicSession) createItem(clientEventID string, item sonicClientItem) *t
 			s.emitError(clientEventID, "invalid_value", "The item has no text.")
 			return nil
 		}
-		if apiErr := s.start(); apiErr != nil {
-			return apiErr
-		}
 		role, interactive, contentType := "USER", true, "input_text"
 		if item.Role == "assistant" {
 			role, interactive, contentType = "ASSISTANT", false, "text"
 		}
-		if apiErr := s.sendText(role, text.String(), interactive); apiErr != nil {
+		if apiErr := s.afterAudio(func() *types.NewAPIError { return s.sendText(role, text.String(), interactive) }); apiErr != nil {
 			return apiErr
 		}
 		s.emit(map[string]any{"type": "conversation.item.created", "item": map[string]any{

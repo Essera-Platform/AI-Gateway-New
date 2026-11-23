@@ -417,7 +417,31 @@ The Console's usage reads carry `units`, every unit it measured by the name its 
 ## Model availability (2026-11)
 
 - **Playground history:** a reply that failed is shown as an error but never sent back to a model as an assistant turn, and neither is the prompt it failed to answer, so the next request carries only the exchanges a model answered. Regenerating the failed reply sends its prompt again.
+- **No retries of a model AWS cannot serve:** Bedrock's `ServiceUnavailableException` ("Bedrock is unable to process your request", 503 `service_unavailable`) is not retried by the AWS SDK on Claude's InvokeModel path, where it used to be called three times per attempt, and the relay retries it only when a channel the request has not tried yet serves the model (same group, same channel filters); otherwise the client gets the error after one attempt. Throttling, timeouts and other 5xx keep their retries.
+- **Temporarily unavailable models (`essera/availability`):** each instance notes, per model, the attempts that failed with that error since the model's last success. Two of them within ten minutes mark the model for five minutes after the last; a success clears it, other failures neither count nor clear. Requests are still sent to Bedrock. The managed `/api/pricing` gives a marked model `temporarily_unavailable: true`; the Model Square card and details show "Temporarily unavailable at AWS", and the Playground's model picker shows it under the model's name. The model stays listed and selectable.
 
 | File | Change |
 | --- | --- |
 | `web/src/features/playground/lib/streaming/payload-builder.ts` | A failed exchange is left out of `messages` |
+| `relay/channel/aws/relay-aws.go`, `essera_runtime.go` | The SDK client's retryer leaves out `ServiceUnavailableException` |
+| `service/relay_error.go` | The retry decision stops on that error when no untried channel serves the model |
+| `model/essera_channel_candidates.go` (new) | `HasUntriedChannel`, from the channel cache or the abilities table |
+| `controller/relay.go` | Each attempt's outcome reaches `essera/availability` |
+| `controller/essera_pages.go` | `temporarily_unavailable` on the Model Square's models |
+| `web/src/features/essera/model-availability.ts`, `model-unavailable-badge.tsx` (new), `model-square-card.tsx`, `model-square-format.ts`, `web/src/features/pricing/components/model-details.tsx`, `hooks/use-pricing-data.ts`, `types.ts` | The note on the card and in the details |
+| `web/src/components/model-group-selector.tsx`, `web/src/features/playground/index.tsx`, `types.ts` | A model option's note in the Playground's picker |
+| `web/src/i18n/locales/*.json` | The note's texts |
+
+## Dashboard amounts and Nova Sonic without audio (2026-11)
+
+- **Micro amounts:** the Quota Distribution chart (tooltip, total and bar heights) and the Total Quota card show an amount below one cent with up to six decimals, as the Console's ledger does ($0.000209, not $0.0002 or $0.0000; a window of $0.0008 totals $0.0008, not $0.01); larger amounts keep their decimals. Bars are no longer rounded to four decimals, so a column of micro amounts keeps its share of the height.
+- **The grey column:** VChart marks the hovered column of a bar or area chart with a grey rectangle as tall as the y-axis, which over a column of micro amounts read as a tall grey bar; it is now a dashed line.
+- **Nova Sonic needs audio:** text items sent on `/v1/realtime` before the session's first audio are kept and passed on with that audio, instead of opening Bedrock's session; a `response.create` before any audio is answered with a Realtime `error` (`audio_required`) and Bedrock is not called, so nothing is billed. Bedrock used to bill the prompt and then refuse it ("must have at least one audio content"). The API Docs say so, in English and Chinese.
+
+| File | Change |
+| --- | --- |
+| `web/src/features/essera/money.ts` (new) | The decimals of a micro amount |
+| `web/src/features/dashboard/lib/charts.ts`, `components/models/log-stat-cards.tsx` | Micro amounts; the hovered column's line |
+| `web/src/features/essera/__tests__/appearance.test.tsx` | Home stays on the landing for someone signed in, as the top nav has since "Home links to the landing page" |
+| `relay/channel/aws/essera_sonic.go` | Text waits for audio; `audio_required` |
+| `essera/apidocs/openapi.yaml`, `openapi.zh.yaml` | `/v1/realtime` needs audio |

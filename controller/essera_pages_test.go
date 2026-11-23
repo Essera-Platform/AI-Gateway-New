@@ -14,10 +14,12 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/apidocs"
+	"github.com/QuantumNous/new-api/essera/availability"
 	"github.com/QuantumNous/new-api/essera/consoleapi"
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/snapshot/snapshottest"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -395,8 +397,21 @@ func TestTheModelSquareShowsAPersonOnlyTheirModelsWithTheConsolesPrices(t *testi
 		return body["essera"].(map[string]any), names, models
 	}
 
+	unavailable := types.WithOpenAIError(types.OpenAIError{Message: "AWS Bedrock: Bedrock is unable to process your request.", Code: "service_unavailable"}, http.StatusServiceUnavailable)
+	availability.Record("claude-sonnet", unavailable)
+	availability.Record("claude-sonnet", unavailable)
+	t.Cleanup(func() { availability.Record("claude-sonnet", nil) })
+
 	guest, names, models := pricing(0)
 	assert.Equal(t, false, guest["signed_in"])
+	for _, entry := range models {
+		item := entry.(map[string]any)
+		if item["model_name"] == "claude-sonnet" {
+			assert.Equal(t, true, item["temporarily_unavailable"], "its recent calls all failed at AWS")
+		} else {
+			assert.NotContains(t, item, "temporarily_unavailable")
+		}
+	}
 	assert.Zero(t, console.callCount(), "a guest's list never asks the Console")
 	assert.ElementsMatch(t, []string{"OpenAI/gpt-4o", "Amazon Bedrock/claude-sonnet", "Amazon Bedrock/gpt-4o", "Acme LLM/acme-1"}, names,
 		"a guest: the whole active catalog, without the model disabled in it (gpt-old)")

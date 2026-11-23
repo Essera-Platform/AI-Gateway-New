@@ -11,6 +11,7 @@ import {
   esseraModelTypeLabel,
   type EsseraModelInfo,
 } from './model-square-format'
+import { EsseraUnavailableBadge } from './model-unavailable-badge'
 
 /**
  * A model on a managed gateway's Model Square, in the Essera card design: the display name,
@@ -75,6 +76,9 @@ export function EsseraModelCard(props: {
             iconClassName='size-3'
           />
         </div>
+        {props.info.temporarilyUnavailable && (
+          <EsseraUnavailableBadge className='mt-2' />
+        )}
       </div>
 
       <div

@@ -323,6 +323,28 @@ describe('Model Square on a managed gateway', () => {
     expect(screen.queryByText(/Checked/)).not.toBeInTheDocument()
   })
 
+  it('notes on its card a model AWS could not serve lately, and keeps it listed', async () => {
+    const model = await managedModel(false, {
+      ...claude,
+      temporarily_unavailable: true,
+    })
+
+    render(<ModelCard model={model} onClick={vi.fn()} />)
+
+    expect(screen.getByText('Claude Sonnet 4')).toBeVisible()
+    expect(screen.getByText('Temporarily unavailable at AWS')).toBeVisible()
+  })
+
+  it('has no availability note on a model AWS serves', async () => {
+    const model = await managedModel(false, claude)
+
+    render(<ModelCard model={model} onClick={vi.fn()} />)
+
+    expect(
+      screen.queryByText('Temporarily unavailable at AWS')
+    ).not.toBeInTheDocument()
+  })
+
   it('shows a guest no figures', async () => {
     const model = await managedModel(false, claude)
 
@@ -386,6 +408,18 @@ describe('Model details on a managed gateway', () => {
       String(url).includes('perf')
     )
     expect(perfCalls).toHaveLength(0)
+  })
+
+  it('notes a model AWS could not serve lately, with or without figures', async () => {
+    const model = await managedModel(true, {
+      ...claude,
+      vendor_id: 1,
+      temporarily_unavailable: true,
+    })
+    details(model)
+
+    expect(screen.getByText('Temporarily unavailable at AWS')).toBeVisible()
+    expect(screen.queryByText('Availability')).not.toBeInTheDocument()
   })
 
   it('shows no figures while the Console has none', async () => {

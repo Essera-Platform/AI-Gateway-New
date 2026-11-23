@@ -154,3 +154,52 @@ describe.each(cases)('dashboard $granularity chart chronology', (scenario) => {
     }
   })
 })
+
+describe('dashboard quota distribution of micro amounts', () => {
+  const noon = new Date('2026-11-23T12:00:00').getTime() / 1000
+  const data: QuotaDataItem[] = [
+    {
+      created_at: noon - 3600,
+      model_name: 'stability.sd3',
+      quota: 60000,
+      count: 3,
+    },
+    { created_at: noon, model_name: 'amazon.nova-lite', quota: 105, count: 1 },
+    { created_at: noon, model_name: 'google.gemma', quota: 295, count: 1 },
+  ]
+
+  test('a column of micro amounts is as tall as its tooltip total says', () => {
+    const result = processChartData(data, 'hour')
+    const values: Array<{ Time: string; Usage: number; rawQuota: number }> =
+      result.spec_line.data[0].values
+    const atNoon = values.filter((row) => row.Time === '11-23 12:00')
+
+    const height = atNoon.reduce((sum, row) => sum + row.Usage, 0)
+    expect(height).toBeCloseTo(0.0008, 10)
+    const items = atNoon.map((row) => ({
+      key: (row as unknown as { Model: string }).Model,
+      value: row.rawQuota,
+      datum: row as unknown as Record<string, unknown>,
+    }))
+    const tooltip = result.spec_line.tooltip.dimension.updateContent(items)
+    expect(tooltip[0].value).toBe('$0.0008')
+    expect(tooltip.map((item: { value: string }) => item.value)).toContain(
+      '$0.00021'
+    )
+  })
+
+  test('the hovered column is marked by a line, not a grey bar as tall as the axis', () => {
+    const result = processChartData(data, 'hour')
+
+    for (const key of ['spec_line', 'spec_area'] as const) {
+      expect(result[key].crosshair.xField.line.type).toBe('line')
+    }
+  })
+
+  test('a window of micro amounts totals to six decimals, a larger one to cents', () => {
+    expect(processChartData(data.slice(1), 'hour').totalQuotaDisplay).toBe(
+      '$0.0008'
+    )
+    expect(processChartData(data, 'hour').totalQuotaDisplay).toBe('$0.12')
+  })
+})

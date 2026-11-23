@@ -27,6 +27,7 @@ import (
 
 	"github.com/MoeForge/moego/ojson"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/encoding/httpbinding"
@@ -356,6 +357,22 @@ func newBedrockError(name, message string, status int) *types.NewAPIError {
 		Type:    fault.errorType,
 		Code:    fault.code,
 	}, fault.status, options...)
+}
+
+// bedrockSDKRetryer is the SDK's standard retryer, except that it does not retry
+// ServiceUnavailableException: AWS cannot serve the model now, and each call can
+// take seconds. The relay decides whether another channel is tried.
+func bedrockSDKRetryer() aws.Retryer {
+	unavailable := retry.IsErrorRetryableFunc(func(err error) aws.Ternary {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) && strings.EqualFold(apiErr.ErrorCode(), "ServiceUnavailableException") {
+			return aws.FalseTernary
+		}
+		return aws.UnknownTernary
+	})
+	return retry.NewStandard(func(options *retry.StandardOptions) {
+		options.Retryables = append([]retry.IsErrorRetryable{unavailable}, options.Retryables...)
+	})
 }
 
 // bedrockReplyError maps a non-200 Bedrock Runtime answer.

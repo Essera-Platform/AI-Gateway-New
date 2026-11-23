@@ -7878,6 +7878,8 @@
     "Video input": "Entrée vidéo",
     "Search unit": "Unité de recherche",
     "search unit": "unité de recherche",
-    "{{count}} search units": "{{count}} unités de recherche"
+    "{{count}} search units": "{{count}} unités de recherche",
+    "Temporarily unavailable at AWS": "Temporairement indisponible chez AWS",
+    "Recent requests for this model failed because AWS could not process them. You can still try it.": "Les dernières requêtes vers ce modèle ont échoué car AWS n’a pas pu les traiter. Vous pouvez quand même l’essayer."
   }
 }
