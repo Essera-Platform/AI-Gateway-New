@@ -1,4 +1,4 @@
-// Modified by Essera, 2026-11: the models eu-west-1 serves only through the eu. inference profile.
+// Modified by Essera, 2026-11: the models us-east-1 and eu-west-1 serve only through their geographic inference profile.
 package aws
 
 import "strings"
@@ -146,19 +146,48 @@ var awsModelCanCrossRegionMap = map[string]map[string]bool{
 		"eu":   true,
 		"apac": true,
 	},
-	// Modified by Essera, 2026-11: invocable in eu-west-1 only through the eu.
-	// inference profile (list-foundation-models and list-inference-profiles).
-	// Other regions find out at the first call (essera_runtime.go).
+	// Modified by Essera, 2026-11: invocable in us-east-1 and eu-west-1 only
+	// through the us. and eu. inference profiles (list-foundation-models and
+	// list-inference-profiles). Other regions find out at the first call
+	// (essera_runtime.go).
 	"amazon.nova-2-lite-v1:0": {
+		"us": true,
 		"eu": true,
 	},
 	"anthropic.claude-opus-5": {
+		"us": true,
 		"eu": true,
 	},
 	"anthropic.claude-sonnet-5": {
+		"us": true,
 		"eu": true,
 	},
 	"mistral.pixtral-large-2502-v1:0": {
+		"us": true,
+		"eu": true,
+	},
+	"anthropic.claude-fable-5": {
+		"us": true,
+		"eu": true,
+	},
+	"anthropic.claude-fable-5-1": {
+		"us": true,
+		"eu": true,
+	},
+	"anthropic.claude-fable-5-2": {
+		"us": true,
+		"eu": true,
+	},
+	"anthropic.claude-haiku-5-5": {
+		"us": true,
+		"eu": true,
+	},
+	"anthropic.claude-opus-5-5": {
+		"us": true,
+		"eu": true,
+	},
+	"anthropic.claude-sonnet-5-5": {
+		"us": true,
 		"eu": true,
 	},
 }

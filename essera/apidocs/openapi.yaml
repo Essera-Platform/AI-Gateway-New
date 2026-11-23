@@ -5,7 +5,7 @@ info:
   summary: One API for the AI models of your Essera account.
   description: |
     The Essera AI Gateway serves the AI models of your Essera account through one API. Every model runs on
-    **Amazon Bedrock in the EU (Ireland) region, eu-west-1**: your requests and their answers are processed there.
+    **Amazon Bedrock in the US East (N. Virginia) region, us-east-1**: your requests and their answers are processed there.
 
     The API follows the OpenAI and Anthropic request formats, so their SDKs and the tools built on them work with
     the Gateway. They are only clients of the Gateway: they send every request to the address below, never to
@@ -39,15 +39,14 @@ info:
     ## Models
 
     A model is named by its catalog id, as the **Model Square** and `GET /v1/models` show it, for example
-    `anthropic.claude-sonnet-4-6`, `amazon.nova-lite-v1:0`, `eu.amazon.nova-lite-v1:0` or
-    `amazon.titan-embed-text-v2:0`. You see and may call only the models your account is allowed to use; any other
+    `anthropic.claude-sonnet-4-6`, `amazon.nova-lite-v1:0` or `amazon.titan-embed-text-v2:0`. You see and may call only the models your account is allowed to use; any other
     model is refused with 403.
 
-    Use the catalog id even when Bedrock serves a model through an EU inference profile: the Gateway calls the
-    profile for you, and your usage keeps the catalog id. Requests stay in the EU geography.
+    Use the catalog id even when Bedrock serves a model through a US inference profile: the Gateway calls the
+    profile for you, and your usage keeps the catalog id. Requests stay in the US geography.
 
     Text models answer on `/v1/chat/completions`, `/v1/responses` and `/v1/messages`, whatever their vendor: the
-    Gateway converts between the formats. Embedding models (Titan Text Embeddings v2, Titan Multimodal Embeddings,
+    Gateway converts between the formats. Embedding models (Titan Text Embeddings G1 and v2, Titan Multimodal Embeddings,
     Cohere Embed) answer on `/v1/embeddings`. Images, audio generation, speech, rerank, realtime sessions, files and
     fine-tuning are not offered.
 
@@ -669,7 +668,7 @@ paths:
       tags: [Embeddings]
       summary: Create embeddings
       description: |
-        Turns text into vectors with an embedding model of your account: Titan Text Embeddings v2, Titan Multimodal
+        Turns text into vectors with an embedding model of your account: Titan Text Embeddings G1 and v2, Titan Multimodal
         Embeddings, or Cohere Embed v3 and v4. `input` takes one string or up to 256. On Titan Multimodal Embeddings
         and Cohere Embed, an input may also be an image as a base64 data URL.
       requestBody:
