@@ -1,6 +1,6 @@
 // Essera fork: rerank (/v1/rerank) for Cohere Rerank 3.5 on Bedrock, through
-// InvokeModel with its native body. Bedrock reports no usage; a call is billed
-// in search units as AWS defines them: one per 100 documents, at least one.
+// InvokeModel with its native body. Bedrock reports no usage: the search units
+// AWS bills are counted with Cohere's tokenizer (essera/rerankunits).
 package aws
 
 import (
@@ -14,15 +14,8 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 )
 
-const (
-	// maxRerankDocuments is the most documents Cohere Rerank takes in one call.
-	maxRerankDocuments = 1000
-	// rerankDocumentsPerSearchUnit: AWS bills one search unit per 100 documents
-	// of a query. It also splits a document that with the query is over 512
-	// tokens, which Bedrock does not report; the Console reconciles the search
-	// units AWS counted (CloudWatch SearchUnits) with the ones reported.
-	rerankDocumentsPerSearchUnit = 100
-)
+// maxRerankDocuments is the most documents Cohere Rerank takes in one call.
+const maxRerankDocuments = 1000
 
 // rerankBody is Cohere Rerank's native InvokeModel body.
 type rerankBody struct {
@@ -34,17 +27,14 @@ type rerankBody struct {
 
 // rerankPlan is the native body and what the answer needs from the request.
 type rerankPlan struct {
+	query           string
 	documents       []string
 	returnDocuments bool
+	searchUnits     int64
 }
 
 func isRerankModel(modelID string) bool {
 	return strings.Contains(modelID, "cohere.rerank")
-}
-
-// rerankSearchUnits is what AWS bills for a query over n documents.
-func rerankSearchUnits(documents int) int64 {
-	return int64(max(1, (documents+rerankDocumentsPerSearchUnit-1)/rerankDocumentsPerSearchUnit))
 }
 
 func convertRerankRequest(request dto.RerankRequest) (*rerankBody, *rerankPlan, error) {
@@ -73,7 +63,7 @@ func convertRerankRequest(request dto.RerankRequest) (*rerankBody, *rerankPlan, 
 		}
 	}
 	body := &rerankBody{Query: request.Query, Documents: documents, TopN: request.TopN, APIVersion: 2}
-	plan := &rerankPlan{documents: documents, returnDocuments: request.ReturnDocuments != nil && *request.ReturnDocuments}
+	plan := &rerankPlan{query: request.Query, documents: documents, returnDocuments: request.ReturnDocuments != nil && *request.ReturnDocuments}
 	return body, plan, nil
 }
 

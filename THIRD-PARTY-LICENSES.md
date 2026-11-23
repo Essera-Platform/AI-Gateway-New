@@ -760,3 +760,10 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
+## Essera: rerank tokenizer (`essera/rerankunits`)
+
+- `essera/rerankunits/grapheme_tables.go` is generated from the grapheme tables of the Rust crate [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation) 1.13.3 (Unicode 17.0.0), Copyright The Rust Project Developers, licensed MIT OR Apache-2.0 (texts above). The tables derive from the Unicode Character Database, © Unicode, Inc., under the Unicode License v3 (SPDX: Unicode-3.0).
+- `essera/rerankunits/tokenizer.go` reimplements, in Go, the behaviour of Hugging Face [tokenizers](https://github.com/huggingface/tokenizers) (Apache-2.0) and [spm_precompiled](https://github.com/huggingface/spm_precompiled) (Apache-2.0): Unigram encoding and the reading of SentencePiece's precompiled charsmap. No source code is copied.
+- Cohere's tokenizer file `rerank-v3.5.json` is not distributed with this project: the Gateway downloads it at run time from Cohere's public URL. Only counts computed with it are in `essera/rerankunits/testdata/counts.json`.
+
