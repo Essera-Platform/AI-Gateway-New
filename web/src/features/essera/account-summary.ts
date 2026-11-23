@@ -3,6 +3,11 @@ import type { TFunction } from 'i18next'
 import { formatCompactNumber } from '@/lib/format'
 
 import { formatBalance, type EsseraAccount } from './account'
+import {
+  esseraUnitFigure,
+  isTokenUnit,
+  measuredUnits,
+} from './model-square-format'
 
 export type EsseraAccountStat = {
   key: 'spend' | 'limit' | 'requests'
@@ -57,9 +62,16 @@ export function esseraAccountStats(
       key: 'spend',
       label: t('Spend this month'),
       value: formatBalance(account.spend, account.currency),
-      description: t('{{count}} tokens this month', {
-        count: formatCompactNumber(account.tokens, locale),
-      }),
+      description: [
+        t('{{count}} tokens this month', {
+          count: formatCompactNumber(account.tokens, locale),
+        }),
+        ...measuredUnits(account.units)
+          .filter((measured) => !isTokenUnit(measured.unit))
+          .map((measured) =>
+            esseraUnitFigure(t, measured.unit, measured.quantity, locale)
+          ),
+      ].join(' · '),
     },
     {
       key: 'limit',

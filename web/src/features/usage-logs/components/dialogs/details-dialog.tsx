@@ -58,6 +58,7 @@ import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { EsseraCharges } from '@/features/essera/charges'
+import { EsseraMeasuredUnits } from '@/features/essera/measured-units'
 import { DynamicPricingBreakdown } from '@/features/pricing/components/dynamic-pricing-breakdown'
 import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
 import { BILLING_PRICING_VARS } from '@/features/pricing/lib/billing-expr'
@@ -1218,7 +1219,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
           )}
 
         {/* Token breakdown (for consume/error types with token data) */}
-        {isDisplayableType(props.log.type) && other && (
+        {/* Modified by Essera, 2026-11: every unit the Console measured, in place of the tokens alone. */}
+        {isDisplayableType(props.log.type) && other?.essera?.units && (
+          <EsseraMeasuredUnits units={other.essera.units} />
+        )}
+        {isDisplayableType(props.log.type) && other && !other.essera?.units && (
           <TokenBreakdown log={props.log} other={other} />
         )}
 

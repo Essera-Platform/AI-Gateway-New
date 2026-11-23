@@ -11,6 +11,8 @@ export type EsseraAccount = {
   request_quota: number | null
   tokens: number
   token_quota: number | null
+  /** This month's units by the name the Console's prices give them. */
+  units?: Record<string, number> | null
 }
 
 export type EsseraProviderState =

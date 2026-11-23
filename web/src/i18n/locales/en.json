@@ -7973,6 +7973,13 @@
     "This credential is not active.": "This credential is not active.",
     "essera.legal.attributionGloss": "Frontend design and development by New API contributors.",
     "This model takes Temperature or Top P, not both.": "This model takes Temperature or Top P, not both.",
-    "This model takes no adjustable parameters.": "This model takes no adjustable parameters."
+    "This model takes no adjustable parameters.": "This model takes no adjustable parameters.",
+    "Text input": "Text input",
+    "text": "text",
+    "{{count}} texts": "{{count}} texts",
+    "Video input": "Video input",
+    "Search unit": "Search unit",
+    "search unit": "search unit",
+    "{{count}} search units": "{{count}} search units"
   }
 }

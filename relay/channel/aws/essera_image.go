@@ -12,6 +12,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -28,31 +29,36 @@ import (
 const maxStabilityImageBytes = 16 << 20
 
 // stabilityService is one Stability AI image service: the member its first
-// image goes in, and the member of a second image (style transfer's style).
+// image goes in, the member of a second image (style transfer's style), and
+// the other members it takes besides output_format. Bedrock refuses a member
+// a service does not take, so an OpenAI edit's prompt, a mask or a parameter
+// the service has no use for is left out (fast upscale takes the image alone).
 type stabilityService struct {
 	image       string
 	secondImage string
+	takes       []string
 }
 
 var stabilityServices = map[string]stabilityService{
 	"stable-fast-upscale":            {image: "image"},
-	"stable-conservative-upscale":    {image: "image"},
-	"stable-creative-upscale":        {image: "image"},
-	"stable-image-inpaint":           {image: "image"},
-	"stable-outpaint":                {image: "image"},
-	"stable-image-erase-object":      {image: "image"},
+	"stable-conservative-upscale":    {image: "image", takes: []string{"prompt", "negative_prompt", "seed", "creativity"}},
+	"stable-creative-upscale":        {image: "image", takes: []string{"prompt", "negative_prompt", "seed", "creativity", "style_preset"}},
+	"stable-image-inpaint":           {image: "image", takes: []string{"prompt", "mask", "negative_prompt", "grow_mask", "seed", "style_preset"}},
+	"stable-outpaint":                {image: "image", takes: []string{"prompt", "left", "right", "up", "down", "creativity", "seed", "style_preset"}},
+	"stable-image-erase-object":      {image: "image", takes: []string{"mask", "grow_mask", "seed"}},
 	"stable-image-remove-background": {image: "image"},
-	"stable-image-search-replace":    {image: "image"},
-	"stable-image-search-recolor":    {image: "image"},
-	"stable-image-control-sketch":    {image: "image"},
-	"stable-image-control-structure": {image: "image"},
-	"stable-image-style-guide":       {image: "image"},
-	"stable-style-transfer":          {image: "init_image", secondImage: "style_image"},
+	"stable-image-search-replace":    {image: "image", takes: []string{"prompt", "search_prompt", "negative_prompt", "grow_mask", "seed", "style_preset"}},
+	"stable-image-search-recolor":    {image: "image", takes: []string{"prompt", "select_prompt", "negative_prompt", "grow_mask", "seed", "style_preset"}},
+	"stable-image-control-sketch":    {image: "image", takes: []string{"prompt", "control_strength", "negative_prompt", "seed", "style_preset"}},
+	"stable-image-control-structure": {image: "image", takes: []string{"prompt", "control_strength", "negative_prompt", "seed", "style_preset"}},
+	"stable-image-style-guide":       {image: "image", takes: []string{"prompt", "negative_prompt", "aspect_ratio", "fidelity", "seed", "style_preset"}},
+	"stable-style-transfer": {image: "init_image", secondImage: "style_image", takes: []string{
+		"prompt", "negative_prompt", "seed", "composition_fidelity", "style_strength", "change_strength",
+	}},
 }
 
 // stabilityParameters are the services' own request members a caller may send
-// along, as form fields or JSON members; Bedrock refuses one a service does
-// not take.
+// along, as form fields or JSON members, and whether each is a number.
 var stabilityParameters = map[string]bool{
 	"negative_prompt": false, "style_preset": false, "search_prompt": false, "select_prompt": false, "aspect_ratio": false,
 	"seed": true, "grow_mask": true, "creativity": true, "left": true, "right": true, "up": true, "down": true,
@@ -86,7 +92,7 @@ func convertStabilityRequest(c *gin.Context, mode int, modelID string, request d
 		return nil, newBadRequest("AWS Bedrock images are returned as b64_json only")
 	}
 	body := map[string]any{}
-	if request.Prompt != "" {
+	if request.Prompt != "" && slices.Contains(service.takes, "prompt") {
 		body["prompt"] = request.Prompt
 	}
 	var images []string
@@ -147,10 +153,13 @@ func convertStabilityRequest(c *gin.Context, mode int, modelID string, request d
 	if service.secondImage != "" {
 		body[service.secondImage] = images[1]
 	}
-	if mask != "" {
+	if mask != "" && slices.Contains(service.takes, "mask") {
 		body["mask"] = mask
 	}
 	for name, value := range parameters {
+		if name != "output_format" && !slices.Contains(service.takes, name) {
+			continue
+		}
 		if name == "output_format" {
 			if value != "png" && value != "jpeg" && value != "webp" {
 				return nil, newBadRequest("output_format must be png, jpeg or webp")

@@ -16,7 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the units the Console measured are added up too.
 import type { QuotaDataItem } from '@/features/dashboard/types'
+import {
+  addUnits,
+  type EsseraUnits,
+} from '@/features/essera/model-square-format'
 
 /**
  * Safe division: handles NaN and Infinity cases
@@ -50,6 +55,7 @@ export function calculateDashboardStats(data: QuotaDataItem[]) {
         totalCacheCreationTokens:
           acc.totalCacheCreationTokens +
           (Number.isFinite(cacheCreation) ? Math.max(0, cacheCreation) : 0),
+        totalUnits: addUnits(acc.totalUnits, item.units),
       }
     },
     {
@@ -58,6 +64,7 @@ export function calculateDashboardStats(data: QuotaDataItem[]) {
       totalTokens: 0,
       totalCacheReadTokens: 0,
       totalCacheCreationTokens: 0,
+      totalUnits: {} as EsseraUnits,
     }
   )
 }

@@ -45,6 +45,9 @@ const (
 	// The most tokens a client may give one answer; Bedrock accepts it.
 	sonicMaxTokensLimit   = 10000
 	sonicDefaultMaxTokens = 1024
+	// How long an answer's response.done waits for Bedrock's usage event, which follows the
+	// answer's last content.
+	sonicTurnUsageWait = time.Second
 )
 
 // openAIVoices are the Realtime API's own voices; Nova Sonic has none of them, so a client
@@ -215,12 +218,19 @@ type sonicContent struct {
 
 // sonicTurn is the Realtime response being answered: Nova Sonic's turn of the assistant.
 type sonicTurn struct {
-	responseID  string
-	messageID   string
-	transcript  strings.Builder
-	outputs     []map[string]any
-	messageAt   int
-	tokensStart sonicTotals
+	responseID string
+	messageID  string
+	transcript strings.Builder
+	outputs    []map[string]any
+	messageAt  int
+}
+
+// sonicSettling is an answer that has ended, its response.done waiting for Bedrock's usage.
+type sonicSettling struct {
+	responseID string
+	status     string
+	outputs    []map[string]any
+	wait       *time.Timer
 }
 
 type sonicSession struct {
@@ -243,11 +253,16 @@ type sonicSession struct {
 	config       sonicConfig
 	audioContent string
 
-	// Read and written only while reading Bedrock's events, then read once it is done.
+	// Read and written while reading Bedrock's events, and by the wait for an answer's usage,
+	// under stateMu; then read once Bedrock's events are done.
+	stateMu  sync.Mutex
 	contents map[string]sonicContent
 	userText map[string]*strings.Builder
 	turn     *sonicTurn
+	settling *sonicSettling
 	totals   sonicTotals
+	// The totals the last response.done counted up to.
+	answered sonicTotals
 }
 
 func newSonicSession(c *gin.Context, info *relaycommon.RelayInfo, open sonicOpener) *sonicSession {
@@ -709,9 +724,14 @@ func (s *sonicSession) readUpstream() {
 		if err := common.Unmarshal(message, &event); err != nil {
 			continue
 		}
+		s.stateMu.Lock()
 		s.upstreamEvent(event)
+		s.stateMu.Unlock()
 	}
+	s.stateMu.Lock()
 	s.endTurn("incomplete")
+	s.answerDone()
+	s.stateMu.Unlock()
 	if err := s.upstream.Err(); err != nil && s.ctx.Err() == nil {
 		s.upstreamErr = s.upstreamFailure(err)
 		_ = s.client.SetReadDeadline(time.Now())
@@ -723,6 +743,7 @@ func (s *sonicSession) upstreamEvent(event sonicOutputEvent) {
 	switch {
 	case e.UsageEvent != nil:
 		s.totals.raise(e.UsageEvent.Details.Total)
+		s.answerDone()
 	case e.ContentStart != nil:
 		var fields struct {
 			GenerationStage string `json:"generationStage"`
@@ -804,7 +825,8 @@ func (s *sonicSession) beginTurn() {
 	if s.turn != nil {
 		return
 	}
-	s.turn = &sonicTurn{responseID: "resp_" + common.GetUUID(), messageAt: -1, tokensStart: s.totals}
+	s.answerDone()
+	s.turn = &sonicTurn{responseID: "resp_" + common.GetUUID(), messageAt: -1}
 	s.emit(map[string]any{"type": "response.created", "response": map[string]any{
 		"id": s.turn.responseID, "object": "realtime.response", "status": "in_progress", "output": []any{},
 	}})
@@ -865,8 +887,34 @@ func (s *sonicSession) endTurn(status string) {
 		s.emit(map[string]any{"type": "response.output_item.done", "response_id": turn.responseID, "output_index": turn.messageAt, "item": message})
 		turn.outputs[turn.messageAt] = message
 	}
+	s.answerDone()
+	settling := &sonicSettling{responseID: turn.responseID, status: status, outputs: turn.outputs}
+	settling.wait = time.AfterFunc(sonicTurnUsageWait, func() {
+		s.stateMu.Lock()
+		defer s.stateMu.Unlock()
+		if s.settling == settling {
+			s.answerDone()
+		}
+	})
+	s.settling = settling
+}
+
+// answerDone sends the response.done of the answer that ended, once Bedrock reported its usage,
+// the next answer began, the wait ran out or the session ended. Its usage is every token
+// Bedrock reported since the previous answer's: the person's speech and text that led to it,
+// and the answer. Tokens reported later count in the next answer; together the answers count
+// what the session is billed.
+func (s *sonicSession) answerDone() {
+	settling := s.settling
+	if settling == nil {
+		return
+	}
+	s.settling = nil
+	settling.wait.Stop()
+	usage := s.totals.since(s.answered).realtimeUsage()
+	s.answered = s.totals
 	s.emit(map[string]any{"type": "response.done", "response": map[string]any{
-		"id": turn.responseID, "object": "realtime.response", "status": status, "output": turn.outputs,
-		"usage": s.totals.since(turn.tokensStart).realtimeUsage(),
+		"id": settling.responseID, "object": "realtime.response", "status": settling.status, "output": settling.outputs,
+		"usage": usage,
 	}})
 }

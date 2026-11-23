@@ -33,6 +33,8 @@ export interface QuotaDataItem {
   token_used?: number
   count?: number
   quota?: number
+  // Modified by Essera, 2026-11: every unit the Console measured, on a managed gateway.
+  units?: Record<string, number>
 }
 
 export interface FlowQuotaDataItem {

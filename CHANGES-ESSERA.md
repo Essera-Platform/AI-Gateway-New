@@ -386,3 +386,30 @@ A person's API key may open the Realtime WebSocket (`GET /v1/realtime?model=…`
 | `essera/awsx` | The task role's credentials provider |
 | `essera/apidocs/` | A Sonic model is never the chat example |
 | `web/src/features/essera/model-square-format.ts` | Speech input and output prices and charges are named |
+
+## Every unit the Console measured, wherever usage is shown (2026-11)
+
+The Console's usage reads carry `units`, every unit it measured by the name its prices give the unit (`input_tokens`, `cache_read_tokens`, `images`, `search_units`, `input_texts`, `input_video_seconds`, …). A managed gateway shows them: the dashboard's Cache Read and Cache Write cards read the cache tokens of the Console's series (they were always 0), Total Tokens counts speech tokens too, and each other unit measured in the window has a card of its own; a usage log row shows its other units under its tokens (or in their place), and its details list every unit; the account summary names this month's units besides tokens. The Model Square and the charges name search units, text input and video and audio input instead of showing their keys; `web/src/features/essera/model-square-format.ts` labels every unit the Console prices.
+
+| File | Change |
+| --- | --- |
+| `essera/consoleapi` | `Measured`: the units of a request or a total, and `Tokens()` from them |
+| `controller/essera_pages.go` | The series carries the cache tokens and the units; a log row's and the account's units |
+| `web/src/features/essera/model-square-format.ts`, `measured-units.tsx` (new) | One place for unit labels; a unit's quantity; a request's units |
+| `web/src/features/dashboard/components/models/log-stat-cards.tsx`, `lib/stats.ts`, `types.ts` | A card for each other unit measured in the window |
+| `web/src/features/usage-logs/components/columns/common-logs-columns.tsx`, `components/common-log-mobile-card.tsx`, `components/dialogs/details-dialog.tsx`, `types.ts` | A request's units in its row and its details |
+| `web/src/features/essera/account-summary.ts`, `types.ts` | This month's units besides tokens |
+| `web/src/features/essera/model-square-card.tsx` | A card's prices sit right under the model name; only the measurements and Details stay at the bottom of a card stretched to its row |
+
+## Prompt caching from OpenAI requests, Stability AI fields, Nova Sonic usage per answer (2026-11)
+
+- **Prompt caching on `/v1/chat/completions` for Claude:** a content part's `cache_control` (on a system, user or assistant text part, an image or a document), with its TTL, reaches the Anthropic Messages body Bedrock receives; it was dropped when the OpenAI message was parsed, so every call was billed as plain input. The caching the Console prices still decides what is sent (`withCaching`).
+- **Image edits:** each Stability AI service is sent only the members it takes (fast upscale and remove background the image and `output_format` alone); an OpenAI edit's `prompt`, a mask or a parameter the service has no use for is left out instead of being refused by Bedrock.
+- **Nova Sonic:** an answer's `response.done` waits (up to a second) for Bedrock's usage event that follows the answer, and its `usage` is every token Bedrock reported since the previous answer's, text and audio apart: the instructions and speech that led to it and the answer itself. Tokens reported later count in the next answer, so the answers add up to what the session is billed.
+
+| File | Change |
+| --- | --- |
+| `relaykit/dto/openai_request.go` | `ParseContent` keeps each part's `cache_control` |
+| `relaykit/relayconvert/internal/oai_chat/to_claude_messages_req.go` | A part's `cache_control` on its Claude block |
+| `relay/channel/aws/essera_image.go` | The members each Stability AI service takes |
+| `relay/channel/aws/essera_sonic.go` | `response.done` after the answer's usage |

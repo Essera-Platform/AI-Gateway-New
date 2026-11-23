@@ -1,9 +1,11 @@
 import { cleanup, render, screen } from '@testing-library/react'
+import i18next from 'i18next'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { ProfileHeader } from '@/features/profile/components/profile-header'
 import type { UserProfile } from '@/features/profile/types'
 
+import { esseraAccountStats } from '../account-summary'
 import type { EsseraAccount } from '../types'
 
 afterEach(cleanup)
@@ -84,5 +86,16 @@ describe('account summary on a managed gateway', () => {
     render(<ProfileHeader profile={profile()} loading={false} />)
 
     expect(screen.getByText('Current Balance')).toBeVisible()
+  })
+
+  it('names this month’s units besides tokens with the tokens', () => {
+    const stats = esseraAccountStats(i18next.t, {
+      ...account,
+      units: { input_tokens: 45000, speech_input_tokens: 10, images: 4 },
+    })
+
+    expect(stats.find((stat) => stat.key === 'spend')?.description).toBe(
+      '45K tokens this month · Image: 4'
+    )
   })
 })

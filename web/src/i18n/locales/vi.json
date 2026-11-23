@@ -7871,6 +7871,13 @@
     "Speech output": "Đầu ra giọng nói",
     "Charges": "Chi phí",
     "Not priced yet": "Chưa có giá",
-    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Giá ngữ cảnh dài áp dụng cho mọi token của yêu cầu có lời nhắc dài hơn ngưỡng ngữ cảnh dài của mô hình."
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Giá ngữ cảnh dài áp dụng cho mọi token của yêu cầu có lời nhắc dài hơn ngưỡng ngữ cảnh dài của mô hình.",
+    "Text input": "Đầu vào văn bản",
+    "text": "văn bản",
+    "{{count}} texts": "{{count}} văn bản",
+    "Video input": "Đầu vào video",
+    "Search unit": "Đơn vị tìm kiếm",
+    "search unit": "đơn vị tìm kiếm",
+    "{{count}} search units": "{{count}} đơn vị tìm kiếm"
   }
 }

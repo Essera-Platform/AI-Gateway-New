@@ -217,6 +217,9 @@ func consoleLog(id int, row consoleapi.UsageRow, keyNames, people map[string]str
 	if row.InputImageUnits > 0 {
 		details["input_image_units"] = row.InputImageUnits
 	}
+	if len(row.Units) > 0 {
+		details["units"] = row.Units
+	}
 	if len(row.Charges) > 0 {
 		details["charges"] = row.Charges
 	}
@@ -256,6 +259,13 @@ func esseraLogsStat(c *gin.Context, person *snapshot.Person) {
 	common.ApiSuccess(c, gin.H{"quota": quotaOf(spendIn(series.Total.Spend, customerCurrency(person))), "rpm": 0, "tpm": 0})
 }
 
+// esseraQuotaData is a point of the dashboard's series with every unit the Console measured,
+// for the units new-api's QuotaData has no column for.
+type esseraQuotaData struct {
+	model.QuotaData
+	Units consoleapi.Units `json:"units,omitempty"`
+}
+
 // esseraQuotaDates serves /api/data/self, the dashboard's series: the Console's totals by hour
 // or day and model, one point each, as they are.
 func esseraQuotaDates(c *gin.Context, person *snapshot.Person) {
@@ -269,11 +279,14 @@ func esseraQuotaDates(c *gin.Context, person *snapshot.Person) {
 		return
 	}
 	currency := customerCurrency(person)
-	dates := make([]*model.QuotaData, 0, len(series.Rows))
+	dates := make([]esseraQuotaData, 0, len(series.Rows))
 	for _, row := range series.Rows {
-		dates = append(dates, &model.QuotaData{
-			ModelName: row.Model, CreatedAt: row.TS.Unix(),
-			Count: int(row.Requests), TokenUsed: int(row.Tokens(row.InputUnits, row.OutputUnits)), Quota: quotaOf(spendIn(row.Spend, currency)),
+		dates = append(dates, esseraQuotaData{
+			QuotaData: model.QuotaData{
+				ModelName: row.Model, CreatedAt: row.TS.Unix(), Count: int(row.Requests), TokenUsed: int(row.Tokens()),
+				CacheReadTokens: row.CacheReadUnits, CacheCreationTokens: row.Written(), Quota: quotaOf(spendIn(row.Spend, currency)),
+			},
+			Units: row.Units,
 		})
 	}
 	common.ApiSuccess(c, dates)
@@ -355,7 +368,8 @@ func esseraAccount(c *gin.Context, person *snapshot.Person) gin.H {
 		"spend_left":    me.Remaining.Spend,
 		"requests":      me.Month.Requests,
 		"request_quota": me.Limits.MonthlyRequestQuota,
-		"tokens":        me.Month.Tokens(me.Month.InputUnits, me.Month.OutputUnits),
+		"tokens":        me.Month.Tokens(),
+		"units":         me.Month.Units,
 		"token_quota":   me.Limits.MonthlyTokenQuota,
 	}
 }

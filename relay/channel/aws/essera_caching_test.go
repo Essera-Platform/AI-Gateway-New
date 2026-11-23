@@ -180,3 +180,33 @@ func TestConverseKeepsTheCachePointWhereCachingIsPriced(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(body), `"cachePoint":{"type":"default"}`)
 }
+
+func TestAnOpenAIChatRequestKeepsItsCacheMarkersForClaude(t *testing.T) {
+	cachingAllowed(t, policy.CachingAll)
+	server, _ := startBedrockStub(t, jsonFixture(converseTextReply))
+	c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+	model := "anthropic.claude-haiku-4-5-20251001-v1:0"
+	info := newBedrockTestInfo(server, relayconstant.RelayModeChatCompletions, relaytypes.RelayFormatOpenAI, model, false)
+	var request dto.GeneralOpenAIRequest
+	require.NoError(t, common.Unmarshal([]byte(`{"model":"`+model+`","max_tokens":64,"messages":[
+		{"role":"system","content":[{"type":"text","text":"Long manual","cache_control":{"type":"ephemeral","ttl":"1h"}}]},
+		{"role":"user","content":[{"type":"text","text":"Long question","cache_control":{"type":"ephemeral"}},{"type":"text","text":"Q"}]}]}`), &request))
+	converted, err := (&Adaptor{}).ConvertOpenAIRequest(c, info, &request)
+	require.NoError(t, err)
+	encoded, err := common.Marshal(converted)
+	require.NoError(t, err)
+
+	var sent struct {
+		System   []map[string]json.RawMessage `json:"system"`
+		Messages []struct {
+			Content []map[string]json.RawMessage `json:"content"`
+		} `json:"messages"`
+	}
+	require.NoError(t, common.Unmarshal(invokeBody(t, string(encoded)), &sent))
+	require.Len(t, sent.System, 1)
+	assert.JSONEq(t, `{"type":"ephemeral","ttl":"1h"}`, string(sent.System[0]["cache_control"]), "the system prompt's marker, its 1-hour TTL kept")
+	require.Len(t, sent.Messages, 1)
+	require.Len(t, sent.Messages[0].Content, 2)
+	assert.JSONEq(t, `{"type":"ephemeral"}`, string(sent.Messages[0].Content[0]["cache_control"]), "the marked user part")
+	assert.NotContains(t, sent.Messages[0].Content[1], "cache_control", "an unmarked part stays unmarked")
+}

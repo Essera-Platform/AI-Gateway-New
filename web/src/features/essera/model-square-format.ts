@@ -1,5 +1,7 @@
 import type { TFunction } from 'i18next'
 
+import { formatNumber } from '@/lib/format'
+
 import { formatSpend } from './account'
 
 /**
@@ -43,6 +45,7 @@ export type EsseraModelInfo = {
 }
 
 const TOKENS = { one: 'token', many: '{{count}} tokens' }
+const SECONDS = { one: 'second', many: '{{count}} seconds' }
 
 /**
  * The Console's units, in the order a bill lists them. The `_long` units are the prices of a
@@ -75,9 +78,17 @@ const UNIT_LABEL_KEYS: Record<
     one: 'image',
     many: '{{count}} images',
   },
+  input_texts: { label: 'Text input', one: 'text', many: '{{count}} texts' },
+  input_video_seconds: { label: 'Video input', ...SECONDS },
+  input_audio_seconds: { label: 'Audio input', ...SECONDS },
   images: { label: 'Image', one: 'image', many: '{{count}} images' },
-  video_seconds: { label: 'Video', one: 'second', many: '{{count}} seconds' },
+  video_seconds: { label: 'Video', ...SECONDS },
   audio_minutes: { label: 'Audio', one: 'minute', many: '{{count}} minutes' },
+  search_units: {
+    label: 'Search unit',
+    one: 'search unit',
+    many: '{{count}} search units',
+  },
   requests: { label: 'Request', one: 'request', many: '{{count}} requests' },
 }
 
@@ -94,7 +105,9 @@ export function esseraModelTypeLabel(t: TFunction, modelType: string): string {
   return key ? t(key) : modelType
 }
 
-const UNIT_ORDER = Object.keys(UNIT_LABEL_KEYS)
+/** Every unit the Console prices and measures, in the order a bill lists them. */
+export const ESSERA_UNITS: readonly string[] = Object.keys(UNIT_LABEL_KEYS)
+const UNIT_ORDER = ESSERA_UNITS
 
 /** Prices in the order a bill lists their units; units this gateway does not know go last. */
 export function inBillOrder<T extends { unit: string }>(
@@ -107,10 +120,76 @@ export function inBillOrder<T extends { unit: string }>(
   return [...items].sort((a, b) => rank(a.unit) - rank(b.unit))
 }
 
-/** "Cache read", "Input image": a unit as people read it. */
+/** "Cache read", "Input image": a unit as people read it; a unit this gateway does not know
+ * yet reads as its words rather than its key. */
 export function esseraUnitLabel(t: TFunction, unit: string): string {
   const keys = UNIT_LABEL_KEYS[unit]
-  return keys ? t(keys.label) : unit
+  return keys ? t(keys.label) : unit.replaceAll('_', ' ')
+}
+
+/** The tokens new-api's own figures show (input and output, cache reads and writes); every
+ * other unit is shown beside them, by name. */
+export const TOKEN_FIGURE_UNITS: ReadonlySet<string> = new Set([
+  'input_tokens',
+  'output_tokens',
+  'cache_read_tokens',
+  'cache_write_tokens',
+  'cache_write_1h_tokens',
+])
+
+/** Tokens of any kind: text, cached, speech, at the long-context price. */
+export function isTokenUnit(unit: string): boolean {
+  return unit.endsWith('_tokens') || unit.includes('_tokens_')
+}
+
+/** "1,200 tokens", "1 image", "3 search units": a quantity of a unit as people read it. */
+export function esseraUnitQuantity(
+  t: TFunction,
+  unit: string,
+  quantity: number,
+  locale?: Intl.LocalesArgument
+): string {
+  const keys = UNIT_LABEL_KEYS[unit]
+  const count = formatNumber(quantity, locale)
+  if (!keys) return `${count} ${unit.replaceAll('_', ' ')}`
+  if (quantity === 1) return `${count} ${t(keys.one)}`
+  return t(keys.many, { count })
+}
+
+/** "Search unit: 3", "Video input: 1,200": a unit and its quantity in a list of units. */
+export function esseraUnitFigure(
+  t: TFunction,
+  unit: string,
+  quantity: number,
+  locale?: Intl.LocalesArgument
+): string {
+  return `${esseraUnitLabel(t, unit)}: ${formatNumber(quantity, locale)}`
+}
+
+/** The units a request or a window measured, by the name the Console's prices give them. */
+export type EsseraUnits = Record<string, number>
+
+/** The units with a quantity, in the order a bill lists them. */
+export function measuredUnits(
+  units: EsseraUnits | null | undefined
+): { unit: string; quantity: number }[] {
+  return inBillOrder(
+    Object.entries(units ?? {})
+      .filter(([, quantity]) => Number.isFinite(quantity) && quantity > 0)
+      .map(([unit, quantity]) => ({ unit, quantity }))
+  )
+}
+
+/** Adds up the units of several requests or windows. */
+export function addUnits(
+  into: EsseraUnits,
+  units: EsseraUnits | null | undefined
+): EsseraUnits {
+  for (const [unit, quantity] of Object.entries(units ?? {})) {
+    if (!Number.isFinite(quantity) || quantity <= 0) continue
+    into[unit] = (into[unit] ?? 0) + quantity
+  }
+  return into
 }
 
 export function isLongContextUnit(unit: string): boolean {

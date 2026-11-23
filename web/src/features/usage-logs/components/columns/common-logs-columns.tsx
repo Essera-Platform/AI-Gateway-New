@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the designs' log rows: the time on two mono lines, a wrapping model badge and mono tokens, so the table fits 1366px.
+// Modified by Essera, 2026-11: the designs' log rows: the time on two mono lines, a wrapping model badge and mono tokens, so the table fits 1366px; the units the Console measured besides tokens under them.
 import type { ColumnDef } from '@tanstack/react-table'
 import { GitBranch, Sparkles, KeyRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -36,6 +36,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { EsseraOtherUnits } from '@/features/essera/measured-units'
 import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
 import {
   normalizeTierLabel,
@@ -650,7 +651,7 @@ export function useCommonLogsColumns(
                     copyText={sensitiveVisible ? log.token_name : undefined}
                     size='sm'
                     showDot={false}
-                    className='border-border/60 bg-muted/30 text-foreground h-6 max-w-full gap-1.5 overflow-hidden rounded-md border px-2 py-0.5 text-xs! font-mono'
+                    className='border-border/60 bg-muted/30 text-foreground h-6 max-w-full gap-1.5 overflow-hidden rounded-md border px-2 py-0.5 font-mono text-xs!'
                   />
                 </TooltipTrigger>
                 {sensitiveVisible && tokenName.length > 16 && (
@@ -750,7 +751,16 @@ export function useCommonLogsColumns(
 
           const promptTokens = log.prompt_tokens || 0
           const completionTokens = log.completion_tokens || 0
+          const otherUnits = (
+            <EsseraOtherUnits
+              units={other?.essera?.units}
+              className='text-muted-foreground text-[11px]'
+            />
+          )
           if (promptTokens === 0 && completionTokens === 0) {
+            if (other?.essera?.units) {
+              return otherUnits
+            }
             return <span className='text-muted-foreground text-xs'>-</span>
           }
 
@@ -782,6 +792,7 @@ export function useCommonLogsColumns(
                   )}
                 </div>
               )}
+              {otherUnits}
             </div>
           )
         },

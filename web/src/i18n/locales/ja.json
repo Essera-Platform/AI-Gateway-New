@@ -7871,6 +7871,13 @@
     "Speech output": "音声出力",
     "Charges": "料金明細",
     "Not priced yet": "未設定の価格",
-    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "プロンプトがモデルのロングコンテキストの長さを超えるリクエストでは、すべてのトークンにロングコンテキスト価格が適用されます。"
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "プロンプトがモデルのロングコンテキストの長さを超えるリクエストでは、すべてのトークンにロングコンテキスト価格が適用されます。",
+    "Text input": "テキスト入力",
+    "text": "件のテキスト",
+    "{{count}} texts": "{{count}} 件のテキスト",
+    "Video input": "動画入力",
+    "Search unit": "検索ユニット",
+    "search unit": "検索ユニット",
+    "{{count}} search units": "{{count}} 検索ユニット"
   }
 }
