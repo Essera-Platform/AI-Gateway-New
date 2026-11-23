@@ -7968,6 +7968,8 @@
     "This account is not active.": "This account is not active.",
     "This end user is not active.": "This end user is not active.",
     "This credential is not active.": "This credential is not active.",
-    "essera.legal.attributionGloss": "Frontend design and development by New API contributors."
+    "essera.legal.attributionGloss": "Frontend design and development by New API contributors.",
+    "This model takes Temperature or Top P, not both.": "This model takes Temperature or Top P, not both.",
+    "This model takes no adjustable parameters.": "This model takes no adjustable parameters."
   }
 }

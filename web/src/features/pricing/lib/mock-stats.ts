@@ -735,6 +735,14 @@ function apiCategoryOf(model: PricingModel): ApiCategory {
 export function buildSupportedParameters(
   model: PricingModel
 ): SupportedParameter[] {
+  // Essera: a managed gateway lists the parameters it measured for the model.
+  if (model.supported_parameters) {
+    const known = [...EMBEDDING_PARAMS, ...REASONING_PARAMS, ...COMMON_CHAT_PARAMS]
+    return model.supported_parameters.flatMap((name) => {
+      const parameter = known.find((item) => item.name === name)
+      return parameter ? [parameter] : []
+    })
+  }
   const cat = apiCategoryOf(model)
   if (cat === 'reasoning') return REASONING_PARAMS
   if (cat === 'embedding') return EMBEDDING_PARAMS

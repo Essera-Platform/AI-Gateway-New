@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: only the selected model's parameters, with temperature or top_p where it takes one.
 import { SlidersHorizontalIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -45,9 +46,12 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 
 import {
+  supportedParameterControls,
+  type ModelParameterSupport,
+} from '../../lib/parameters/model-parameters'
+import {
   getParameterControlValueText,
   normalizeParameterNumberValue,
-  PLAYGROUND_PARAMETER_CONTROLS,
   PLAYGROUND_PARAMETER_PANEL_SCROLL_CLASS,
   type PlaygroundParameterKey,
 } from '../../lib/parameters/playground-parameters'
@@ -65,6 +69,7 @@ type PlaygroundParameterPanelProps = {
     value: boolean
   ) => void
   parameterEnabled: ParameterEnabled
+  parameterSupport?: ModelParameterSupport | null
 }
 
 type PlaygroundParameterContentProps = PlaygroundParameterPanelProps & {
@@ -78,18 +83,15 @@ function PlaygroundParameterContent({
   onConfigChange,
   onParameterEnabledChange,
   parameterEnabled,
+  parameterSupport = null,
 }: PlaygroundParameterContentProps) {
   const { t } = useTranslation()
+  const controls = supportedParameterControls(parameterSupport)
 
   const updateParameterConfig = (
     key: PlaygroundParameterKey,
     value: number | null
   ) => {
-    if (key === 'seed') {
-      onConfigChange('seed', value)
-      return
-    }
-
     onConfigChange(key, value ?? 0)
   }
 
@@ -101,7 +103,17 @@ function PlaygroundParameterContent({
         compact ? 'px-4 pb-4' : 'p-1'
       )}
     >
-      {PLAYGROUND_PARAMETER_CONTROLS.map((control) => {
+      {parameterSupport?.samplingExclusive && (
+        <p className='text-muted-foreground px-1 text-xs leading-4'>
+          {t('This model takes Temperature or Top P, not both.')}
+        </p>
+      )}
+      {controls.length === 0 && (
+        <p className='text-muted-foreground px-1 text-xs leading-4'>
+          {t('This model takes no adjustable parameters.')}
+        </p>
+      )}
+      {controls.map((control) => {
         const enabled = parameterEnabled[control.key]
         const value = config[control.key]
         const controlId = `playground-${control.key}`
@@ -198,7 +210,9 @@ function PlaygroundParameterContent({
 export function PlaygroundParameterPanel(props: PlaygroundParameterPanelProps) {
   const { t } = useTranslation()
   const isMobile = useIsMobile()
-  const activeCount = PLAYGROUND_PARAMETER_CONTROLS.filter(
+  const activeCount = supportedParameterControls(
+    props.parameterSupport ?? null
+  ).filter(
     (control) => props.parameterEnabled[control.key]
   ).length
 

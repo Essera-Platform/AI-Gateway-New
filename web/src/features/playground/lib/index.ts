@@ -32,6 +32,7 @@ export * from './message/message-update-utils'
 export * from './message/message-utils'
 export * from './options/playground-option-utils'
 export * from './parameters/playground-parameters'
+export * from './parameters/model-parameters' // Modified by Essera, 2026-11
 export * from './state/playground-state-utils'
 export * from './storage/storage'
 export * from './streaming/payload-builder'

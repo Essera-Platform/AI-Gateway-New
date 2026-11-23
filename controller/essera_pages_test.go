@@ -404,6 +404,8 @@ func TestTheModelSquareShowsAPersonOnlyTheirModelsWithTheConsolesPrices(t *testi
 	assert.Equal(t, "GPT-4o", first["display_name"])
 	assert.Empty(t, first["enable_groups"], "no groups on a managed gateway")
 	assert.Equal(t, "text", first["model_type"])
+	assert.Equal(t, []any{"max_tokens", "stream"}, first["supported_parameters"], "a model missing from the parameter table gets the safe set")
+	assert.NotContains(t, first, "sampling_exclusive")
 
 	_, names, _ = pricing(users[snapshottest.AdminSub])
 	assert.ElementsMatch(t, []string{"OpenAI/gpt-4o", "Amazon Bedrock/claude-sonnet"}, names,

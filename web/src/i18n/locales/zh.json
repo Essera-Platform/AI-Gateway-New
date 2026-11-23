@@ -7972,6 +7972,8 @@
     "Overnight range": "跨夜时段",
     "Auto Detect": "自动检测",
     "Params (in body)": "参数（放在请求体中）",
-    "Header (Basic Auth)": "请求头（Basic Auth）"
+    "Header (Basic Auth)": "请求头（Basic Auth）",
+    "This model takes Temperature or Top P, not both.": "此模型只接受 Temperature 或 Top P 其中之一，不能同时使用。",
+    "This model takes no adjustable parameters.": "此模型没有可调节的参数。"
   }
 }

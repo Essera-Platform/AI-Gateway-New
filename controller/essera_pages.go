@@ -19,6 +19,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/configsync"
 	"github.com/QuantumNous/new-api/essera/consoleapi"
 	"github.com/QuantumNous/new-api/essera/identity"
+	"github.com/QuantumNous/new-api/essera/modelparams"
 	"github.com/QuantumNous/new-api/essera/policy"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/settings"
@@ -547,6 +548,7 @@ type esseraPricing struct {
 	ModelType     string                  `json:"model_type"`
 	EsseraPrices  []consoleapi.Price      `json:"essera_prices,omitempty"`
 	EsseraMetrics *consoleapi.ModelMetric `json:"essera_metrics,omitempty"`
+	modelparams.Params
 }
 
 // esseraPricingList serves the Model Square of a managed gateway. A signed-in person sees only
@@ -612,6 +614,7 @@ func esseraPricingList(c *gin.Context) {
 					ModelType:     providerModel.Modality,
 					EsseraPrices:  byModel[provider.Key+"/"+providerModel.Key],
 					EsseraMetrics: metricsOf[provider.Key+"/"+providerModel.Key],
+					Params:        modelparams.Of(providerModel.Key, providerModel.Modality),
 				})
 			}
 			if len(models) > listed {

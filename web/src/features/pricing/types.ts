@@ -115,6 +115,8 @@ export type PricingModel = {
   model_type?: string
   essera_prices?: EsseraPrice[]
   essera_metrics?: EsseraModelMetrics
+  supported_parameters?: string[]
+  sampling_exclusive?: boolean
   essera?: EsseraModelInfo
 }
 

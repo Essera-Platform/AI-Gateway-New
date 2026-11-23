@@ -17,7 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 // Modified by Essera, 2026-11: the design's page header and the chat framed in a card.
+// Modified by Essera, 2026-11: the parameters offered and sent follow the selected model.
+import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { useEsseraManaged } from '@/features/essera/use-essera-managed'
+import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
 
 import { PlaygroundChat } from './components/chat/playground-chat'
 import { PlaygroundInput } from './components/input/playground-input'
@@ -27,6 +32,11 @@ import {
   usePlaygroundOptions,
   usePlaygroundState,
 } from './hooks'
+import {
+  effectiveParameterEnabled,
+  modelParameterSupport,
+} from './lib/parameters/model-parameters'
+import type { ParameterEnabled } from './types'
 
 export function Playground() {
   const { t } = useTranslation()
@@ -45,9 +55,29 @@ export function Playground() {
     clearMessages,
   } = usePlaygroundState()
 
+  const { managed } = useEsseraManaged()
+  const { models: pricedModels } = usePricingData(managed)
+  const parameterSupport = useMemo(
+    () => modelParameterSupport(pricedModels, config.model, managed),
+    [pricedModels, config.model, managed]
+  )
+  const sentParameters = useMemo(
+    () => effectiveParameterEnabled(parameterEnabled, parameterSupport),
+    [parameterEnabled, parameterSupport]
+  )
+  const handleParameterEnabledChange = useCallback(
+    (key: keyof ParameterEnabled, value: boolean) => {
+      updateParameterEnabled(key, value)
+      if (!value || !parameterSupport?.samplingExclusive) return
+      if (key === 'temperature') updateParameterEnabled('top_p', false)
+      if (key === 'top_p') updateParameterEnabled('temperature', false)
+    },
+    [parameterSupport, updateParameterEnabled]
+  )
+
   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
     config,
-    parameterEnabled,
+    parameterEnabled: sentParameters,
     onMessageUpdate: updateMessages,
   })
 
@@ -127,10 +157,11 @@ export function Playground() {
             onConfigChange={updateConfig}
             onClearMessages={handleClearMessages}
             onModelChange={(value) => updateConfig('model', value)}
-            onParameterEnabledChange={updateParameterEnabled}
+            onParameterEnabledChange={handleParameterEnabledChange}
+            parameterSupport={parameterSupport}
             onStop={stopGeneration}
             onSubmit={handleSendMessage}
-            parameterEnabled={parameterEnabled}
+            parameterEnabled={sentParameters}
             hasMessages={messages.length > 0}
           />
         </div>

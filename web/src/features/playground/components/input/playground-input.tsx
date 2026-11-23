@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: passes the selected model's parameter support to the parameter panel.
 // Modified by Essera, 2026-11: files can be attached to a message.
 // Modified by Essera, 2026-11: the design's composer card and its keyboard hint.
 import { useState } from 'react'
@@ -35,6 +36,7 @@ import {
 import { useAttachmentFilter } from '@/features/essera/playground/use-attachment-filter'
 
 import { getSubmittableInputText } from '../../lib'
+import type { ModelParameterSupport } from '../../lib/parameters/model-parameters'
 import type {
   ModelOption,
   GroupOption,
@@ -68,6 +70,7 @@ interface PlaygroundInputProps {
     value: boolean
   ) => void
   parameterEnabled: ParameterEnabled
+  parameterSupport?: ModelParameterSupport | null
 }
 
 export function PlaygroundInput({
@@ -88,6 +91,7 @@ export function PlaygroundInput({
   onClearMessages,
   onParameterEnabledChange,
   parameterEnabled,
+  parameterSupport,
 }: PlaygroundInputProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
@@ -145,6 +149,7 @@ export function PlaygroundInput({
                 onClearMessages={onClearMessages}
                 onParameterEnabledChange={onParameterEnabledChange}
                 parameterEnabled={parameterEnabled}
+                parameterSupport={parameterSupport}
               />
             }
           />
