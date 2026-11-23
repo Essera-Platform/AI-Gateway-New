@@ -1,6 +1,7 @@
 // Essera fork: OpenAI embeddings for the Bedrock embedding models (Titan Text
 // Embeddings G1 and v2, Titan Multimodal Embeddings, Cohere Embed v3 and v4,
-// Nova Multimodal Embeddings) through InvokeModel with each model's native body.
+// Nova Multimodal Embeddings, TwelveLabs Marengo Embed 3.0) through InvokeModel
+// with each model's native body.
 package aws
 
 import (
@@ -26,6 +27,7 @@ const (
 	embeddingCohere
 	embeddingCohereV4
 	embeddingNovaMultimodal
+	embeddingMarengo
 )
 
 const (
@@ -48,6 +50,8 @@ func embeddingFamilyOf(modelID string) embeddingFamily {
 		return embeddingTitanTextG1
 	case strings.Contains(modelID, "nova-2-multimodal-embeddings"):
 		return embeddingNovaMultimodal
+	case strings.Contains(modelID, "twelvelabs.marengo-embed-3"):
+		return embeddingMarengo
 	case strings.Contains(modelID, "cohere.embed-v4"):
 		return embeddingCohereV4
 	case strings.Contains(modelID, "cohere.embed"):
@@ -103,6 +107,9 @@ func convertEmbeddingRequest(modelID string, request dto.EmbeddingRequest) (*emb
 	}
 	if len(inputs) > maxEmbeddingInputs {
 		return nil, newBadRequest("input may hold at most %d items for AWS Bedrock", maxEmbeddingInputs)
+	}
+	if family == embeddingMarengo {
+		return marengoEmbeddingPlan(modelID, inputs, request)
 	}
 	plan := &embeddingPlan{}
 	addCall := func(positions []int, body any) error {
@@ -199,10 +206,10 @@ func convertEmbeddingRequest(modelID string, request dto.EmbeddingRequest) (*emb
 }
 
 // imagesPricedApart counts the images of the plan Bedrock prices per image:
-// Titan Multimodal's, Cohere Embed v3's and Nova Multimodal's (as standard
-// images). Cohere Embed v4 prices an image by its tokens.
+// Titan Multimodal's, Cohere Embed v3's, Nova Multimodal's (as standard
+// images) and Marengo's. Cohere Embed v4 prices an image by its tokens.
 func imagesPricedApart(family embeddingFamily, plan *embeddingPlan) int64 {
-	if plan == nil || (family != embeddingTitanMultimodal && family != embeddingCohere && family != embeddingNovaMultimodal) {
+	if plan == nil || (family != embeddingTitanMultimodal && family != embeddingCohere && family != embeddingNovaMultimodal && family != embeddingMarengo) {
 		return 0
 	}
 	var images int64
@@ -218,6 +225,9 @@ func imagesPricedApart(family embeddingFamily, plan *embeddingPlan) int64 {
 // order of the call's inputs, and the input tokens its body reports.
 func embeddingVectors(family embeddingFamily, body []byte) ([][]float64, int, error) {
 	switch family {
+	case embeddingMarengo:
+		vectors, err := marengoVectors(body)
+		return vectors, 0, err
 	case embeddingCohere, embeddingCohereV4:
 		var native struct {
 			Embeddings json.RawMessage `json:"embeddings"`

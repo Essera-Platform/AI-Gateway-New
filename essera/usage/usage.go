@@ -54,6 +54,9 @@ type Event struct {
 	InputImageUnits      int64     `json:"input_image_units"`
 	SpeechInputUnits     int64     `json:"speech_input_units"`
 	SpeechOutputUnits    int64     `json:"speech_output_units"`
+	InputTextUnits       int64     `json:"input_text_units,omitempty"`
+	InputVideoSeconds    int64     `json:"input_video_seconds,omitempty"`
+	InputAudioSeconds    int64     `json:"input_audio_seconds,omitempty"`
 	Status               string    `json:"status"`
 	ProviderRef          *string   `json:"provider_ref,omitempty"`
 	CorrelationID        *string   `json:"correlation_id,omitempty"`
@@ -82,6 +85,10 @@ func Finished(c *gin.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIE
 		return
 	}
 	event := build(c, request, info, apiErr, now)
+	if apiErr == nil && c.GetBool(taskAcceptedKey) {
+		stats.Request(now, event.Provider, event.Model, event.Status, event.HTTPStatus, time.Duration(event.LatencyMs)*time.Millisecond, event.Retries)
+		return // reported when the task ends
+	}
 	stats.Request(now, event.Provider, event.Model, event.Status, event.HTTPStatus, time.Duration(event.LatencyMs)*time.Millisecond, event.Retries)
 	if apiErr != nil {
 		stats.ProviderError(now, event.Provider, event.Model, event.HTTPStatus, apiErr.Error())
@@ -136,7 +143,7 @@ func build(c *gin.Context, request *policy.Request, info *relaycommon.RelayInfo,
 	if metered {
 		event.InputUnits, event.OutputUnits = units.Input, units.Output
 		event.CacheReadUnits, event.CacheWriteUnits, event.CacheWrite1hUnits = units.CacheRead, units.CacheWrite, units.CacheWrite1h
-		event.InputImageUnits = units.InputImages
+		event.InputImageUnits, event.InputTextUnits = units.InputImages, units.InputTexts
 		event.GeneratedUnits = units.Generated
 		event.SpeechInputUnits, event.SpeechOutputUnits = units.SpeechInput, units.SpeechOutput
 	} else if consumed, ok := common.GetContextKey(c, constant.ContextKeyConsumeLog); ok {

@@ -36,6 +36,12 @@ func awsConfig(ctx context.Context) (aws.Config, error) {
 	return loaded, loadErr
 }
 
+// Config is the task role's configuration, for the Bedrock calls a provider key cannot make:
+// asynchronous invocations, whose output Bedrock writes to the Gateway's bucket.
+func Config(ctx context.Context) (aws.Config, error) {
+	return awsConfig(ctx)
+}
+
 func s3Client(ctx context.Context) (*s3.Client, error) {
 	cfg, err := awsConfig(ctx)
 	if err != nil {

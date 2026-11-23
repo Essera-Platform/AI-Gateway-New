@@ -17,10 +17,11 @@ import (
 
 // customerPaths are the relay routes a person's API key may POST to: the text, embedding,
 // rerank and image edit requests Bedrock serves in the Console's region, each producing one
-// measured usage event. Legacy completions, image generation, audio, moderations,
-// Gemini's format, tasks, video and plugin routes are not served: Bedrock offers none of them
-// there, or they produce no usage event.
-var customerPaths = []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings", "/v1/rerank", "/v1/images/edits"}
+// measured usage event, and the video and audio embedding tasks, each reported once when it
+// ends. Legacy completions, image generation, audio, moderations, Gemini's format, new-api's
+// tasks, video and plugin routes are not served: Bedrock offers none of them there, or they
+// produce no usage event.
+var customerPaths = []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/embeddings", embeddingTasksPath, "/v1/rerank", "/v1/images/edits"}
 
 // modelsPath answers a GET with the models. realtimePath opens the Realtime WebSocket of a
 // speech model, one usage event per session. Nothing else a customer may GET: a GET on
@@ -30,12 +31,16 @@ const (
 	realtimePath = "/v1/realtime"
 )
 
+// embeddingTasksPath submits an embedding task; a GET of one of its tasks reads it.
+const embeddingTasksPath = "/v1/embeddings/tasks"
+
 // CustomerRequestAllowed tells whether a customer may make the request.
 func CustomerRequestAllowed(method, path string) bool {
 	path = strings.TrimSuffix(path, "/")
 	switch method {
 	case http.MethodGet:
-		return path == modelsPath || strings.HasPrefix(path, modelsPath+"/") || path == realtimePath
+		taskID, isTask := strings.CutPrefix(path, embeddingTasksPath+"/")
+		return path == modelsPath || strings.HasPrefix(path, modelsPath+"/") || path == realtimePath || isTask && taskID != "" && !strings.Contains(taskID, "/")
 	case http.MethodPost:
 		return slices.Contains(customerPaths, path)
 	}

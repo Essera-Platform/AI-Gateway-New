@@ -588,3 +588,53 @@
   zh: "向量维度，适用于可选择维度的模型（Titan Text Embeddings v2 可选 256、512 或 1024；Titan Multimodal Embeddings；Cohere Embed v4）。"
 - en: "Floats, or with `encoding_format` `base64` the little-endian float32 bytes in base64."
   zh: "浮点数；若 `encoding_format` 为 `base64`，则为 base64 编码的小端序 float32 字节。"
+- en: "Start a video or audio embedding task"
+  zh: "启动视频或音频嵌入任务"
+- en: |
+    Embeds one video or audio with TwelveLabs Marengo Embed 3.0 (`twelvelabs.marengo-embed-3-0-v1:0`), which takes
+    too long to answer at once: the task runs on the Gateway and you read it with its `task_id`. Give the media in
+    `input` as a base64 data URL (`data:video/mp4;base64,…`, `data:audio/wav;base64,…`); the request body may be up
+    to 25 MB. Texts and images embed with Marengo on `/v1/embeddings`. A task is billed per second of the media
+    processed, from `start_sec` to `end_sec` (the whole media by default), when it ends; a failed task is not billed.
+  zh: |
+    使用 TwelveLabs Marengo Embed 3.0（`twelvelabs.marengo-embed-3-0-v1:0`）为一个视频或音频生成嵌入。由于处理时间较长，
+    无法立即返回结果：任务在网关上运行，您可通过其 `task_id` 读取。请在 `input` 中以 base64 data URL
+    （`data:video/mp4;base64,…`、`data:audio/wav;base64,…`）提供媒体；请求体最大 25 MB。文本和图像请通过
+    `/v1/embeddings` 使用 Marengo 生成嵌入。任务在结束时按处理的媒体秒数计费，范围为 `start_sec` 到 `end_sec`
+    （默认为整个媒体）；失败的任务不计费。
+- en: "The task, started."
+  zh: "已启动的任务。"
+- en: "Read an embedding task"
+  zh: "读取嵌入任务"
+- en: |
+    The task's status: `SUBMITTED`, `IN_PROGRESS`, `SUCCESS` or `FAILURE` with its `fail_reason`. Once it succeeded,
+    `data` holds its embeddings, each for a clip or the whole asset of one kind (`visual`, `audio`,
+    `transcription`), and `usage` the seconds billed. Poll every few seconds. Embeddings are kept for 7 days;
+    after that the task answers 410. Your account reads its tasks; a user reads only their own.
+  zh: |
+    任务状态：`SUBMITTED`、`IN_PROGRESS`、`SUCCESS`，或 `FAILURE` 及其 `fail_reason`。任务成功后，
+    `data` 包含其嵌入，每个嵌入对应一个片段或整个媒体的一种类型（`visual`、`audio`、
+    `transcription`），`usage` 为计费的秒数。请每隔几秒轮询一次。嵌入保留 7 天，
+    之后该任务返回 410。您的账户可读取其所有任务；用户只能读取自己的任务。
+- en: "The task, with its embeddings once it succeeded."
+  zh: "任务，成功后包含其嵌入。"
+- en: "No task of yours has this id."
+  zh: "您没有此 id 的任务。"
+- en: "The task's embeddings have expired."
+  zh: "该任务的嵌入已过期。"
+- en: "One video or audio as a base64 data URL."
+  zh: "一个以 base64 data URL 表示的视频或音频。"
+- en: "Where to start in the media, in seconds; 0 by default."
+  zh: "在媒体中开始的位置（秒）；默认为 0。"
+- en: "Where to stop, in seconds; the end of the media by default."
+  zh: "停止的位置（秒）；默认为媒体结尾。"
+- en: "What to embed; all of them by default (video), or audio and transcription (audio)."
+  zh: "要嵌入的内容；默认全部（视频），或音频和转录（音频）。"
+- en: "Embed each clip, the whole asset, or both."
+  zh: "为每个片段、整个媒体或两者生成嵌入。"
+- en: "One embedding per kind, or one fused embedding as well."
+  zh: "每种类型一个嵌入，或另加一个融合嵌入。"
+- en: 'How the media is cut into clips, as Marengo takes it, for example `{"method": "fixed", "fixed": {"durationSec": 6}}` or `{"method": "dynamic", "dynamic": {"minDurationSec": 4}}` (video only).'
+  zh: '媒体切分为片段的方式，按 Marengo 的格式，例如 `{"method": "fixed", "fixed": {"durationSec": 6}}` 或 `{"method": "dynamic", "dynamic": {"minDurationSec": 4}}`（仅视频）。'
+- en: "The seconds billed, `input_video_seconds` or `input_audio_seconds`."
+  zh: "计费的秒数，`input_video_seconds` 或 `input_audio_seconds`。"

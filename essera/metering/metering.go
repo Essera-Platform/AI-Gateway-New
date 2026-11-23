@@ -12,7 +12,8 @@ const contextKey = "essera_metered_units"
 
 // Units of one request. Input is the input neither read from nor written to the prompt cache;
 // CacheWrite is written with the 5-minute TTL, CacheWrite1h with the 1-hour TTL; Output includes
-// reasoning; InputImages are images embedded, which the provider prices per image. Generated is
+// reasoning; InputImages are images embedded, which the provider prices per image; InputTexts
+// are texts embedded by a model the provider prices per text request (Marengo). Generated is
 // what the provider billed in the unit of the model's kind other than tokens: images made, or
 // rerank search units. A speech model bills its speech apart from its text: SpeechInput and
 // SpeechOutput are speech tokens, Input and Output its text tokens.
@@ -26,6 +27,7 @@ type Units struct {
 	Generated    int64
 	SpeechInput  int64
 	SpeechOutput int64
+	InputTexts   int64
 }
 
 // FromUsage reads a settled usage. Under Anthropic's semantic the prompt tokens exclude the cache
