@@ -7853,6 +7853,7 @@
     "The API documentation could not be loaded.": "La documentation API n'a pas pu être chargée.",
     "TTFT": "TTFT",
     "Median time to first token": "Délai médian avant le premier jeton",
+    "No requests yet": "Aucune requête pour l’instant",
     "Output tokens per second": "Jetons de sortie par seconde",
     "Requests that succeeded, leaving out those the caller caused": "Part des requêtes réussies, hors erreurs causées par l'appelant",
     "Checked just now": "Vérifié à l'instant",

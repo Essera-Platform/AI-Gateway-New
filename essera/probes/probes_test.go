@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAProbeAsksForOneTokenOfAOneWordPrompt(t *testing.T) {
+func TestAProbeAsksForTheLeastEachKindOfModelBills(t *testing.T) {
 	ctx := context.WithValue(t.Context(), contextKey{}, Request{Provider: "bedrock", Model: "nova", Modality: "text"})
 	sixteen := uint(16)
 	chat := Shape(ctx, &dto.GeneralOpenAIRequest{Model: "nova", MaxTokens: &sixteen, Messages: []dto.Message{{Role: "user", Content: "hi"}}}).(*dto.GeneralOpenAIRequest)
@@ -27,6 +27,13 @@ func TestAProbeAsksForOneTokenOfAOneWordPrompt(t *testing.T) {
 
 	embedding := Shape(ctx, &dto.EmbeddingRequest{Model: "titan", Input: []any{"hello world"}}).(*dto.EmbeddingRequest)
 	assert.Equal(t, []any{"ok"}, embedding.Input)
+
+	ten := 10
+	rerank := Shape(ctx, &dto.RerankRequest{Model: "cohere.rerank-v3-5:0", Query: "What is Deep Learning?", Documents: []any{"a", "b"}, TopN: &ten}).(*dto.RerankRequest)
+	assert.Equal(t, "Hi", rerank.Query)
+	assert.Equal(t, []any{"Hello"}, rerank.Documents, "one short document: one search unit")
+	require.NotNil(t, rerank.TopN)
+	assert.Equal(t, 1, *rerank.TopN)
 
 	untouched := Shape(t.Context(), &dto.GeneralOpenAIRequest{Model: "nova", MaxTokens: &sixteen}).(*dto.GeneralOpenAIRequest)
 	assert.Equal(t, uint(16), *untouched.MaxTokens, "a connection test is not a probe")
@@ -62,10 +69,12 @@ func TestAProbeRunsOnTheNamedProvidersChannelWithinItsTimeLimit(t *testing.T) {
 func TestARequestIsValidOnlyWithEveryNameAndAProbedModality(t *testing.T) {
 	assert.True(t, Request{Provider: "p", Model: "m", Modality: "text"}.Valid())
 	assert.True(t, Request{Provider: "p", Model: "m", Modality: "embedding"}.Valid())
+	assert.True(t, Request{Provider: "p", Model: "m", Modality: "rerank"}.Valid())
 	for _, broken := range []Request{
 		{Model: "m", Modality: "text"},
 		{Provider: "p", Modality: "text"},
 		{Provider: "p", Model: "m", Modality: "image"},
+		{Provider: "p", Model: "m", Modality: "audio"},
 	} {
 		assert.False(t, broken.Valid(), broken)
 	}

@@ -42,6 +42,8 @@ export type EsseraModelInfo = {
   modelType: string
   prices: EsseraPrice[]
   metrics?: EsseraModelMetrics | undefined
+  /** The Console answered the person's metrics: a model without any has had no requests yet. */
+  metricsAvailable?: boolean
   temporarilyUnavailable?: boolean
 }
 

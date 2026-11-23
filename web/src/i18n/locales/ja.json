@@ -7853,6 +7853,7 @@
     "The API documentation could not be loaded.": "APIドキュメントを読み込めませんでした。",
     "TTFT": "TTFT",
     "Median time to first token": "最初のトークンまでの時間（中央値）",
+    "No requests yet": "まだリクエストがありません",
     "Output tokens per second": "1 秒あたりの出力トークン数",
     "Requests that succeeded, leaving out those the caller caused": "成功したリクエストの割合（呼び出し側が原因のエラーを除く）",
     "Checked just now": "たった今確認",

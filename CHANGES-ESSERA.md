@@ -445,3 +445,18 @@ The Console's usage reads carry `units`, every unit it measured by the name its 
 | `web/src/features/essera/__tests__/appearance.test.tsx` | Home stays on the landing for someone signed in, as the top nav has since "Home links to the landing page" |
 | `relay/channel/aws/essera_sonic.go` | Text waits for audio; `audio_required` |
 | `essera/apidocs/openapi.yaml`, `openapi.zh.yaml` | `/v1/realtime` needs audio |
+
+## Probes of rerank and embedding models, "No requests yet", Nova Sonic sessions without audio (2026-11)
+
+- **Probes of every kind the Console can measure cheaply:** `POST /internal/essera/v1/probes` takes `modality` `rerank` as well as `text` and `embedding`. A rerank model is asked to rank one word against one short document (one search unit); an embedding model embeds one word, as before (TwelveLabs Marengo through its synchronous text embedding, one text). The answer carries, besides the tokens, `generated_units` (a rerank's search units) and `input_text_units` (the texts Marengo bills per request), read from what the adaptor metered, so the Console prices the probe at the units AWS bills. Such probes report latency but no time to first token. Image and audio models are not probed: a probe would cost an image or need speech.
+- **"No requests yet":** the managed `/api/pricing` says `metrics_available: true` whenever the Console answered the person's metrics, even with none, rather than only when it gave some. A signed-in person then sees "No requests yet" on the card and in the details of a model the Console has no figures for; a guest, or anyone while the Console does not answer, still sees nothing.
+- **Nova Sonic sessions without audio:** a Realtime session that ended without ever calling Bedrock (one refused with `audio_required`, or closed before any audio) is no request to the provider: no usage event is sent, as for a request that reached no channel, and its request reservation is given back. It used to be reported as a succeeded request with no units. A session that opened Bedrock's stream is reported as before.
+
+| File | Change |
+| --- | --- |
+| `essera/probes/probes.go`, `controller/essera.go` | The rerank probe; the units a probe billed |
+| `controller/essera_metrics.go`, `controller/essera_pages.go` | `metrics_available` is whether the Console answered |
+| `web/src/features/essera/model-metrics.tsx`, `model-square-card.tsx`, `model-square-format.ts`, `web/src/features/pricing/components/model-details.tsx`, `hooks/use-pricing-data.ts` | "No requests yet" |
+| `web/src/i18n/locales/*.json` | Its text |
+| `relay/channel/aws/essera_sonic.go`, `essera/usage/usage.go` | A session that never called Bedrock is not reported |
+| `essera/apidocs/openapi.yaml`, `openapi.zh.yaml` | Such a session is not counted as a request |

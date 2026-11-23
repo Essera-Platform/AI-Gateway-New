@@ -7853,6 +7853,7 @@
     "The API documentation could not be loaded.": "無法載入 API 文件。",
     "TTFT": "首字延遲",
     "Median time to first token": "首個 token 的中位耗時",
+    "No requests yet": "尚無請求",
     "Output tokens per second": "每秒輸出 token 數",
     "Requests that succeeded, leaving out those the caller caused": "成功請求的比例，不計呼叫方自身導致的錯誤",
     "Checked just now": "剛剛檢查",

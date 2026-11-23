@@ -7898,6 +7898,7 @@
     "The API documentation could not be loaded.": "The API documentation could not be loaded.",
     "TTFT": "TTFT",
     "Median time to first token": "Median time to first token",
+    "No requests yet": "No requests yet",
     "Output tokens per second": "Output tokens per second",
     "Requests that succeeded, leaving out those the caller caused": "Requests that succeeded, leaving out those the caller caused",
     "Checked just now": "Checked just now",

@@ -3,11 +3,14 @@
 // connection test is. It is no customer's request: no caller, policy, limits or usage event,
 // and the Gateway's traffic counts leave it out. The Console asks for each probe on the
 // internal API (bridge, POST /internal/essera/v1/probes), keeps the result in its own table
-// and prices it at the model's cost rate. It costs a one-word prompt and a one-token answer.
+// and prices it at the model's cost rate. It costs a one-word prompt and a one-token answer, a
+// one-word embedding, or the rerank of one word against one short document: one search unit.
+// Image and audio models are not probed: a probe would cost an image or need speech.
 package probes
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/QuantumNous/new-api/essera/configsync"
@@ -23,6 +26,8 @@ const (
 	prompt         = "Hi"
 	maxTokens      = 1
 	embeddingInput = "ok"
+	rerankQuery    = "Hi"
+	rerankDocument = "Hello"
 )
 
 // Request is the Console's ask: which model of which provider.
@@ -34,10 +39,12 @@ type Request struct {
 
 // Valid tells whether the request names everything and a modality a probe can call.
 func (r Request) Valid() bool {
-	return r.Provider != "" && r.Model != "" && (r.Modality == "text" || r.Modality == "embedding")
+	return r.Provider != "" && r.Model != "" && slices.Contains([]string{"text", "embedding", "rerank"}, r.Modality)
 }
 
-// Result is how the probe went, as the Console records it.
+// Result is how the probe went, as the Console records it. The units are those of the usage
+// contract: a rerank's search units are generated units, and the texts an embedding model bills
+// per request (TwelveLabs Marengo) are input text units.
 type Result struct {
 	Succeeded         bool    `json:"succeeded"`
 	HTTPStatus        int     `json:"http_status"`
@@ -47,6 +54,8 @@ type Result struct {
 	FirstTokenMs      *int64  `json:"first_token_ms"`
 	InputTokens       int64   `json:"input_tokens"`
 	OutputTokens      int64   `json:"output_tokens"`
+	GeneratedUnits    int64   `json:"generated_units"`
+	InputTextUnits    int64   `json:"input_text_units"`
 	ProviderRequestID *string `json:"provider_request_id"`
 }
 
@@ -81,7 +90,8 @@ func Context(ctx context.Context, request Request) context.Context {
 }
 
 // Shape makes the channel test's request the probe's: a one-word prompt with a one-token
-// answer, streamed with usage, or a one-word embedding. Any other request is left as it is.
+// answer, streamed with usage, a one-word embedding, or a one-word query over one document.
+// Any other request is left as it is.
 func Shape(ctx context.Context, request dto.Request) dto.Request {
 	if _, ok := ctx.Value(contextKey{}).(Request); !ok {
 		return request
@@ -96,6 +106,11 @@ func Shape(ctx context.Context, request dto.Request) dto.Request {
 		shaped.StreamOptions = &dto.StreamOptions{IncludeUsage: true}
 	case *dto.EmbeddingRequest:
 		shaped.Input = []any{embeddingInput}
+	case *dto.RerankRequest:
+		top := 1
+		shaped.Query = rerankQuery
+		shaped.Documents = []any{rerankDocument}
+		shaped.TopN = &top
 	}
 	return request
 }

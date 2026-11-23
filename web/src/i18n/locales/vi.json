@@ -7853,6 +7853,7 @@
     "The API documentation could not be loaded.": "Không thể tải tài liệu API.",
     "TTFT": "TTFT",
     "Median time to first token": "Thời gian trung vị đến token đầu tiên",
+    "No requests yet": "Chưa có yêu cầu nào",
     "Output tokens per second": "Số token đầu ra mỗi giây",
     "Requests that succeeded, leaving out those the caller caused": "Tỷ lệ yêu cầu thành công, không tính lỗi do bên gọi gây ra",
     "Checked just now": "Vừa kiểm tra",

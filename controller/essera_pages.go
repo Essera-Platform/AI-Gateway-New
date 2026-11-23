@@ -595,7 +595,7 @@ func esseraPricingList(c *gin.Context) {
 	}
 	pricesAvailable := false
 	byModel := map[string][]consoleapi.Price{}
-	metricsOf := map[string]*consoleapi.ModelMetric{}
+	var metricsOf map[string]*consoleapi.ModelMetric
 	if person != nil {
 		var read sync.WaitGroup
 		read.Go(func() { metricsOf = esseraModelMetrics(c.Request.Context(), person.ID) })
@@ -650,6 +650,6 @@ func esseraPricingList(c *gin.Context) {
 		"usable_group":       map[string]string{},
 		"supported_endpoint": model.GetSupportedEndpointMap(),
 		"auto_groups":        []string{},
-		"essera":             gin.H{"signed_in": person != nil, "prices_available": pricesAvailable, "metrics_available": len(metricsOf) > 0},
+		"essera":             gin.H{"signed_in": person != nil, "prices_available": pricesAvailable, "metrics_available": metricsOf != nil},
 	})
 }

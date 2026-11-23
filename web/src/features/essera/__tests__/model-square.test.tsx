@@ -41,6 +41,7 @@ async function managedModel(
   signedIn: boolean,
   item: object,
   pricesAvailable = true,
+  metricsAvailable = false,
 ) {
   vi.spyOn(api, "get").mockImplementation(async (url) => {
     if (url === "/api/status") {
@@ -55,7 +56,11 @@ async function managedModel(
         usable_group: {},
         auto_groups: [],
         supported_endpoint: {},
-        essera: { signed_in: signedIn, prices_available: pricesAvailable },
+        essera: {
+          signed_in: signedIn,
+          prices_available: pricesAvailable,
+          metrics_available: metricsAvailable,
+        },
       },
     };
   });
@@ -353,6 +358,29 @@ describe("Model Square on a managed gateway", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("says a model the Console has no figures for has had no requests yet", async () => {
+    const model = await managedModel(
+      true,
+      { ...claude, vendor_id: 1, model_type: "image" },
+      true,
+      true,
+    );
+
+    render(<ModelCard model={model} onClick={vi.fn()} />);
+
+    expect(screen.getByText("No requests yet")).toBeVisible();
+    expect(screen.queryByText("Availability")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Details" })).toBeVisible();
+  });
+
+  it("does not claim no requests while the Console does not answer", async () => {
+    const model = await managedModel(true, { ...claude, vendor_id: 1 });
+
+    render(<ModelCard model={model} onClick={vi.fn()} />);
+
+    expect(screen.queryByText("No requests yet")).not.toBeInTheDocument();
+  });
+
   it("shows a guest no figures", async () => {
     const model = await managedModel(false, claude);
 
@@ -431,6 +459,19 @@ describe("Model details on a managed gateway", () => {
         "AWS Bedrock is currently returning errors for this model",
       ),
     ).toBeVisible();
+    expect(screen.queryByText("Availability")).not.toBeInTheDocument();
+  });
+
+  it("says a model the Console has no figures for has had no requests yet", async () => {
+    const model = await managedModel(
+      true,
+      { ...claude, vendor_id: 1, model_type: "audio" },
+      true,
+      true,
+    );
+    details(model);
+
+    expect(screen.getByText("No requests yet")).toBeVisible();
     expect(screen.queryByText("Availability")).not.toBeInTheDocument();
   });
 

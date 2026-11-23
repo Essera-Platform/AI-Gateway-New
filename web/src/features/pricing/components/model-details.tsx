@@ -283,18 +283,22 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
     enabled: !props.model.essera, // Modified by Essera, 2026-11
   })
 
-  // Modified by Essera, 2026-11: a managed gateway shows the Console's measurements, or none,
-  // and above them whether AWS could serve the model lately.
+  // Modified by Essera, 2026-11: a managed gateway shows the Console's measurements, that a
+  // model has had no requests yet, or nothing while the Console does not answer; and above them
+  // whether AWS could serve the model lately.
   if (props.model.essera) {
     const unavailable = props.model.essera.temporarilyUnavailable && (
       <EsseraUnavailableBadge />
     )
-    if (!props.model.essera.metrics) return unavailable || null
+    const measured =
+      props.model.essera.metrics || props.model.essera.metricsAvailable
+    if (!measured) return unavailable || null
     return (
       <>
         {unavailable}
         <EsseraModelMetricsLine
           metrics={props.model.essera.metrics}
+          metricsAvailable={props.model.essera.metricsAvailable}
           className='bg-muted/20 rounded-lg border px-4 py-3'
         />
       </>
