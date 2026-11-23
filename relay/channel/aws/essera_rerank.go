@@ -1,5 +1,6 @@
 // Essera fork: rerank (/v1/rerank) for Cohere Rerank 3.5 on Bedrock, through
-// InvokeModel with its native body, billed in the search units AWS bills.
+// InvokeModel with its native body. Bedrock reports no usage; a call is billed
+// in search units as AWS defines them: one per 100 documents, at least one.
 package aws
 
 import (
@@ -11,21 +12,16 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
-	"golang.org/x/text/unicode/norm"
 )
 
 const (
 	// maxRerankDocuments is the most documents Cohere Rerank takes in one call.
 	maxRerankDocuments = 1000
-	// rerankDocumentsPerSearchUnit: AWS bills one search unit per 100 document
-	// chunks of a query.
+	// rerankDocumentsPerSearchUnit: AWS bills one search unit per 100 documents
+	// of a query. It also splits a document that with the query is over 512
+	// tokens, which Bedrock does not report; the Console reconciles the search
+	// units AWS counted (CloudWatch SearchUnits) with the ones reported.
 	rerankDocumentsPerSearchUnit = 100
-	// maxRerankPairBytes bounds the query and each document together. AWS
-	// splits a document that with the query is over 512 tokens into chunks,
-	// each billed as a document, and Bedrock reports neither tokens nor chunks.
-	// A token is at least one byte of text, so a pair of at most 500 bytes,
-	// normalized or not, is never split, and the search units are exact.
-	maxRerankPairBytes = 500
 )
 
 // rerankBody is Cohere Rerank's native InvokeModel body.
@@ -46,16 +42,9 @@ func isRerankModel(modelID string) bool {
 	return strings.Contains(modelID, "cohere.rerank")
 }
 
-// textBytes is the longer of the text's UTF-8 length and that of its NFKC
-// form, which a tokenizer may read instead.
-func textBytes(text string) int {
-	return max(len(text), len(norm.NFKC.String(text)))
-}
-
-// rerankSearchUnits is what AWS bills for a query over n documents, none of
-// them split.
+// rerankSearchUnits is what AWS bills for a query over n documents.
 func rerankSearchUnits(documents int) int64 {
-	return int64((documents + rerankDocumentsPerSearchUnit - 1) / rerankDocumentsPerSearchUnit)
+	return int64(max(1, (documents+rerankDocumentsPerSearchUnit-1)/rerankDocumentsPerSearchUnit))
 }
 
 func convertRerankRequest(request dto.RerankRequest) (*rerankBody, *rerankPlan, error) {
@@ -68,7 +57,6 @@ func convertRerankRequest(request dto.RerankRequest) (*rerankBody, *rerankPlan, 
 	if request.TopN != nil && (*request.TopN < 1 || *request.TopN > len(request.Documents)) {
 		return nil, nil, newBadRequest("top_n must be between 1 and the number of documents")
 	}
-	queryBytes := textBytes(request.Query)
 	documents := make([]string, len(request.Documents))
 	for i, document := range request.Documents {
 		switch value := document.(type) {
@@ -82,9 +70,6 @@ func convertRerankRequest(request dto.RerankRequest) (*rerankBody, *rerankPlan, 
 			documents[i] = text
 		default:
 			return nil, nil, newBadRequest("documents[%d] must be a string or an object with a text string", i)
-		}
-		if queryBytes+textBytes(documents[i]) > maxRerankPairBytes {
-			return nil, nil, newBadRequest("documents[%d] with the query is over %d bytes: AWS Bedrock splits a longer pair and bills each part, which the Gateway cannot count, so split the document", i, maxRerankPairBytes)
 		}
 	}
 	body := &rerankBody{Query: request.Query, Documents: documents, TopN: request.TopN, APIVersion: 2}

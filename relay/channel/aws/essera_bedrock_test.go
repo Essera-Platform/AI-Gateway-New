@@ -898,15 +898,12 @@ func TestBedrockRerank(t *testing.T) {
 		assert.Equal(t, metering.Units{Generated: 2}, units)
 	})
 
-	long := strings.Repeat("a", 480)
 	refused := map[string]dto.RerankRequest{
-		"no query":                          {Documents: []any{"a"}},
-		"no documents":                      {Query: "q"},
-		"over 1000 documents":               {Query: "q", Documents: make([]any, 1001)},
-		"a document that is not text":       {Query: "q", Documents: []any{42}},
-		"top_n over the documents":          {Query: "q", Documents: []any{"a"}, TopN: common.GetPointer(2)},
-		"a pair AWS would split and bill":   {Query: strings.Repeat("q", 21), Documents: []any{long}},
-		"a pair that grows when normalized": {Query: "q", Documents: []any{strings.Repeat("ﷺ", 30)}},
+		"no query":                    {Documents: []any{"a"}},
+		"no documents":                {Query: "q"},
+		"over 1000 documents":         {Query: "q", Documents: make([]any, 1001)},
+		"a document that is not text": {Query: "q", Documents: []any{42}},
+		"top_n over the documents":    {Query: "q", Documents: []any{"a"}, TopN: common.GetPointer(2)},
 	}
 	for name, request := range refused {
 		t.Run(name, func(t *testing.T) {
@@ -917,9 +914,14 @@ func TestBedrockRerank(t *testing.T) {
 			assert.True(t, relaytypes.IsSkipRetryError(apiErr))
 		})
 	}
-	t.Run("a pair of 500 bytes is served", func(t *testing.T) {
-		_, err := (&Adaptor{}).ConvertRerankRequest(nil, relayconstant.RelayModeRerank, dto.RerankRequest{Query: strings.Repeat("q", 20), Documents: []any{long}})
+	t.Run("a long document is sent as it is: Bedrock splits it", func(t *testing.T) {
+		_, err := (&Adaptor{}).ConvertRerankRequest(nil, relayconstant.RelayModeRerank, dto.RerankRequest{Query: "q", Documents: []any{strings.Repeat("a", 100_000)}})
 		require.NoError(t, err)
+	})
+	t.Run("search units: one per 100 documents, at least one", func(t *testing.T) {
+		for documents, want := range map[int]int64{1: 1, 100: 1, 101: 2, 1000: 10} {
+			assert.Equal(t, want, rerankSearchUnits(documents), documents)
+		}
 	})
 }
 
