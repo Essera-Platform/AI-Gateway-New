@@ -12,7 +12,9 @@ const contextKey = "essera_metered_units"
 
 // Units of one request. Input is the input neither read from nor written to the prompt cache;
 // CacheWrite is written with the 5-minute TTL, CacheWrite1h with the 1-hour TTL; Output includes
-// reasoning; InputImages are images embedded, which the provider prices per image.
+// reasoning; InputImages are images embedded, which the provider prices per image. A speech
+// model bills its speech apart from its text: SpeechInput and SpeechOutput are speech tokens,
+// Input and Output its text tokens.
 type Units struct {
 	Input        int64
 	CacheRead    int64
@@ -20,6 +22,8 @@ type Units struct {
 	CacheWrite1h int64
 	Output       int64
 	InputImages  int64
+	SpeechInput  int64
+	SpeechOutput int64
 }
 
 // FromUsage reads a settled usage. Under Anthropic's semantic the prompt tokens exclude the cache

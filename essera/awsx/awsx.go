@@ -214,3 +214,15 @@ func Credentials(ctx context.Context) (aws.Credentials, string, error) {
 	credentials, err := cfg.Credentials.Retrieve(ctx)
 	return credentials, cfg.Region, err
 }
+
+// CredentialsProvider is the task role's credentials, refreshed as they expire.
+func CredentialsProvider(ctx context.Context) (aws.CredentialsProvider, error) {
+	cfg, err := awsConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Credentials == nil {
+		return nil, errors.New("no AWS credentials")
+	}
+	return cfg.Credentials, nil
+}

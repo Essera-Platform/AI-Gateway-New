@@ -7867,6 +7867,8 @@
     "Long context cache write (1 h)": "Écriture du cache en contexte long (1 h)",
     "Long context output": "Sortie en contexte long",
     "Input image": "Image en entrée",
+    "Speech input": "Entrée vocale",
+    "Speech output": "Sortie vocale",
     "Charges": "Frais",
     "Not priced yet": "Pas encore tarifé",
     "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Les prix en contexte long s’appliquent à chaque token d’une requête dont le prompt dépasse la taille de contexte long du modèle."

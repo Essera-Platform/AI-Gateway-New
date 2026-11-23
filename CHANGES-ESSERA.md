@@ -346,3 +346,17 @@ The Bedrock provider moves to us-east-1. Every model goes through the region's o
 | `relay/channel/aws/constants.go` | The models us-east-1 serves only through `us.` |
 | `relay/channel/aws/essera_embedding.go` | Titan Text Embeddings G1, at its 1536 dimensions only |
 | `essera/apidocs/` | Requests are processed in us-east-1 |
+
+## Amazon Nova Sonic through the Realtime API (2026-11)
+
+A person's API key may open the Realtime WebSocket (`GET /v1/realtime?model=…`) for Amazon Nova 2 Sonic (`amazon.nova-2-sonic-v1:0`) and Nova 2.5 Sonic (`amazon.nova-2-5-sonic`); this replaces "realtime" in the routes refused above. The Gateway bridges the OpenAI Realtime events to Bedrock's bidirectional stream (`InvokeModelWithBidirectionalStream`): `session.update` before the first audio or item (instructions, voice, tools, temperature, `max_response_output_tokens`; pcm16 at 24 kHz only), audio in with `input_audio_buffer.append`, text in and function call outputs with `conversation.item.create`, and back speech detection, the person's transcript, the answer's audio and transcript, and function calls as Realtime server events. Nova Sonic detects turns itself: `response.create`, `commit` and `response.cancel` change nothing. Bedrock signs every event of the stream with SigV4, so a channel keyed by a Bedrock API key calls it with the Gateway's own role on a managed gateway. A session is one usage event (`modality` `audio`) carrying the tokens Bedrock reports it billed, speech and text apart: `input_units` and `output_units` are text tokens, `speech_input_units` and `speech_output_units` speech tokens; the monthly token limit counts all four. A failed session is not retried on another channel and still reports its tokens.
+
+| File | Change |
+| --- | --- |
+| `relay/channel/aws/essera_sonic.go` (new) | The Realtime bridge to Nova Sonic and its metering |
+| `relay/channel/aws/adaptor.go` | Realtime requests go to the bridge |
+| `essera/managed/managed.go` | `GET /v1/realtime` is served to API keys |
+| `essera/metering`, `essera/usage` | Speech tokens apart from text; a Realtime session is `audio`, measured in tokens |
+| `essera/awsx` | The task role's credentials provider |
+| `essera/apidocs/` | A Sonic model is never the chat example |
+| `web/src/features/essera/model-square-format.ts` | Speech input and output prices and charges are named |

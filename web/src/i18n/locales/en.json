@@ -7912,6 +7912,8 @@
     "Long context cache write (1 h)": "Long context cache write (1 h)",
     "Long context output": "Long context output",
     "Input image": "Input image",
+    "Speech input": "Speech input",
+    "Speech output": "Speech output",
     "Charges": "Charges",
     "Not priced yet": "Not priced yet",
     "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.",
