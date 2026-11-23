@@ -413,3 +413,11 @@ The Console's usage reads carry `units`, every unit it measured by the name its 
 | `relaykit/relayconvert/internal/oai_chat/to_claude_messages_req.go` | A part's `cache_control` on its Claude block |
 | `relay/channel/aws/essera_image.go` | The members each Stability AI service takes |
 | `relay/channel/aws/essera_sonic.go` | `response.done` after the answer's usage |
+
+## Model availability (2026-11)
+
+- **Playground history:** a reply that failed is shown as an error but never sent back to a model as an assistant turn, and neither is the prompt it failed to answer, so the next request carries only the exchanges a model answered. Regenerating the failed reply sends its prompt again.
+
+| File | Change |
+| --- | --- |
+| `web/src/features/playground/lib/streaming/payload-builder.ts` | A failed exchange is left out of `messages` |

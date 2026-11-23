@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: a failed exchange is not sent back as history.
+import { MESSAGE_ROLES, MESSAGE_STATUS } from '../../constants'
 import type {
   ChatCompletionRequest,
   Message,
@@ -32,8 +34,18 @@ export function buildChatCompletionPayload(
   config: PlaygroundConfig,
   parameterEnabled: ParameterEnabled
 ): ChatCompletionRequest {
-  // Filter and format valid messages
+  // An error shown in the chat is not the model's answer, and the prompt it
+  // answered was never seen by a model, so neither goes back as history.
   const processedMessages = messages
+    .filter((message, index) => {
+      if (message.status === MESSAGE_STATUS.ERROR) return false
+      const reply = messages[index + 1]
+      return !(
+        message.from === MESSAGE_ROLES.USER &&
+        reply?.from === MESSAGE_ROLES.ASSISTANT &&
+        reply.status === MESSAGE_STATUS.ERROR
+      )
+    })
     .filter(isValidMessage)
     .map(formatMessageForAPI)
 
