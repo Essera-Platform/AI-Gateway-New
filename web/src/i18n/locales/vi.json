@@ -7879,7 +7879,7 @@
     "Search unit": "Đơn vị tìm kiếm",
     "search unit": "đơn vị tìm kiếm",
     "{{count}} search units": "{{count}} đơn vị tìm kiếm",
-    "Temporarily unavailable at AWS": "Tạm thời không khả dụng tại AWS",
+    "AWS Bedrock is currently returning errors for this model": "AWS Bedrock hiện đang trả về lỗi cho mô hình này",
     "Recent requests for this model failed because AWS could not process them. You can still try it.": "Các yêu cầu gần đây tới mô hình này đã thất bại vì AWS không thể xử lý. Bạn vẫn có thể thử."
   }
 }

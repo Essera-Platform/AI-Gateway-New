@@ -1,23 +1,23 @@
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from "react-i18next";
 
-import { StatusBadge } from '@/components/status-badge'
+import { StatusBadge } from "@/components/status-badge";
 
 /**
  * The Gateway's recent calls of the model all failed because AWS could not serve it. The
  * model stays listed and callable: AWS may have recovered.
  */
 export function EsseraUnavailableBadge(props: { className?: string }) {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
   return (
     <StatusBadge
-      variant='warning'
-      size='sm'
-      label={t('Temporarily unavailable at AWS')}
+      variant="warning"
+      size="sm"
+      label={t("AWS Bedrock is currently returning errors for this model")}
       copyable={false}
       title={t(
-        'Recent requests for this model failed because AWS could not process them. You can still try it.'
+        "Recent requests for this model failed because AWS could not process them. You can still try it.",
       )}
       className={props.className}
     />
-  )
+  );
 }

@@ -7879,7 +7879,7 @@
     "Search unit": "搜尋單位",
     "search unit": "搜尋單位",
     "{{count}} search units": "{{count}} 搜尋單位",
-    "Temporarily unavailable at AWS": "AWS 暫時無法提供此模型",
+    "AWS Bedrock is currently returning errors for this model": "AWS Bedrock 目前對此模型回傳錯誤",
     "Recent requests for this model failed because AWS could not process them. You can still try it.": "此模型最近的請求均因 AWS 無法處理而失敗。您仍可以嘗試呼叫。"
   }
 }

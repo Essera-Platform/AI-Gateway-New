@@ -7985,7 +7985,7 @@
     "Search unit": "搜索单位",
     "search unit": "搜索单位",
     "{{count}} search units": "{{count}} 搜索单位",
-    "Temporarily unavailable at AWS": "AWS 暂时无法提供此模型",
+    "AWS Bedrock is currently returning errors for this model": "AWS Bedrock 目前对此模型返回错误",
     "Recent requests for this model failed because AWS could not process them. You can still try it.": "此模型最近的请求均因 AWS 无法处理而失败。您仍可以尝试调用。"
   }
 }
