@@ -7981,7 +7981,7 @@
     "Search unit": "Search unit",
     "search unit": "search unit",
     "{{count}} search units": "{{count}} search units",
-    "Temporarily unavailable at AWS": "Temporarily unavailable at AWS",
+    "AWS Bedrock is currently returning errors for this model": "AWS Bedrock is currently returning errors for this model",
     "Recent requests for this model failed because AWS could not process them. You can still try it.": "Recent requests for this model failed because AWS could not process them. You can still try it."
   }
 }

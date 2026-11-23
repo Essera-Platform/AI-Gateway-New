@@ -7879,7 +7879,7 @@
     "Search unit": "検索ユニット",
     "search unit": "検索ユニット",
     "{{count}} search units": "{{count}} 検索ユニット",
-    "Temporarily unavailable at AWS": "AWS で一時的に利用できません",
+    "AWS Bedrock is currently returning errors for this model": "AWS Bedrock が現在このモデルに対してエラーを返しています",
     "Recent requests for this model failed because AWS could not process them. You can still try it.": "このモデルへの最近のリクエストは、AWS が処理できなかったため失敗しました。引き続きお試しいただけます。"
   }
 }

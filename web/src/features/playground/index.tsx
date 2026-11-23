@@ -19,29 +19,29 @@ For commercial licensing, please contact support@quantumnous.com
 // Modified by Essera, 2026-11: the design's page header and the chat framed in a card.
 // Modified by Essera, 2026-11: the parameters offered and sent follow the selected model;
 // a model AWS could not serve lately is noted in the model picker.
-import { useCallback, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
-import { withAvailabilityNotes } from '@/features/essera/model-availability'
-import { useEsseraManaged } from '@/features/essera/use-essera-managed'
-import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
+import { withAvailabilityNotes } from "@/features/essera/model-availability";
+import { useEsseraManaged } from "@/features/essera/use-essera-managed";
+import { usePricingData } from "@/features/pricing/hooks/use-pricing-data";
 
-import { PlaygroundChat } from './components/chat/playground-chat'
-import { PlaygroundInput } from './components/input/playground-input'
+import { PlaygroundChat } from "./components/chat/playground-chat";
+import { PlaygroundInput } from "./components/input/playground-input";
 import {
   useChatHandler,
   usePlaygroundConversation,
   usePlaygroundOptions,
   usePlaygroundState,
-} from './hooks'
+} from "./hooks";
 import {
   effectiveParameterEnabled,
   modelParameterSupport,
-} from './lib/parameters/model-parameters'
-import type { ParameterEnabled } from './types'
+} from "./lib/parameters/model-parameters";
+import type { ParameterEnabled } from "./types";
 
 export function Playground() {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
   const {
     config,
     parameterEnabled,
@@ -55,42 +55,42 @@ export function Playground() {
     updateConfig,
     updateParameterEnabled,
     clearMessages,
-  } = usePlaygroundState()
+  } = usePlaygroundState();
 
-  const { managed } = useEsseraManaged()
-  const { models: pricedModels } = usePricingData(managed)
+  const { managed } = useEsseraManaged();
+  const { models: pricedModels } = usePricingData(managed);
   const parameterSupport = useMemo(
     () => modelParameterSupport(pricedModels, config.model, managed),
-    [pricedModels, config.model, managed]
-  )
+    [pricedModels, config.model, managed],
+  );
   const modelOptions = useMemo(
     () =>
       withAvailabilityNotes(
         models,
         pricedModels,
-        t('Temporarily unavailable at AWS')
+        t("AWS Bedrock is currently returning errors for this model"),
       ),
-    [models, pricedModels, t]
-  )
+    [models, pricedModels, t],
+  );
   const sentParameters = useMemo(
     () => effectiveParameterEnabled(parameterEnabled, parameterSupport),
-    [parameterEnabled, parameterSupport]
-  )
+    [parameterEnabled, parameterSupport],
+  );
   const handleParameterEnabledChange = useCallback(
     (key: keyof ParameterEnabled, value: boolean) => {
-      updateParameterEnabled(key, value)
-      if (!value || !parameterSupport?.samplingExclusive) return
-      if (key === 'temperature') updateParameterEnabled('top_p', false)
-      if (key === 'top_p') updateParameterEnabled('temperature', false)
+      updateParameterEnabled(key, value);
+      if (!value || !parameterSupport?.samplingExclusive) return;
+      if (key === "temperature") updateParameterEnabled("top_p", false);
+      if (key === "top_p") updateParameterEnabled("temperature", false);
     },
-    [parameterSupport, updateParameterEnabled]
-  )
+    [parameterSupport, updateParameterEnabled],
+  );
 
   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
     config,
     parameterEnabled: sentParameters,
     onMessageUpdate: updateMessages,
-  })
+  });
 
   const {
     editingMessageKey,
@@ -104,12 +104,12 @@ export function Playground() {
     messages,
     updateMessages,
     sendChat,
-  })
+  });
 
   const handleClearMessages = () => {
-    handleEditOpenChange(false)
-    clearMessages()
-  }
+    handleEditOpenChange(false);
+    clearMessages();
+  };
 
   const { isLoadingModels } = usePlaygroundOptions({
     currentGroup: config.group,
@@ -117,27 +117,27 @@ export function Playground() {
     setGroups,
     setModels,
     updateConfig,
-  })
+  });
 
   return (
-    <div className='flex size-full min-h-0 flex-col gap-4 px-3 pt-3 pb-3 sm:px-6 sm:pt-6 sm:pb-6 lg:px-8'>
-      <div className='flex shrink-0 flex-col gap-1'>
-        <h2 className='flex items-center gap-2.5 text-lg font-bold tracking-tight sm:text-2xl'>
+    <div className="flex size-full min-h-0 flex-col gap-4 px-3 pt-3 pb-3 sm:px-6 sm:pt-6 sm:pb-6 lg:px-8">
+      <div className="flex shrink-0 flex-col gap-1">
+        <h2 className="flex items-center gap-2.5 text-lg font-bold tracking-tight sm:text-2xl">
           <span
-            aria-hidden='true'
-            className='bg-primary size-2 shrink-0 rounded-full shadow-[0_0_0_4px_color-mix(in_oklch,var(--primary)_18%,transparent)]'
+            aria-hidden="true"
+            className="bg-primary size-2 shrink-0 rounded-full shadow-[0_0_0_4px_color-mix(in_oklch,var(--primary)_18%,transparent)]"
           />
-          {t('Model Playground')}
+          {t("Model Playground")}
         </h2>
-        <p className='text-muted-foreground text-[13px] sm:text-sm'>
+        <p className="text-muted-foreground text-[13px] sm:text-sm">
           {t(
-            'Send test requests to the models your account can call. They count toward your usage and limits.'
+            "Send test requests to the models your account can call. They count toward your usage and limits.",
           )}
         </p>
       </div>
-      <div className='bg-card shadow-card relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border'>
+      <div className="bg-card shadow-card relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border">
         {/* Full-width scroll container: scrolling works even over side whitespace */}
-        <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <PlaygroundChat
             messages={messages}
             isLoadingMessages={isLoadingMessages}
@@ -154,7 +154,7 @@ export function Playground() {
         </div>
 
         {/* Input area: center content and constrain to the same container width */}
-        <div className='mx-auto w-full max-w-4xl px-3 pb-3 sm:px-5 sm:pb-4'>
+        <div className="mx-auto w-full max-w-4xl px-3 pb-3 sm:px-5 sm:pb-4">
           <PlaygroundInput
             config={config}
             disabled={isGenerating}
@@ -164,10 +164,10 @@ export function Playground() {
             isModelLoading={isLoadingModels}
             modelValue={config.model}
             models={modelOptions}
-            onGroupChange={(value) => updateConfig('group', value)}
+            onGroupChange={(value) => updateConfig("group", value)}
             onConfigChange={updateConfig}
             onClearMessages={handleClearMessages}
-            onModelChange={(value) => updateConfig('model', value)}
+            onModelChange={(value) => updateConfig("model", value)}
             onParameterEnabledChange={handleParameterEnabledChange}
             parameterSupport={parameterSupport}
             onStop={stopGeneration}
@@ -178,5 +178,5 @@ export function Playground() {
         </div>
       </div>
     </div>
-  )
+  );
 }

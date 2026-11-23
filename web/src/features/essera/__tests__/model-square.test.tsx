@@ -1,33 +1,33 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   cleanup,
   render,
   renderHook,
   screen,
   waitFor,
-} from '@testing-library/react'
-import type { TFunction } from 'i18next'
-import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+} from "@testing-library/react";
+import type { TFunction } from "i18next";
+import type { ReactNode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { checkedAgo } from '@/features/essera/model-square-format'
-import { ModelCard } from '@/features/pricing/components/model-card'
-import { ModelDetailsContent } from '@/features/pricing/components/model-details'
-import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
-import type { PricingModel } from '@/features/pricing/types'
-import { api } from '@/lib/api'
+import { checkedAgo } from "@/features/essera/model-square-format";
+import { ModelCard } from "@/features/pricing/components/model-card";
+import { ModelDetailsContent } from "@/features/pricing/components/model-details";
+import { usePricingData } from "@/features/pricing/hooks/use-pricing-data";
+import type { PricingModel } from "@/features/pricing/types";
+import { api } from "@/lib/api";
 
-vi.mock('@visactor/react-vchart', () => ({ VChart: () => null }))
+vi.mock("@visactor/react-vchart", () => ({ VChart: () => null }));
 
 afterEach(() => {
-  cleanup()
-  vi.restoreAllMocks()
-})
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const claude = {
-  model_name: 'anthropic.claude-sonnet-4',
-  display_name: 'Claude Sonnet 4',
-  model_type: 'text',
+  model_name: "anthropic.claude-sonnet-4",
+  display_name: "Claude Sonnet 4",
+  model_type: "text",
   vendor_id: 0,
   quota_type: 0,
   model_ratio: 0,
@@ -35,246 +35,248 @@ const claude = {
   completion_ratio: 0,
   enable_groups: [],
   supported_endpoint_types: [],
-}
+};
 
 async function managedModel(
   signedIn: boolean,
   item: object,
-  pricesAvailable = true
+  pricesAvailable = true,
 ) {
-  vi.spyOn(api, 'get').mockImplementation(async (url) => {
-    if (url === '/api/status') {
-      return { data: { success: true, data: { essera_managed: true } } }
+  vi.spyOn(api, "get").mockImplementation(async (url) => {
+    if (url === "/api/status") {
+      return { data: { success: true, data: { essera_managed: true } } };
     }
     return {
       data: {
         success: true,
         data: [item],
-        vendors: signedIn ? [{ id: 1, name: 'AWS Bedrock' }] : [],
+        vendors: signedIn ? [{ id: 1, name: "AWS Bedrock" }] : [],
         group_ratio: {},
         usable_group: {},
         auto_groups: [],
         supported_endpoint: {},
         essera: { signed_in: signedIn, prices_available: pricesAvailable },
       },
-    }
-  })
+    };
+  });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
-  })
+  });
   function Wrapper(props: { children: ReactNode }) {
     return (
       <QueryClientProvider client={client}>
         {props.children}
       </QueryClientProvider>
-    )
+    );
   }
-  const { result } = renderHook(() => usePricingData(), { wrapper: Wrapper })
-  await waitFor(() => expect(result.current.models).toHaveLength(1))
-  return result.current.models[0]
+  const { result } = renderHook(() => usePricingData(), { wrapper: Wrapper });
+  await waitFor(() => expect(result.current.models).toHaveLength(1));
+  return result.current.models[0];
 }
 
-describe('Model Square on a managed gateway', () => {
-  it('shows a guest the display name and type but no price or details', async () => {
-    const model = await managedModel(false, claude)
+describe("Model Square on a managed gateway", () => {
+  it("shows a guest the display name and type but no price or details", async () => {
+    const model = await managedModel(false, claude);
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
-    expect(screen.getByText('Claude Sonnet 4')).toBeVisible()
-    expect(screen.getByText('Text')).toBeVisible()
-    expect(screen.getByText('Sign in to see prices')).toBeVisible()
-    expect(screen.queryByText(/USD/)).not.toBeInTheDocument()
+    expect(screen.getByText("Claude Sonnet 4")).toBeVisible();
+    expect(screen.getByText("Text")).toBeVisible();
+    expect(screen.getByText("Sign in to see prices")).toBeVisible();
+    expect(screen.queryByText(/USD/)).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Details' })
-    ).not.toBeInTheDocument()
-  })
+      screen.queryByRole("button", { name: "Details" }),
+    ).not.toBeInTheDocument();
+  });
 
-  it('shows a signed-in person their own prices per 1M tokens and per image', async () => {
+  it("shows a signed-in person their own prices per 1M tokens and per image", async () => {
     const model = await managedModel(true, {
       ...claude,
       vendor_id: 1,
       essera_prices: [
         {
-          unit: 'input_tokens',
-          amount: '2.70',
+          unit: "input_tokens",
+          amount: "2.70",
           per_quantity: 1_000_000,
-          currency: 'USD',
+          currency: "USD",
         },
         {
-          unit: 'output_tokens',
-          amount: '13.50',
+          unit: "output_tokens",
+          amount: "13.50",
           per_quantity: 1_000_000,
-          currency: 'USD',
+          currency: "USD",
         },
-        { unit: 'images', amount: '0.04', per_quantity: 1, currency: 'USD' },
+        { unit: "images", amount: "0.04", per_quantity: 1, currency: "USD" },
         {
-          unit: 'requests',
-          amount: '0.10',
+          unit: "requests",
+          amount: "0.10",
           per_quantity: 1000,
-          currency: 'USD',
+          currency: "USD",
         },
       ],
-    })
+    });
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
-    expect(screen.getByText('Input').parentElement).toHaveTextContent(
-      '2.70 USD / 1M tokens'
-    )
-    expect(screen.getByText('Output').parentElement).toHaveTextContent(
-      '13.50 USD / 1M tokens'
-    )
-    expect(screen.getByText('Image').parentElement).toHaveTextContent(
-      '0.04 USD / image'
-    )
-    expect(screen.getByText('Request').parentElement).toHaveTextContent(
-      '0.10 USD / 1000 requests'
-    )
-    expect(screen.getByText('AWS Bedrock')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Details' })).toBeVisible()
-    expect(screen.queryByText('Sign in to see prices')).not.toBeInTheDocument()
-  })
+    expect(screen.getByText("Input").parentElement).toHaveTextContent(
+      "2.70 USD / 1M tokens",
+    );
+    expect(screen.getByText("Output").parentElement).toHaveTextContent(
+      "13.50 USD / 1M tokens",
+    );
+    expect(screen.getByText("Image").parentElement).toHaveTextContent(
+      "0.04 USD / image",
+    );
+    expect(screen.getByText("Request").parentElement).toHaveTextContent(
+      "0.10 USD / 1000 requests",
+    );
+    expect(screen.getByText("AWS Bedrock")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Details" })).toBeVisible();
+    expect(screen.queryByText("Sign in to see prices")).not.toBeInTheDocument();
+  });
 
-  it('keeps the prices under the model name and only the measurements at the bottom of a stretched card', async () => {
+  it("keeps the prices under the model name and only the measurements at the bottom of a stretched card", async () => {
     const model = await managedModel(true, {
       ...claude,
       vendor_id: 1,
       essera_prices: [
         {
-          unit: 'input_tokens',
-          amount: '2.70',
+          unit: "input_tokens",
+          amount: "2.70",
           per_quantity: 1_000_000,
-          currency: 'USD',
+          currency: "USD",
         },
       ],
-    })
+    });
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
-    const prices = screen.getByRole('group', { name: 'Pricing' })
-    const card = prices.closest('article')
+    const prices = screen.getByRole("group", { name: "Pricing" });
+    const card = prices.closest("article");
     const footer = screen
-      .getByRole('button', { name: 'Details' })
-      .closest('article > *')
-    expect(prices.previousElementSibling).toHaveTextContent('Claude Sonnet 4')
-    expect(prices).not.toHaveClass('mt-auto')
-    expect(footer).toBe(card?.lastElementChild)
-    expect(footer).toHaveClass('mt-auto')
-  })
+      .getByRole("button", { name: "Details" })
+      .closest("article > *");
+    expect(prices.previousElementSibling).toHaveTextContent("Claude Sonnet 4");
+    expect(prices).not.toHaveClass("mt-auto");
+    expect(footer).toBe(card?.lastElementChild);
+    expect(footer).toHaveClass("mt-auto");
+  });
 
-  it('lists cache and long-context prices in bill order, with what long context means', async () => {
+  it("lists cache and long-context prices in bill order, with what long context means", async () => {
     const perMillion = (unit: string, amount: string) => ({
       unit,
       amount,
       per_quantity: 1_000_000,
-      currency: 'USD',
-    })
+      currency: "USD",
+    });
     const model = await managedModel(true, {
       ...claude,
       vendor_id: 1,
       essera_prices: [
-        perMillion('output_tokens_long', '2.75'),
-        perMillion('output_tokens', '0.55'),
-        perMillion('cache_write_1h_tokens', '0.22'),
-        perMillion('input_tokens_long', '0.55'),
-        perMillion('cache_read_tokens', '0.011'),
-        perMillion('input_tokens', '0.11'),
-        perMillion('cache_write_tokens', '0.1375'),
+        perMillion("output_tokens_long", "2.75"),
+        perMillion("output_tokens", "0.55"),
+        perMillion("cache_write_1h_tokens", "0.22"),
+        perMillion("input_tokens_long", "0.55"),
+        perMillion("cache_read_tokens", "0.011"),
+        perMillion("input_tokens", "0.11"),
+        perMillion("cache_write_tokens", "0.1375"),
       ],
-    })
+    });
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
     const labels = [
-      'Input',
-      'Cache read',
-      'Cache write (5 min)',
-      'Cache write (1 h)',
-      'Output',
-      'Long context input',
-      'Long context output',
-    ]
-    const shown = labels.map((label) => screen.getByText(label))
+      "Input",
+      "Cache read",
+      "Cache write (5 min)",
+      "Cache write (1 h)",
+      "Output",
+      "Long context input",
+      "Long context output",
+    ];
+    const shown = labels.map((label) => screen.getByText(label));
     for (let i = 1; i < shown.length; i++) {
       expect(
         shown[i - 1].compareDocumentPosition(shown[i]) &
-          Node.DOCUMENT_POSITION_FOLLOWING
-      ).toBeTruthy()
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
     }
-    expect(screen.getByText('Cache read').parentElement).toHaveTextContent(
-      '0.011 USD / 1M tokens'
-    )
+    expect(screen.getByText("Cache read").parentElement).toHaveTextContent(
+      "0.011 USD / 1M tokens",
+    );
     expect(
-      screen.getByText('Long context input').parentElement
-    ).toHaveTextContent('0.55 USD / 1M tokens')
+      screen.getByText("Long context input").parentElement,
+    ).toHaveTextContent("0.55 USD / 1M tokens");
     expect(
-      screen.getByText(/Long context prices apply to every token/)
-    ).toBeVisible()
-  })
+      screen.getByText(/Long context prices apply to every token/),
+    ).toBeVisible();
+  });
 
-  it('prices an embedding model per input image', async () => {
+  it("prices an embedding model per input image", async () => {
     const model = await managedModel(true, {
       ...claude,
-      model_type: 'embedding',
+      model_type: "embedding",
       vendor_id: 1,
       essera_prices: [
         {
-          unit: 'input_images',
-          amount: '0.0001',
+          unit: "input_images",
+          amount: "0.0001",
           per_quantity: 1,
-          currency: 'USD',
+          currency: "USD",
         },
       ],
-    })
+    });
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
-    expect(screen.getByText('Input image').parentElement).toHaveTextContent(
-      '0.0001 USD / image'
-    )
+    expect(screen.getByText("Input image").parentElement).toHaveTextContent(
+      "0.0001 USD / image",
+    );
     expect(
-      screen.queryByText(/Long context prices apply/)
-    ).not.toBeInTheDocument()
-  })
+      screen.queryByText(/Long context prices apply/),
+    ).not.toBeInTheDocument();
+  });
 
-  it('says when the Console cannot give a signed-in person their prices', async () => {
-    const model = await managedModel(true, { ...claude, vendor_id: 1 }, false)
+  it("says when the Console cannot give a signed-in person their prices", async () => {
+    const model = await managedModel(true, { ...claude, vendor_id: 1 }, false);
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
-    expect(screen.getByText('Prices are temporarily unavailable')).toBeVisible()
-    expect(screen.queryByText('No price available')).not.toBeInTheDocument()
-  })
+    expect(
+      screen.getByText("Prices are temporarily unavailable"),
+    ).toBeVisible();
+    expect(screen.queryByText("No price available")).not.toBeInTheDocument();
+  });
 
-  it('shows no groups and no figures for a model the Console has none for', async () => {
+  it("shows no groups and no figures for a model the Console has none for", async () => {
     const model = await managedModel(true, {
       ...claude,
       vendor_id: 1,
-      enable_groups: ['essera'],
-    })
+      enable_groups: ["essera"],
+    });
 
     render(
       <ModelCard
         model={model}
         onClick={vi.fn()}
         perf={{ avg_latency_ms: 850, success_rate: 98.75, avg_tps: 600 }}
-      />
-    )
+      />,
+    );
 
-    expect(screen.queryByText('Availability')).not.toBeInTheDocument()
-    expect(screen.queryByText('Status')).not.toBeInTheDocument()
-    expect(screen.queryByText('850ms')).not.toBeInTheDocument()
-    expect(screen.queryByText('Groups')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Details' })).toBeVisible()
-  })
+    expect(screen.queryByText("Availability")).not.toBeInTheDocument();
+    expect(screen.queryByText("Status")).not.toBeInTheDocument();
+    expect(screen.queryByText("850ms")).not.toBeInTheDocument();
+    expect(screen.queryByText("Groups")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Details" })).toBeVisible();
+  });
 
   it("shows the Console's availability, first-token time and speed, and when it was checked", async () => {
-    const checkedAt = new Date(Date.now() - 5 * 60_000 - 1_000).toISOString()
+    const checkedAt = new Date(Date.now() - 5 * 60_000 - 1_000).toISOString();
     const model = await managedModel(true, {
       ...claude,
       vendor_id: 1,
       essera_metrics: {
-        provider: 'bedrock',
+        provider: "bedrock",
         model: claude.model_name,
         availability_24h: 99.5,
         p50_ttft_ms: 420,
@@ -285,25 +287,25 @@ describe('Model Square on a managed gateway', () => {
         probe_requests_24h: 48,
         checked_at: checkedAt,
       },
-    })
+    });
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
-    expect(screen.getByText('Availability').nextSibling).toHaveTextContent(
-      '99.50%'
-    )
-    expect(screen.getByText('TTFT').nextSibling).toHaveTextContent('420ms')
-    expect(screen.getByText('85.2 t/s')).toBeVisible()
-    expect(screen.getByText('Checked 5 min ago')).toBeVisible()
-  })
+    expect(screen.getByText("Availability").nextSibling).toHaveTextContent(
+      "99.50%",
+    );
+    expect(screen.getByText("TTFT").nextSibling).toHaveTextContent("420ms");
+    expect(screen.getByText("85.2 t/s")).toBeVisible();
+    expect(screen.getByText("Checked 5 min ago")).toBeVisible();
+  });
 
-  it('shows a figure the Console has no data for as a dash, never as zero', async () => {
+  it("shows a figure the Console has no data for as a dash, never as zero", async () => {
     const model = await managedModel(true, {
       ...claude,
       vendor_id: 1,
-      model_type: 'embedding',
+      model_type: "embedding",
       essera_metrics: {
-        provider: 'bedrock',
+        provider: "bedrock",
         model: claude.model_name,
         availability_24h: 100,
         p50_ttft_ms: null,
@@ -314,52 +316,58 @@ describe('Model Square on a managed gateway', () => {
         probe_requests_24h: 48,
         checked_at: null,
       },
-    })
+    });
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
-    expect(screen.getByText('TTFT').nextSibling).toHaveTextContent('—')
-    expect(screen.queryByText(/0ms|0\.00 t\/s/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/Checked/)).not.toBeInTheDocument()
-  })
+    expect(screen.getByText("TTFT").nextSibling).toHaveTextContent("—");
+    expect(screen.queryByText(/0ms|0\.00 t\/s/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Checked/)).not.toBeInTheDocument();
+  });
 
-  it('notes on its card a model AWS could not serve lately, and keeps it listed', async () => {
+  it("notes on its card a model AWS could not serve lately, and keeps it listed", async () => {
     const model = await managedModel(false, {
       ...claude,
       temporarily_unavailable: true,
-    })
+    });
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
-    expect(screen.getByText('Claude Sonnet 4')).toBeVisible()
-    expect(screen.getByText('Temporarily unavailable at AWS')).toBeVisible()
-  })
+    expect(screen.getByText("Claude Sonnet 4")).toBeVisible();
+    expect(
+      screen.getByText(
+        "AWS Bedrock is currently returning errors for this model",
+      ),
+    ).toBeVisible();
+  });
 
-  it('has no availability note on a model AWS serves', async () => {
-    const model = await managedModel(false, claude)
+  it("has no availability note on a model AWS serves", async () => {
+    const model = await managedModel(false, claude);
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
     expect(
-      screen.queryByText('Temporarily unavailable at AWS')
-    ).not.toBeInTheDocument()
-  })
+      screen.queryByText(
+        "AWS Bedrock is currently returning errors for this model",
+      ),
+    ).not.toBeInTheDocument();
+  });
 
-  it('shows a guest no figures', async () => {
-    const model = await managedModel(false, claude)
+  it("shows a guest no figures", async () => {
+    const model = await managedModel(false, claude);
 
-    render(<ModelCard model={model} onClick={vi.fn()} />)
+    render(<ModelCard model={model} onClick={vi.fn()} />);
 
-    expect(screen.queryByText('Availability')).not.toBeInTheDocument()
-    expect(screen.queryByText(/t\/s/)).not.toBeInTheDocument()
-  })
-})
+    expect(screen.queryByText("Availability")).not.toBeInTheDocument();
+    expect(screen.queryByText(/t\/s/)).not.toBeInTheDocument();
+  });
+});
 
-describe('Model details on a managed gateway', () => {
+describe("Model details on a managed gateway", () => {
   function details(model: PricingModel) {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
-    })
+    });
     render(
       <QueryClientProvider client={client}>
         <ModelDetailsContent
@@ -370,10 +378,10 @@ describe('Model details on a managed gateway', () => {
           autoGroups={[]}
           priceRate={1}
           usdExchangeRate={1}
-          tokenUnit='M'
+          tokenUnit="M"
         />
-      </QueryClientProvider>
-    )
+      </QueryClientProvider>,
+    );
   }
 
   it("leads with the Console's figures and has no tab of the Gateway's own counts", async () => {
@@ -381,7 +389,7 @@ describe('Model details on a managed gateway', () => {
       ...claude,
       vendor_id: 1,
       essera_metrics: {
-        provider: 'bedrock',
+        provider: "bedrock",
         model: claude.model_name,
         availability_24h: 97.25,
         p50_ttft_ms: 1250,
@@ -392,59 +400,63 @@ describe('Model details on a managed gateway', () => {
         probe_requests_24h: 48,
         checked_at: new Date().toISOString(),
       },
-    })
-    const get = vi.spyOn(api, 'get')
-    details(model)
+    });
+    const get = vi.spyOn(api, "get");
+    details(model);
 
-    expect(screen.getByText('Availability').nextSibling).toHaveTextContent(
-      '97.25%'
-    )
-    expect(screen.getByText('TTFT').nextSibling).toHaveTextContent('1.25s')
-    expect(screen.getByText('Checked just now')).toBeVisible()
+    expect(screen.getByText("Availability").nextSibling).toHaveTextContent(
+      "97.25%",
+    );
+    expect(screen.getByText("TTFT").nextSibling).toHaveTextContent("1.25s");
+    expect(screen.getByText("Checked just now")).toBeVisible();
     expect(
-      screen.queryByRole('tab', { name: /Performance/ })
-    ).not.toBeInTheDocument()
+      screen.queryByRole("tab", { name: /Performance/ }),
+    ).not.toBeInTheDocument();
     const perfCalls = get.mock.calls.filter(([url]) =>
-      String(url).includes('perf')
-    )
-    expect(perfCalls).toHaveLength(0)
-  })
+      String(url).includes("perf"),
+    );
+    expect(perfCalls).toHaveLength(0);
+  });
 
-  it('notes a model AWS could not serve lately, with or without figures', async () => {
+  it("notes a model AWS could not serve lately, with or without figures", async () => {
     const model = await managedModel(true, {
       ...claude,
       vendor_id: 1,
       temporarily_unavailable: true,
-    })
-    details(model)
+    });
+    details(model);
 
-    expect(screen.getByText('Temporarily unavailable at AWS')).toBeVisible()
-    expect(screen.queryByText('Availability')).not.toBeInTheDocument()
-  })
+    expect(
+      screen.getByText(
+        "AWS Bedrock is currently returning errors for this model",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText("Availability")).not.toBeInTheDocument();
+  });
 
-  it('shows no figures while the Console has none', async () => {
-    const model = await managedModel(true, { ...claude, vendor_id: 1 })
-    details(model)
+  it("shows no figures while the Console has none", async () => {
+    const model = await managedModel(true, { ...claude, vendor_id: 1 });
+    details(model);
 
-    expect(screen.queryByText('Availability')).not.toBeInTheDocument()
-    expect(screen.queryByText('Success rate')).not.toBeInTheDocument()
-  })
-})
+    expect(screen.queryByText("Availability")).not.toBeInTheDocument();
+    expect(screen.queryByText("Success rate")).not.toBeInTheDocument();
+  });
+});
 
-describe('checkedAgo', () => {
+describe("checkedAgo", () => {
   const t = ((key: string, values?: Record<string, number>) =>
     key.replaceAll(/{{(\w+)}}/g, (_, name: string) =>
-      String(values?.[name])
-    )) as unknown as TFunction
-  const now = Date.parse('2026-11-20T12:00:00Z')
+      String(values?.[name]),
+    )) as unknown as TFunction;
+  const now = Date.parse("2026-11-20T12:00:00Z");
 
-  it('says how long ago the newest data point was', () => {
-    expect(checkedAgo(t, '2026-11-20T11:59:30Z', now)).toBe('Checked just now')
-    expect(checkedAgo(t, '2026-11-20T11:31:00Z', now)).toBe(
-      'Checked 29 min ago'
-    )
-    expect(checkedAgo(t, '2026-11-20T09:00:00Z', now)).toBe('Checked 3 h ago')
-    expect(checkedAgo(t, null, now)).toBeNull()
-    expect(checkedAgo(t, 'not a date', now)).toBeNull()
-  })
-})
+  it("says how long ago the newest data point was", () => {
+    expect(checkedAgo(t, "2026-11-20T11:59:30Z", now)).toBe("Checked just now");
+    expect(checkedAgo(t, "2026-11-20T11:31:00Z", now)).toBe(
+      "Checked 29 min ago",
+    );
+    expect(checkedAgo(t, "2026-11-20T09:00:00Z", now)).toBe("Checked 3 h ago");
+    expect(checkedAgo(t, null, now)).toBeNull();
+    expect(checkedAgo(t, "not a date", now)).toBeNull();
+  });
+});
