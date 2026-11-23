@@ -6932,6 +6932,7 @@
     "Tool prices": "工具价格",
     "Tool prices must be a JSON object": "工具价格必须是 JSON 对象",
     "Tool-choice policy or specific tool name": "工具选择策略或具体工具名",
+    "Tool-choice policy; this model cannot be made to call a tool by name": "工具选择策略；此模型不支持按名称指定调用的工具",
     "Tools": "工具",
     "Top {{count}}": "前 {{count}}",
     "Top app": "领头应用",

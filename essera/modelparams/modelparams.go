@@ -2,6 +2,9 @@
 // catalog accepts through the Gateway, as measured against Bedrock in
 // eu-west-1 on 2026-11-23 with the model ids the Bedrock adaptor calls.
 //
+// Every chat model in the table accepts tools (one Converse call each with a
+// toolConfig, 2026-11-23).
+//
 // The table must be refreshed whenever the catalog gains a model: a model
 // missing from it is offered max_tokens and stream only.
 package modelparams
@@ -18,6 +21,17 @@ const (
 	Input           = "input"
 	Dimensions      = "dimensions"
 	EncodingFormat  = "encoding_format"
+	Tools           = "tools"
+	ToolChoice      = "tool_choice"
+)
+
+// The tool_choice values a model may accept; ToolChoiceFunction stands for
+// {"type":"function","function":{"name":...}}.
+const (
+	ToolChoiceAuto     = "auto"
+	ToolChoiceNone     = "none"
+	ToolChoiceRequired = "required"
+	ToolChoiceFunction = "function"
 )
 
 // Params is what one model accepts. SamplingExclusive marks a model that
@@ -25,6 +39,7 @@ const (
 type Params struct {
 	Supported         []string `json:"supported_parameters"`
 	SamplingExclusive bool     `json:"sampling_exclusive,omitempty"`
+	ToolChoices       []string `json:"tool_choices,omitempty"`
 }
 
 type capability uint8
@@ -36,6 +51,10 @@ const (
 	reasoning
 	dimensions
 	embedding
+	// Bedrock refuses toolChoice any and tool for these models.
+	toolChoiceAutoOnly
+	// Bedrock refuses toolChoice tool (a named function) for these models.
+	noNamedToolChoice
 )
 
 // Claude models released from Opus 4.7 on reject temperature, top_p and
@@ -50,22 +69,22 @@ var table = map[string]capability{
 	"eu.amazon.nova-lite-v1:0": sampling | stop,
 
 	"anthropic.claude-fable-5":                 stop | reasoning,
-	"anthropic.claude-fable-5-1":               stop | reasoning,
-	"anthropic.claude-fable-5-2":               stop | reasoning,
+	"anthropic.claude-fable-5-1":               stop | reasoning | toolChoiceAutoOnly,
+	"anthropic.claude-fable-5-2":               stop | reasoning | toolChoiceAutoOnly,
 	"anthropic.claude-haiku-5-5":               stop | reasoning,
 	"anthropic.claude-opus-4-7":                stop | reasoning,
 	"anthropic.claude-opus-4-8":                stop | reasoning,
 	"anthropic.claude-opus-5":                  stop | reasoning,
-	"anthropic.claude-opus-5-5":                stop | reasoning,
+	"anthropic.claude-opus-5-5":                stop | reasoning | toolChoiceAutoOnly,
 	"anthropic.claude-sonnet-5":                stop | reasoning,
-	"anthropic.claude-sonnet-5-5":              stop | reasoning,
+	"anthropic.claude-sonnet-5-5":              stop | reasoning | toolChoiceAutoOnly,
 	"anthropic.claude-haiku-4-5-20251001-v1:0": sampling | samplingExclusive | stop | reasoning,
 	"anthropic.claude-opus-4-5-20251101-v1:0":  sampling | samplingExclusive | stop | reasoning,
 	"anthropic.claude-opus-4-6-v1":             sampling | samplingExclusive | stop | reasoning,
 	"anthropic.claude-sonnet-4-6":              sampling | samplingExclusive | stop | reasoning,
 
-	"mistral.mistral-large-2402-v1:0": sampling | stop,
-	"mistral.pixtral-large-2502-v1:0": sampling | stop,
+	"mistral.mistral-large-2402-v1:0": sampling | stop | noNamedToolChoice,
+	"mistral.pixtral-large-2502-v1:0": sampling | stop | noNamedToolChoice,
 
 	// Bedrock refuses stopSequences for these models.
 	"google.gemma-3-12b-it":            sampling,
@@ -128,5 +147,17 @@ func Of(model, modality string) Params {
 	if capabilities&reasoning != 0 {
 		supported = append(supported, ReasoningEffort)
 	}
-	return Params{Supported: supported, SamplingExclusive: capabilities&samplingExclusive != 0}
+	params := Params{Supported: supported, SamplingExclusive: capabilities&samplingExclusive != 0}
+	if known {
+		params.Supported = append(params.Supported, Tools, ToolChoice)
+		switch {
+		case capabilities&toolChoiceAutoOnly != 0:
+			params.ToolChoices = []string{ToolChoiceAuto, ToolChoiceNone}
+		case capabilities&noNamedToolChoice != 0:
+			params.ToolChoices = []string{ToolChoiceAuto, ToolChoiceNone, ToolChoiceRequired}
+		default:
+			params.ToolChoices = []string{ToolChoiceAuto, ToolChoiceNone, ToolChoiceRequired, ToolChoiceFunction}
+		}
+	}
+	return params
 }

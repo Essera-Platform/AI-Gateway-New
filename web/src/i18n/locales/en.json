@@ -6973,6 +6973,7 @@
     "Tool prices": "Tool prices",
     "Tool prices must be a JSON object": "Tool prices must be a JSON object",
     "Tool-choice policy or specific tool name": "Tool-choice policy or specific tool name",
+    "Tool-choice policy; this model cannot be made to call a tool by name": "Tool-choice policy; this model cannot be made to call a tool by name",
     "Tools": "Tools",
     "Top {{count}}": "Top {{count}}",
     "Top app": "Top app",
