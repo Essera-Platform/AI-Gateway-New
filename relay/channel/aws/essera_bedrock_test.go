@@ -14,6 +14,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -22,6 +24,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/essera/metering"
+	"github.com/QuantumNous/new-api/essera/rerankunits"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
@@ -891,14 +894,30 @@ func TestBedrockEmbeddings(t *testing.T) {
 
 func TestBedrockRerank(t *testing.T) {
 	const model = "cohere.rerank-v3-5:0"
-	t.Run("Cohere Rerank 3.5: best first, documents returned, search units per 100 documents", func(t *testing.T) {
+	t.Run("a rerank whose units cannot be counted is refused before Bedrock", func(t *testing.T) {
+		rerankunits.Install(nil)
+		t.Setenv("ESSERA_RERANK_TOKENIZER", filepath.Join(t.TempDir(), "missing.json"))
+		c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+		_, err := (&Adaptor{}).ConvertRerankRequest(c, relayconstant.RelayModeRerank, dto.RerankRequest{Query: "q", Documents: []any{"a"}})
+		var apiErr *relaytypes.NewAPIError
+		require.ErrorAs(t, err, &apiErr)
+		assert.Equal(t, http.StatusServiceUnavailable, apiErr.StatusCode)
+	})
+	tiny, err := os.ReadFile("../../../essera/rerankunits/testdata/tiny-tokenizer.json")
+	require.NoError(t, err)
+	tokenizer, err := rerankunits.Parse(tiny)
+	require.NoError(t, err)
+	rerankunits.Install(tokenizer)
+
+	t.Run("Cohere Rerank 3.5: best first, documents returned, search units counted", func(t *testing.T) {
 		server, captured := startBedrockStub(t, jsonFixture(`{"results":[{"index":2,"relevance_score":0.1},{"index":0,"relevance_score":0.9}]}`))
 		recorder := httptest.NewRecorder()
 		c := newAwsTestContext(recorder, context.Background())
 		info := newBedrockTestInfo(server, relayconstant.RelayModeRerank, relaytypes.RelayFormatRerank, model, false)
+		// With the test tokenizer each "w" is a token: 150 documents of one chunk each.
 		documents := make([]any, 150)
 		for i := range documents {
-			documents[i] = "doc"
+			documents[i] = "w"
 		}
 		documents[0] = map[string]any{"text": "Paris"}
 		topN, returnDocuments := 2, true
@@ -915,7 +934,7 @@ func TestBedrockRerank(t *testing.T) {
 		assert.EqualValues(t, 150, ojson.GetBytes(requests[0].body, "documents.#").Int())
 		assert.EqualValues(t, 2, ojson.GetBytes(requests[0].body, "top_n").Int())
 		assert.EqualValues(t, 2, ojson.GetBytes(requests[0].body, "api_version").Int())
-		assert.JSONEq(t, `[{"index":0,"relevance_score":0.9,"document":{"text":"Paris"}},{"index":2,"relevance_score":0.1,"document":{"text":"doc"}}]`, ojson.GetBytes(recorder.Body.Bytes(), "results").Raw)
+		assert.JSONEq(t, `[{"index":0,"relevance_score":0.9,"document":{"text":"Paris"}},{"index":2,"relevance_score":0.1,"document":{"text":"w"}}]`, ojson.GetBytes(recorder.Body.Bytes(), "results").Raw)
 		units, ok := metering.Recorded(c)
 		require.True(t, ok)
 		assert.Equal(t, metering.Units{Generated: 2}, units)
@@ -938,13 +957,21 @@ func TestBedrockRerank(t *testing.T) {
 		})
 	}
 	t.Run("a long document is sent as it is: Bedrock splits it", func(t *testing.T) {
-		_, err := (&Adaptor{}).ConvertRerankRequest(nil, relayconstant.RelayModeRerank, dto.RerankRequest{Query: "q", Documents: []any{strings.Repeat("a", 100_000)}})
+		c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+		_, err := (&Adaptor{}).ConvertRerankRequest(c, relayconstant.RelayModeRerank, dto.RerankRequest{Query: "q", Documents: []any{strings.Repeat("a", 100_000)}})
 		require.NoError(t, err)
 	})
-	t.Run("search units: one per 100 documents, at least one", func(t *testing.T) {
-		for documents, want := range map[int]int64{1: 1, 100: 1, 101: 2, 1000: 10} {
-			assert.Equal(t, want, rerankSearchUnits(documents), documents)
+	t.Run("search units count the chunks of every document with the query", func(t *testing.T) {
+		long := strings.TrimSpace(strings.Repeat("w ", 498))
+		documents := make([]any, 51)
+		for i := range documents {
+			documents[i] = long
 		}
+		c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+		adaptor := &Adaptor{}
+		_, err := adaptor.ConvertRerankRequest(c, relayconstant.RelayModeRerank, dto.RerankRequest{Query: "w w w", Documents: documents})
+		require.NoError(t, err)
+		assert.EqualValues(t, 2, adaptor.rerankPlan.searchUnits, "51 documents of 501 tokens with the query are 102 chunks")
 	})
 }
 

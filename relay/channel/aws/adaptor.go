@@ -12,6 +12,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/metering"
+	"github.com/QuantumNous/new-api/essera/rerankunits"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -165,6 +166,14 @@ func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dt
 	if err != nil {
 		return nil, err
 	}
+	// The tokenizer is read before Bedrock is called: a rerank whose units cannot be
+	// counted is not served.
+	tokenizer, loadErr := rerankunits.Load(c.Request.Context())
+	if loadErr != nil {
+		common.SysError(common.LogText("essera: rerank tokenizer: %s", loadErr.Error()))
+		return nil, types.NewErrorWithStatusCode(errors.New("rerank is temporarily unavailable"), types.ErrorCodeChannelAwsClientError, http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
+	}
+	plan.searchUnits = tokenizer.SearchUnits(plan.query, plan.documents)
 	a.rerankPlan = plan
 	return body, nil
 }
@@ -357,7 +366,7 @@ func (a *Adaptor) doResponse(c *gin.Context, resp *http.Response, info *relaycom
 		if apiErr != nil {
 			return nil, apiErr
 		}
-		a.generated = rerankSearchUnits(len(a.rerankPlan.documents))
+		a.generated = a.rerankPlan.searchUnits
 		c.JSON(http.StatusOK, response)
 		return &response.Usage, nil
 	case routeImage:
