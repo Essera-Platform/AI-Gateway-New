@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: no frequency_penalty, presence_penalty or seed control; Bedrock never sends them.
 import type { PlaygroundConfig, ParameterEnabled } from '../../types'
 
 type ParameterValue = PlaygroundConfig[keyof PlaygroundConfig]
@@ -52,39 +53,12 @@ export const PLAYGROUND_PARAMETER_CONTROLS = [
     step: 0.1,
   },
   {
-    key: 'frequency_penalty',
-    labelKey: 'Frequency Penalty',
-    descriptionKey: 'Reduces repeated wording',
-    valueType: 'slider',
-    min: -2,
-    max: 2,
-    step: 0.1,
-  },
-  {
-    key: 'presence_penalty',
-    labelKey: 'Presence Penalty',
-    descriptionKey: 'Encourages new topics',
-    valueType: 'slider',
-    min: -2,
-    max: 2,
-    step: 0.1,
-  },
-  {
     key: 'max_tokens',
     labelKey: 'Max Tokens',
     descriptionKey: 'Caps the response length',
     valueType: 'number',
     min: 0,
     max: 200000,
-    step: 1,
-  },
-  {
-    key: 'seed',
-    labelKey: 'Seed',
-    descriptionKey: 'Keeps compatible responses more repeatable',
-    valueType: 'number',
-    min: 0,
-    max: 2147483647,
     step: 1,
   },
 ] as const satisfies readonly PlaygroundParameterControl[]

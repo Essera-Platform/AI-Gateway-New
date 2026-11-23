@@ -308,3 +308,14 @@ A managed gateway offers two interface languages, English (the default) and Simp
 
 - **Translations:** this replaces the English-only rule of phase A. A new interface string goes into `en.json` and `zh.json` together; the other locales still fall back to English. Product and protocol names stay as they are (Essera, AI Gateway, AWS Bedrock, OpenAI, Anthropic, model IDs, API), and so do the API format tabs of the landing's sample request (Chat, Responses, Messages), the copyright and license notices on `/legal`, and the font and license names.
 - **Sidebar, collapsed:** the groups drop their 14px side padding in the 44px icon rail, so the 32px icon buttons sit centred, and the gaps between groups shrink.
+
+## Parameters per model (2026-11)
+
+The Playground's parameter panel and the Model Square's "Supported parameters" table follow what each model accepts through the Gateway, measured against Bedrock in eu-west-1 (`essera/modelparams`; refresh it when the catalog grows, a model missing from it is offered `max_tokens` and `stream` only). The relay is unchanged: an API caller's parameters still reach Bedrock, which refuses the ones a model rejects.
+
+| File | Change |
+| --- | --- |
+| `essera/modelparams/` | The per-model table: temperature, top_p (and whether only one of them per request), stop, reasoning_effort for chat models; input, dimensions, encoding_format for embedding models |
+| `controller/essera_pages.go` | `/api/pricing` on a managed gateway carries each model's `supported_parameters` and `sampling_exclusive` |
+| `web/src/features/playground/index.tsx`, `components/input/playground-input.tsx`, `playground-input-tools.tsx`, `playground-parameter-panel.tsx`, `lib/parameters/` | Only the selected model's parameters are shown and sent; on a model that takes one sampling control, enabling one turns the other off, with a hint; frequency penalty, presence penalty and seed are gone (Bedrock never sends them) |
+| `web/src/features/pricing/lib/mock-stats.ts`, `components/model-details-api.tsx`, `types.ts` | The API tab lists the model's own parameters |

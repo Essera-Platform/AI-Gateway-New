@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: passes the selected model's parameter support to the parameter panel.
 // Modified by Essera, 2026-11: no Search button on a managed gateway; it is a stub, and Bedrock has no web search.
 // Modified by Essera, 2026-11: the Attach menu attaches files, photos and screenshots.
 // Modified by Essera, 2026-11: the tools sit in the composer footer without their own frame, as in the design.
@@ -38,6 +39,7 @@ import { AttachMenu } from '@/features/essera/playground/attach-menu'
 import { useEsseraManaged } from '@/features/essera/use-essera-managed'
 
 import { getSearchActionNotice } from '../../lib'
+import type { ModelParameterSupport } from '../../lib/parameters/model-parameters'
 import type { ParameterEnabled, PlaygroundConfig } from '../../types'
 import { PlaygroundParameterPanel } from './playground-parameter-panel'
 
@@ -55,6 +57,7 @@ type PlaygroundInputToolsProps = {
     value: boolean
   ) => void
   parameterEnabled: ParameterEnabled
+  parameterSupport?: ModelParameterSupport | null
 }
 
 export function PlaygroundInputTools({
@@ -65,6 +68,7 @@ export function PlaygroundInputTools({
   onConfigChange,
   onParameterEnabledChange,
   parameterEnabled,
+  parameterSupport,
 }: PlaygroundInputToolsProps) {
   const { t } = useTranslation()
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
@@ -113,6 +117,7 @@ export function PlaygroundInputTools({
           onConfigChange={onConfigChange}
           onParameterEnabledChange={onParameterEnabledChange}
           parameterEnabled={parameterEnabled}
+          parameterSupport={parameterSupport}
         />
 
         <Tooltip>

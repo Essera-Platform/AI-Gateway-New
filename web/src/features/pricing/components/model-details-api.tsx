@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the authentication note names the API Keys page and the Console, which hold what a key may call; this gateway has no Tokens page, groups or per-key IP scoping.
+// Modified by Essera, 2026-11: the authentication note names the API Keys page and the Console, which hold what a key may call; this gateway has no Tokens page, groups or per-key IP scoping; the supported parameters are the model's own.
 import {
   ChevronRight,
   Gauge,
@@ -565,6 +565,11 @@ function SupportedParametersSection(props: { model: PricingModel }) {
   return (
     <section>
       <SectionTitle icon={Sigma}>{t('Supported parameters')}</SectionTitle>
+      {props.model.sampling_exclusive && (
+        <p className='text-muted-foreground mb-2 text-xs'>
+          {t('This model takes Temperature or Top P, not both.')}
+        </p>
+      )}
       <StaticDataTable
         className={tableStyles.sectionContainer}
         headerRowClassName={tableStyles.mutedHeaderRow}
