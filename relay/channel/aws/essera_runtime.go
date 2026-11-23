@@ -110,6 +110,9 @@ func parseBedrockCredentials(key string) (bedrockCredentials, error) {
 // the cross-region table, or refused on demand before on this channel.
 func resolveBedrockModelID(channelID int, upstreamModel, region string) string {
 	modelID := getAwsModelID(upstreamModel)
+	if globalProfileOnlyModels[modelID] {
+		return "global." + modelID
+	}
 	if awsModelCanCrossRegion(modelID, getAwsRegionPrefix(region)) {
 		return awsModelCrossRegion(modelID, getAwsRegionPrefix(region))
 	}
@@ -117,6 +120,15 @@ func resolveBedrockModelID(channelID int, upstreamModel, region string) string {
 		return regionalProfileID(modelID, region)
 	}
 	return modelID
+}
+
+// globalProfileOnlyModels are served only through Bedrock's global. profile,
+// which may run outside the region's geography; Essera allows it for these
+// models only. Every other model stays in-region or on its geographic profile.
+var globalProfileOnlyModels = map[string]bool{
+	"anthropic.claude-fable-5":   true,
+	"anthropic.claude-fable-5-1": true,
+	"anthropic.claude-fable-5-2": true,
 }
 
 // profileOnlyModels holds the models Bedrock has refused on demand per channel
@@ -133,7 +145,8 @@ var inferenceProfilePrefixes = []string{"arn:", "us.", "us-gov.", "eu.", "apac."
 
 // regionalProfileID is modelID through the geographic inference profile of
 // region (eu. for eu-west-1), or "" when the id already names a profile or the
-// region has none. It is never global., which may run outside the geography.
+// region has none. It is never global., which may run outside the geography
+// (globalProfileOnlyModels is the explicit exception, resolved before this).
 func regionalProfileID(modelID, region string) string {
 	for _, prefix := range inferenceProfilePrefixes {
 		if strings.HasPrefix(modelID, prefix) {
