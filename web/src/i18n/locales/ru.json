@@ -7853,6 +7853,7 @@
     "The API documentation could not be loaded.": "Не удалось загрузить документацию API.",
     "TTFT": "TTFT",
     "Median time to first token": "Медианное время до первого токена",
+    "No requests yet": "Запросов пока нет",
     "Output tokens per second": "Выходных токенов в секунду",
     "Requests that succeeded, leaving out those the caller caused": "Доля успешных запросов без ошибок, вызванных самим клиентом",
     "Checked just now": "Проверено только что",

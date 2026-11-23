@@ -15,6 +15,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/essera/metering"
+	"github.com/QuantumNous/new-api/essera/usage"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relaytypes "github.com/QuantumNous/new-api/relaykit/types"
 
@@ -87,8 +88,9 @@ type sentSonicEvent struct {
 }
 
 type sonicOutcome struct {
-	units  metering.Units
-	apiErr *relaytypes.NewAPIError
+	units             metering.Units
+	apiErr            *relaytypes.NewAPIError
+	providerNotCalled bool
 }
 
 type sonicClient struct {
@@ -113,7 +115,7 @@ func startSonicSession(t *testing.T, stream *fakeSonicStream) *sonicClient {
 		adaptor := &Adaptor{sonicOpen: func(context.Context) (sonicStream, error) { return stream, nil }}
 		_, apiErr := adaptor.serveSonic(c, info)
 		units, _ := metering.Recorded(c)
-		result <- sonicOutcome{units: units, apiErr: apiErr}
+		result <- sonicOutcome{units: units, apiErr: apiErr, providerNotCalled: c.GetBool(usage.ProviderNotCalledKey)}
 	}))
 	t.Cleanup(server.Close)
 	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
@@ -407,6 +409,7 @@ func TestSonicNeedsAudioBeforeAnAnswer(t *testing.T) {
 		require.Nil(t, outcome.apiErr)
 		assert.Empty(t, stream.sentEvents(), "no Bedrock session, nothing billed")
 		assert.Zero(t, outcome.units)
+		assert.True(t, outcome.providerNotCalled, "no usage event: the session is no request to Bedrock")
 	})
 
 	t.Run("text sent before the audio goes with it", func(t *testing.T) {
@@ -421,7 +424,9 @@ func TestSonicNeedsAudioBeforeAnAnswer(t *testing.T) {
 		client.send(map[string]any{"type": "response.create"})
 		client.send(map[string]any{"type": "input_audio_buffer.commit"})
 		client.until("input_audio_buffer.committed")
-		require.Nil(t, client.close().apiErr)
+		outcome := client.close()
+		require.Nil(t, outcome.apiErr)
+		assert.False(t, outcome.providerNotCalled, "the audio opened Bedrock's session: it is reported")
 
 		var names []string
 		for _, event := range stream.sentEvents() {

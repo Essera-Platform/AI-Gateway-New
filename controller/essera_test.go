@@ -30,6 +30,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/probes"
 	"github.com/QuantumNous/new-api/essera/records"
 	"github.com/QuantumNous/new-api/essera/records/recordstest"
+	"github.com/QuantumNous/new-api/essera/rerankunits"
 	"github.com/QuantumNous/new-api/essera/snapshot"
 	"github.com/QuantumNous/new-api/essera/snapshot/snapshottest"
 	"github.com/QuantumNous/new-api/i18n"
@@ -735,4 +736,91 @@ func TestAModelProbeSendsTheProviderAOneWordPromptForOneToken(t *testing.T) {
 
 	assert.JSONEq(t, `{"model":"gpt-4.1","messages":[{"role":"user","content":"Hi"}],"stream":true,
 		"stream_options":{"include_usage":true},"max_tokens":1}`, string(encoded))
+}
+
+// bedrockStub answers every InvokeModel call with body and keeps the paths and bodies it got.
+// Bedrock is called over HTTPS only, so the channel must accept the stub's certificate.
+func bedrockStub(t *testing.T, body string) (*httptest.Server, func() [][2]string) {
+	t.Helper()
+	var mu sync.Mutex
+	var calls [][2]string
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		calls = append(calls, [2]string{r.URL.EscapedPath(), string(sent)})
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, body)
+	}))
+	t.Cleanup(server.Close)
+	return server, func() [][2]string {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([][2]string(nil), calls...)
+	}
+}
+
+func TestAModelProbeOfARerankOrEmbeddingModelMakesOneTinyCallAndReportsItsUnits(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tiny, err := os.ReadFile("../essera/rerankunits/testdata/tiny-tokenizer.json")
+	require.NoError(t, err)
+	tokenizer, err := rerankunits.Parse(tiny)
+	require.NoError(t, err)
+	rerankunits.Install(tokenizer)
+	t.Cleanup(func() { rerankunits.Install(nil) })
+	consumeLogs, redis := common.LogConsumeEnabled, common.RedisEnabled
+	common.LogConsumeEnabled, common.RedisEnabled = false, false
+	t.Cleanup(func() { common.LogConsumeEnabled, common.RedisEnabled = consumeLogs, redis })
+
+	cases := []struct {
+		name, model, modality, answer string
+		wantPath, wantBody            string
+		want                          probes.Result
+	}{
+		{
+			name: "rerank: one word against one document, one search unit", model: "cohere.rerank-v3-5:0", modality: "rerank",
+			answer:   `{"results":[{"index":0,"relevance_score":0.5}]}`,
+			wantPath: "/model/cohere.rerank-v3-5%3A0/invoke", wantBody: `{"query":"Hi","documents":["Hello"],"top_n":1,"api_version":2}`,
+			want: probes.Result{GeneratedUnits: 1},
+		},
+		{
+			name: "Marengo: its synchronous text embedding, one text", model: "twelvelabs.marengo-embed-3-0-v1:0", modality: "embedding",
+			answer:   `{"data":[{"embedding":[0.1,0.2]}]}`,
+			wantPath: "/model/twelvelabs.marengo-embed-3-0-v1%3A0/invoke", wantBody: `{"inputType":"text","text":{"inputText":"ok"}}`,
+			want: probes.Result{InputTextUnits: 1},
+		},
+		{
+			name: "Titan: one word, its tokens", model: "amazon.titan-embed-text-v2:0", modality: "embedding",
+			answer:   `{"embedding":[0.1,0.2],"inputTextTokenCount":2}`,
+			wantPath: "/model/amazon.titan-embed-text-v2%3A0/invoke", wantBody: `{"inputText":"ok"}`,
+			want: probes.Result{InputTokens: 2},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			recordstest.UseDatabase(t, &model.User{}, &model.Channel{})
+			server, calls := bedrockStub(t, tc.answer)
+			service := model.User{Username: "essera-service", Password: "unused-password", Status: common.UserStatusEnabled, Group: "default"}
+			service.SetSetting(dto.UserSetting{AcceptUnsetRatioModel: true})
+			require.NoError(t, model.DB.Create(&service).Error)
+			tag, baseURL, trustStub := configsync.TagPrefix+"bedrock", server.URL, `{"tls_insecure_skip_verify":true}`
+			channel := model.Channel{Type: constant.ChannelTypeAws, Name: "bedrock", Key: "test-api-key|us-east-1", Tag: &tag, BaseURL: &baseURL,
+				Setting: &trustStub, Models: tc.model, Group: "default", Status: common.ChannelStatusEnabled}
+			require.NoError(t, model.DB.Create(&channel).Error)
+
+			result := probes.Run(t.Context(), probes.Request{Provider: "bedrock", Model: tc.model, Modality: tc.modality})
+
+			require.True(t, result.Succeeded, "%s %s", common.GetJsonString(result.ErrorClass), common.GetJsonString(result.Message))
+			assert.Equal(t, http.StatusOK, result.HTTPStatus)
+			assert.Nil(t, result.FirstTokenMs, "an answer that is not streamed has no first token")
+			assert.Equal(t, tc.want.InputTokens, result.InputTokens)
+			assert.Zero(t, result.OutputTokens)
+			assert.Equal(t, tc.want.GeneratedUnits, result.GeneratedUnits)
+			assert.Equal(t, tc.want.InputTextUnits, result.InputTextUnits)
+			sent := calls()
+			require.Len(t, sent, 1)
+			assert.Equal(t, tc.wantPath, sent[0][0])
+			assert.JSONEq(t, tc.wantBody, sent[0][1])
+		})
+	}
 }

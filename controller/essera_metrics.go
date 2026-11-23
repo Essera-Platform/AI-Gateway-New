@@ -14,15 +14,15 @@ import (
 )
 
 // esseraModelMetrics reads the Console's metrics of the person's models, by provider/model;
-// empty when the Console does not answer.
+// nil when the Console does not answer.
 func esseraModelMetrics(ctx context.Context, personID string) map[string]*consoleapi.ModelMetric {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	metrics, err := consoleapi.GetModelMetrics(ctx, personID)
-	byModel := map[string]*consoleapi.ModelMetric{}
 	if err != nil {
-		return byModel
+		return nil
 	}
+	byModel := map[string]*consoleapi.ModelMetric{}
 	for i := range metrics {
 		byModel[metrics[i].Provider+"/"+metrics[i].Model] = &metrics[i]
 	}

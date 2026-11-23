@@ -77,6 +77,7 @@ export function usePricingData(enabled = true) {
           modelType: model.model_type ?? '',
           prices: model.essera_prices ?? [],
           metrics: model.essera_metrics,
+          metricsAvailable: data.essera.metrics_available === true,
           temporarilyUnavailable: model.temporarily_unavailable === true,
         },
       }

@@ -697,7 +697,8 @@
 
     Nova Sonic is a speech model and answers audio only. Text from `conversation.item.create` can only accompany
     audio: text sent before the first audio is passed on with it. A `response.create` before any audio is
-    answered with an `error` event, code `audio_required`, and nothing is sent to Bedrock or billed.
+    answered with an `error` event, code `audio_required`, and nothing is sent to Bedrock or billed. A session
+    that ends without any audio is not counted as a request.
   zh: |
     以 OpenAI Realtime 格式打开与 Amazon Nova Sonic（`amazon.nova-2-sonic-v1:0`、`amazon.nova-2-5-sonic`）的
     WebSocket，模型在 `model` 中指定。请先发送 `session.update`（指令、声音、工具），再通过 `input_audio_buffer.append`
@@ -706,4 +707,4 @@
 
     Nova Sonic 是语音模型，只回应音频。通过 `conversation.item.create` 发送的文本只能随音频一起使用：在第一段音频之前
     发送的文本会随音频一并传递。在发送任何音频之前发出的 `response.create` 会收到代码为 `audio_required` 的 `error`
-    事件，不会向 Bedrock 发送任何内容，也不会计费。
+    事件，不会向 Bedrock 发送任何内容，也不会计费。未发送任何音频即结束的会话不计为请求。

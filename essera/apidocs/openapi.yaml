@@ -992,7 +992,8 @@ paths:
 
         Nova Sonic is a speech model and answers audio only. Text from `conversation.item.create` can only accompany
         audio: text sent before the first audio is passed on with it. A `response.create` before any audio is
-        answered with an `error` event, code `audio_required`, and nothing is sent to Bedrock or billed.
+        answered with an `error` event, code `audio_required`, and nothing is sent to Bedrock or billed. A session
+        that ends without any audio is not counted as a request.
       parameters:
         - name: model
           in: query

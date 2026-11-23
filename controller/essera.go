@@ -18,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/bridge"
 	"github.com/QuantumNous/new-api/essera/identity"
 	"github.com/QuantumNous/new-api/essera/keys"
+	"github.com/QuantumNous/new-api/essera/metering"
 	"github.com/QuantumNous/new-api/essera/policy"
 	"github.com/QuantumNous/new-api/essera/probes"
 	"github.com/QuantumNous/new-api/essera/settings"
@@ -295,8 +296,11 @@ func runEsseraModelProbe(ctx context.Context, channel *model.Channel, request pr
 		return probes.Failed(0, "essera_probe_unavailable", "The Gateway's service user is missing.")
 	}
 	endpoint, streamed := string(constant.EndpointTypeOpenAI), true
-	if request.Modality == "embedding" {
+	switch request.Modality {
+	case "embedding":
 		endpoint, streamed = string(constant.EndpointTypeEmbeddings), false
+	case "rerank":
+		endpoint, streamed = string(constant.EndpointTypeJinaRerank), false
 	}
 	started := time.Now()
 	tested := testChannel(ctx, channel, user.Id, request.Model, endpoint, streamed)
@@ -317,7 +321,10 @@ func runEsseraModelProbe(ctx context.Context, channel *model.Channel, request pr
 		return failed
 	}
 	result.Succeeded, result.HTTPStatus = true, http.StatusOK
-	if tested.usage != nil {
+	if units, metered := metering.Recorded(tested.context); metered {
+		result.InputTokens, result.OutputTokens = units.Input, units.Output
+		result.GeneratedUnits, result.InputTextUnits = units.Generated, units.InputTexts
+	} else if tested.usage != nil {
 		result.InputTokens, result.OutputTokens = int64(tested.usage.PromptTokens), int64(tested.usage.CompletionTokens)
 	}
 	if info := tested.info; info != nil && streamed && info.FirstResponseTime.After(info.StartTime) {

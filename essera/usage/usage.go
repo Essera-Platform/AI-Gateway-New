@@ -33,6 +33,11 @@ const ContextKey = "essera_request"
 // SkipContextKey marks a request that must not be reported, such as a connection test.
 const SkipContextKey = "essera_skip_usage"
 
+// ProviderNotCalledKey marks a request the adaptor ended without calling the provider, such as
+// a Realtime session refused before it sent any audio: like a request that reached no channel,
+// it is not reported and gives its reservation back.
+const ProviderNotCalledKey = "essera_provider_not_called"
+
 // Event is usage.recorded, with the optional fields the Console stores in the record's payload.
 type Event struct {
 	EventID              string    `json:"event_id"`
@@ -77,6 +82,10 @@ func Finished(c *gin.Context, info *relaycommon.RelayInfo, apiErr *types.NewAPIE
 	}
 	request := value.(*policy.Request)
 	now := time.Now()
+	if c.GetBool(ProviderNotCalledKey) {
+		release(request)
+		return
+	}
 	if info == nil || info.ChannelMeta == nil || info.ChannelId == 0 {
 		if apiErr == nil || apiErr.GetErrorCode() != types.ErrorCode("essera_quota_exceeded") {
 			stats.Denial(now, "model", statusOf(apiErr))

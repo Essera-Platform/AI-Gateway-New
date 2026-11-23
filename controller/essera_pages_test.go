@@ -404,6 +404,7 @@ func TestTheModelSquareShowsAPersonOnlyTheirModelsWithTheConsolesPrices(t *testi
 
 	guest, names, models := pricing(0)
 	assert.Equal(t, false, guest["signed_in"])
+	assert.Equal(t, false, guest["metrics_available"], "a guest sees no metrics, not that a model has none")
 	for _, entry := range models {
 		item := entry.(map[string]any)
 		if item["model_name"] == "claude-sonnet" {
@@ -442,6 +443,11 @@ func TestTheModelSquareShowsAPersonOnlyTheirModelsWithTheConsolesPrices(t *testi
 	assert.EqualValues(t, 420, metrics["p50_ttft_ms"])
 	assert.Equal(t, 85.2, metrics["output_per_second"])
 	assert.Equal(t, "2026-11-20T10:00:00Z", metrics["checked_at"])
+
+	console.on("GET /internal/v1/model-metrics", http.StatusOK, `{"data":[]}`)
+	none, _, models := pricing(users[snapshottest.UserSub])
+	assert.Equal(t, true, none["metrics_available"], "the Console answered: a model without metrics has had no requests")
+	assert.NotContains(t, models[0], "essera_metrics")
 
 	_, names, _ = pricing(users[snapshottest.SuspendedSub])
 	assert.Empty(t, names, "a suspended person sees nothing")

@@ -7854,6 +7854,7 @@
     "The API documentation could not be loaded.": "无法加载 API 文档。",
     "TTFT": "首字延迟",
     "Median time to first token": "首个 token 的中位耗时",
+    "No requests yet": "暂无请求",
     "Output tokens per second": "每秒输出 token 数",
     "Requests that succeeded, leaving out those the caller caused": "成功请求的比例，不计调用方自身导致的错误",
     "Checked just now": "刚刚检查",

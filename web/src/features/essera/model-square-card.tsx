@@ -91,6 +91,7 @@ export function EsseraModelCard(props: {
 
       <EsseraModelMetricsLine
         metrics={props.info.metrics}
+        metricsAvailable={props.info.metricsAvailable}
         className='border-border/60 mt-auto border-t pt-2'
       >
         {props.info.signedIn && (

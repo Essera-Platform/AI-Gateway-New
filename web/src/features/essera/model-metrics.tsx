@@ -20,11 +20,12 @@ function figure(
 
 /**
  * A model's availability, time to first token and output speed over the last 24 hours, as the
- * Console measured them. Nothing at all when there are none: a guest, a Console that does not
- * answer, or a model with no data yet.
+ * Console measured them. A model the Console answered no figures for has had no requests yet;
+ * a guest or a Console that does not answer gets nothing at all.
  */
 export function EsseraModelMetricsLine(props: {
   metrics: EsseraModelMetrics | undefined
+  metricsAvailable?: boolean
   className?: string
   children?: ReactNode
 }) {
@@ -87,9 +88,15 @@ export function EsseraModelMetricsLine(props: {
           )}
         </div>
       ) : (
-        <span />
+        <NoMetrics shown={props.metricsAvailable === true} />
       )}
       {props.children}
     </div>
   )
+}
+
+function NoMetrics(props: { shown: boolean }) {
+  const { t } = useTranslation()
+  if (!props.shown) return <span />
+  return <p className='text-muted-foreground text-xs'>{t('No requests yet')}</p>
 }

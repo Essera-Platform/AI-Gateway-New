@@ -18,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/essera/awsx"
 	"github.com/QuantumNous/new-api/essera/metering"
 	"github.com/QuantumNous/new-api/essera/settings"
+	"github.com/QuantumNous/new-api/essera/usage"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -143,13 +144,17 @@ func sonicCredentials(c *gin.Context, creds bedrockCredentials) (aws.Credentials
 }
 
 // serveSonic runs the Realtime session until the client or Bedrock ends it, and records the
-// tokens Bedrock billed, whatever the outcome.
+// tokens Bedrock billed, whatever the outcome. A session that never called Bedrock, such as one
+// refused for want of audio, billed nothing and is not reported as a request.
 func (a *Adaptor) serveSonic(c *gin.Context, info *relaycommon.RelayInfo) (*dto.RealtimeUsage, *types.NewAPIError) {
 	if info.ClientWs == nil || a.sonicOpen == nil {
 		return nil, types.NewError(errors.New("invalid websocket connection"), types.ErrorCodeBadResponse)
 	}
 	session := newSonicSession(c, info, a.sonicOpen)
 	apiErr := session.run()
+	if !session.calledBedrock {
+		c.Set(usage.ProviderNotCalledKey, true)
+	}
 	metering.Record(c, session.totals.units())
 	return session.totals.realtimeUsage(), apiErr
 }
@@ -246,9 +251,11 @@ type sonicSession struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	upstream sonicStream
-	writeMu  sync.Mutex
-	done     chan struct{}
-	failure  *types.NewAPIError
+	// Whether Bedrock was ever called: a session that never was is no request to report.
+	calledBedrock bool
+	writeMu       sync.Mutex
+	done          chan struct{}
+	failure       *types.NewAPIError
 	// Bedrock's own failure, read once its events are done.
 	upstreamErr *types.NewAPIError
 
@@ -518,6 +525,7 @@ func (s *sonicSession) start() *types.NewAPIError {
 	if s.upstream != nil {
 		return nil
 	}
+	s.calledBedrock = true
 	stream, err := s.open(s.ctx)
 	if err != nil {
 		return newAwsInvokeError(s.ctx, err, "InvokeModelWithBidirectionalStream")

@@ -191,6 +191,19 @@ func TestARequestThatReachedNoProviderIsNotReported(t *testing.T) {
 	assert.Empty(t, queued(t))
 }
 
+func TestARealtimeSessionThatNeverCalledTheProviderIsNotReportedAndGivesItsRequestBack(t *testing.T) {
+	s := serve(t, "")
+	s.info.RelayMode = relayconstant.RelayModeRealtime
+	s.context.Set(usage.ProviderNotCalledKey, true)
+	metering.Record(s.context, metering.Units{})
+
+	usage.Finished(s.context, s.info, nil)
+
+	assert.Empty(t, queued(t), "no succeeded request with nothing billed")
+	requests, _ := counted(t, "customer", snapshottest.CustomerID)
+	assert.Zero(t, requests)
+}
+
 func TestOnlyEsseraRequestsAreReported(t *testing.T) {
 	s := serve(t, "")
 	s.context.Set(usage.ContextKey, nil)
