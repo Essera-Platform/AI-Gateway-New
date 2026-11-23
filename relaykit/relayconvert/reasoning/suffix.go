@@ -153,6 +153,7 @@ func ParseClaudeModelSuffix(modelName string, allowSuffixAlias bool) (string, In
 }
 
 func isKnownClaudeModel(modelName string) bool {
+	modelName = anthropicClaudeName(strings.ToLower(modelName)) // Modified by Essera, 2026-11: Bedrock ids.
 	baseModel, _, _ := TrimEffortSuffixWithSuffixes(modelName, []string{"-max", "-xhigh", "-high", "-medium", "-low", "-minimal", "-none"})
 	if marker := strings.LastIndex(baseModel, "-thinking-"); marker >= 0 {
 		baseModel = baseModel[:marker]

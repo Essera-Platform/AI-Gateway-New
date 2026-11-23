@@ -39,9 +39,9 @@ const (
 )
 
 // Claude models released from Opus 4.7 on reject temperature, top_p and
-// top_k, and the manual thinking budget the Gateway renders for
-// reasoning_effort. Bedrock drops frequency_penalty, presence_penalty and
-// seed on every path, so no model lists them.
+// top_k; the Gateway renders their reasoning_effort as adaptive thinking.
+// Bedrock drops frequency_penalty, presence_penalty and seed on every path,
+// so no model lists them.
 var table = map[string]capability{
 	"amazon.nova-2-lite-v1:0":  sampling | stop | reasoning,
 	"amazon.nova-lite-v1:0":    sampling | stop,
@@ -49,16 +49,16 @@ var table = map[string]capability{
 	"amazon.nova-pro-v1:0":     sampling | stop,
 	"eu.amazon.nova-lite-v1:0": sampling | stop,
 
-	"anthropic.claude-fable-5":                 stop,
-	"anthropic.claude-fable-5-1":               stop,
-	"anthropic.claude-fable-5-2":               stop,
-	"anthropic.claude-haiku-5-5":               stop,
-	"anthropic.claude-opus-4-7":                stop,
-	"anthropic.claude-opus-4-8":                stop,
-	"anthropic.claude-opus-5":                  stop,
-	"anthropic.claude-opus-5-5":                stop,
-	"anthropic.claude-sonnet-5":                stop,
-	"anthropic.claude-sonnet-5-5":              stop,
+	"anthropic.claude-fable-5":                 stop | reasoning,
+	"anthropic.claude-fable-5-1":               stop | reasoning,
+	"anthropic.claude-fable-5-2":               stop | reasoning,
+	"anthropic.claude-haiku-5-5":               stop | reasoning,
+	"anthropic.claude-opus-4-7":                stop | reasoning,
+	"anthropic.claude-opus-4-8":                stop | reasoning,
+	"anthropic.claude-opus-5":                  stop | reasoning,
+	"anthropic.claude-opus-5-5":                stop | reasoning,
+	"anthropic.claude-sonnet-5":                stop | reasoning,
+	"anthropic.claude-sonnet-5-5":              stop | reasoning,
 	"anthropic.claude-haiku-4-5-20251001-v1:0": sampling | samplingExclusive | stop | reasoning,
 	"anthropic.claude-opus-4-5-20251101-v1:0":  sampling | samplingExclusive | stop | reasoning,
 	"anthropic.claude-opus-4-6-v1":             sampling | samplingExclusive | stop | reasoning,

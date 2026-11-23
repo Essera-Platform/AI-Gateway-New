@@ -320,3 +320,14 @@ The Playground's parameter panel and the Model Square's "Supported parameters" t
 | `controller/essera_pages.go` | `/api/pricing` on a managed gateway carries each model's `supported_parameters` and `sampling_exclusive` |
 | `web/src/features/playground/index.tsx`, `components/input/playground-input.tsx`, `playground-input-tools.tsx`, `playground-parameter-panel.tsx`, `lib/parameters/` | Only the selected model's parameters are shown and sent; on a model that takes one sampling control, enabling one turns the other off, with a hint; frequency penalty, presence penalty and seed are gone (Bedrock never sends them) |
 | `web/src/features/pricing/lib/mock-stats.ts`, `components/model-details-api.tsx`, `types.ts` | The API tab lists the model's own parameters |
+
+## Claude reasoning on Bedrock ids (2026-11)
+
+The OpenAI-to-Claude converter now recognises Bedrock's Claude ids (`anthropic.claude-*`, and the `eu.`, `global.` and other profile ids), so `reasoning_effort` takes the form each model accepts, as checked against Bedrock in eu-west-1: adaptive thinking with `output_config.effort` from Opus 4.6 and Sonnet 4.6 on (the only form Fable 5, Haiku 5.5, Opus 4.7 and later and Sonnet 5 and later accept), and a thinking budget on Haiku 4.5 and Opus 4.5 (Opus 4.5 with the effort as well). Before, every Claude model got a budget, which the newer ones refuse.
+
+| File | Change |
+| --- | --- |
+| `relaykit/relayconvert/reasoning/essera_bedrock.go` | Bedrock id to Anthropic model name |
+| `relaykit/relayconvert/reasoning/claude.go`, `suffix.go` | The capability table and the known-model check read Bedrock ids |
+| `relaykit/relayconvert/internal/shared/claude/reasoning.go` | On models that refuse sampling controls, a temperature, top_p or top_k the caller sent is no longer dropped; Bedrock refuses it |
+| `essera/modelparams/` | The Claude models from Opus 4.7 on list `reasoning_effort` |

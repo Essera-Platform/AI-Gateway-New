@@ -162,20 +162,10 @@ func ApplyReasoning(ctx context.Context, req *dto.ClaudeRequest, info convmeta.M
 			req.OutputConfig = encoded
 		}
 	}
-	if rendered.ClearSampling {
-		if req.Temperature != nil || req.TopP != nil || req.TopK != nil {
-			convdiag.Add(ctx, types.ConversionDiagnostic{
-				Code:     "claude_sampling_removed",
-				Path:     "temperature/top_p/top_k",
-				Message:  fmt.Sprintf("model %q does not accept sampling controls with the selected thinking mode", capabilityModel),
-				Severity: types.ConversionDiagnosticWarning,
-				To:       types.RelayFormatClaude,
-			})
-		}
-		req.Temperature = nil
-		req.TopP = nil
-		req.TopK = nil
-	} else if rendered.ConstrainThinkingSampling {
+	// Modified by Essera, 2026-11: on models that refuse sampling controls
+	// (ClearSampling), a temperature or top_p the caller sent is left for the
+	// provider to refuse rather than dropped without a word.
+	if rendered.ConstrainThinkingSampling {
 		removedSampling := req.Temperature != nil || req.TopK != nil || req.TopP != nil && (*req.TopP < 0.95 || *req.TopP > 1)
 		req.Temperature = nil
 		req.TopK = nil

@@ -446,9 +446,10 @@ func TestOpenAIChatRequestToClaudeMessages_ClaudeOpus48HighUsesAdaptiveThinking(
 	require.Equal(t, "adaptive", claudeRequest.Thinking.Type)
 	require.Equal(t, "summarized", claudeRequest.Thinking.Display)
 	require.JSONEq(t, `{"effort":"high"}`, string(claudeRequest.OutputConfig))
-	require.Nil(t, claudeRequest.Temperature)
-	require.Nil(t, claudeRequest.TopP)
-	require.Nil(t, claudeRequest.TopK)
+	// Modified by Essera, 2026-11: the caller's sampling is kept for the provider to refuse.
+	require.NotNil(t, claudeRequest.Temperature)
+	require.NotNil(t, claudeRequest.TopP)
+	require.NotNil(t, claudeRequest.TopK)
 }
 
 func TestOpenAIChatRequestToClaudeMessages_ClaudeOpus48ThinkingUsesAdaptiveHighEffort(t *testing.T) {
@@ -473,9 +474,10 @@ func TestOpenAIChatRequestToClaudeMessages_ClaudeOpus48ThinkingUsesAdaptiveHighE
 	require.Equal(t, "adaptive", claudeRequest.Thinking.Type)
 	require.Equal(t, "summarized", claudeRequest.Thinking.Display)
 	require.JSONEq(t, `{"effort":"high"}`, string(claudeRequest.OutputConfig))
-	require.Nil(t, claudeRequest.Temperature)
-	require.Nil(t, claudeRequest.TopP)
-	require.Nil(t, claudeRequest.TopK)
+	// Modified by Essera, 2026-11: the caller's sampling is kept for the provider to refuse.
+	require.NotNil(t, claudeRequest.Temperature)
+	require.NotNil(t, claudeRequest.TopP)
+	require.NotNil(t, claudeRequest.TopK)
 }
 
 func TestClaudeResponsePassesInputTransformationsThrough(t *testing.T) {
