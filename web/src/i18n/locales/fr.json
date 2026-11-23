@@ -7871,6 +7871,13 @@
     "Speech output": "Sortie vocale",
     "Charges": "Frais",
     "Not priced yet": "Pas encore tarifé",
-    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Les prix en contexte long s’appliquent à chaque token d’une requête dont le prompt dépasse la taille de contexte long du modèle."
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Les prix en contexte long s’appliquent à chaque token d’une requête dont le prompt dépasse la taille de contexte long du modèle.",
+    "Text input": "Entrée texte",
+    "text": "texte",
+    "{{count}} texts": "{{count}} textes",
+    "Video input": "Entrée vidéo",
+    "Search unit": "Unité de recherche",
+    "search unit": "unité de recherche",
+    "{{count}} search units": "{{count}} unités de recherche"
   }
 }

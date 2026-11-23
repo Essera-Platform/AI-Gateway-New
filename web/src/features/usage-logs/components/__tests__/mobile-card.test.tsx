@@ -337,3 +337,20 @@ it('shows loading placeholders without displaying stale log fields', () => {
     screen.queryByRole('button', { name: /^Model:/ })
   ).not.toBeInTheDocument()
 })
+
+it('shows the units a Console request measured besides tokens, even with no tokens', () => {
+  renderLogs({
+    logs: [
+      {
+        ...log,
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        other: JSON.stringify({
+          essera: { units: { search_units: 3 }, charges: [] },
+        }),
+      },
+    ],
+  })
+
+  expect(screen.getByText('Search unit: 3')).toBeVisible()
+})

@@ -1,3 +1,4 @@
+// Modified by Essera, 2026-11: ParseContent keeps each part's cache_control.
 package dto
 
 import (
@@ -788,6 +789,7 @@ func (m *Message) ParseContent() []MediaContent {
 			continue
 		}
 
+		parsed := len(contentList)
 		switch contentType {
 		case ContentTypeText:
 			if text, ok := contentItem["text"].(string); ok {
@@ -867,6 +869,11 @@ func (m *Message) ParseContent() []MediaContent {
 						Url: videoUrl,
 					},
 				})
+			}
+		}
+		if control, ok := contentItem["cache_control"]; ok && control != nil && len(contentList) > parsed {
+			if encoded, err := kitutil.Marshal(control); err == nil {
+				contentList[parsed].CacheControl = encoded
 			}
 		}
 	}

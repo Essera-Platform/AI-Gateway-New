@@ -135,6 +135,33 @@ describe('Model Square on a managed gateway', () => {
     expect(screen.queryByText('Sign in to see prices')).not.toBeInTheDocument()
   })
 
+  it('keeps the prices under the model name and only the measurements at the bottom of a stretched card', async () => {
+    const model = await managedModel(true, {
+      ...claude,
+      vendor_id: 1,
+      essera_prices: [
+        {
+          unit: 'input_tokens',
+          amount: '2.70',
+          per_quantity: 1_000_000,
+          currency: 'USD',
+        },
+      ],
+    })
+
+    render(<ModelCard model={model} onClick={vi.fn()} />)
+
+    const prices = screen.getByRole('group', { name: 'Pricing' })
+    const card = prices.closest('article')
+    const footer = screen
+      .getByRole('button', { name: 'Details' })
+      .closest('article > *')
+    expect(prices.previousElementSibling).toHaveTextContent('Claude Sonnet 4')
+    expect(prices).not.toHaveClass('mt-auto')
+    expect(footer).toBe(card?.lastElementChild)
+    expect(footer).toHaveClass('mt-auto')
+  })
+
   it('lists cache and long-context prices in bill order, with what long context means', async () => {
     const perMillion = (unit: string, amount: string) => ({
       unit,

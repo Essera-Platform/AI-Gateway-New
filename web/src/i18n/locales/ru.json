@@ -7871,6 +7871,13 @@
     "Speech output": "Речевой вывод",
     "Charges": "Начисления",
     "Not priced yet": "Ещё не оценено",
-    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Цены с длинным контекстом применяются ко всем токенам запроса, промпт которого длиннее порога длинного контекста модели."
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "Цены с длинным контекстом применяются ко всем токенам запроса, промпт которого длиннее порога длинного контекста модели.",
+    "Text input": "Текстовый ввод",
+    "text": "текст",
+    "{{count}} texts": "{{count}} текстов",
+    "Video input": "Видеоввод",
+    "Search unit": "Поисковая единица",
+    "search unit": "поисковая единица",
+    "{{count}} search units": "{{count}} поисковых единиц"
   }
 }

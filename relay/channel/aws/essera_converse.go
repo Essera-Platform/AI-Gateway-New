@@ -373,8 +373,8 @@ func (r *converseRequest) appendMessage(role string, blocks []converseContentBlo
 func converseContentBlocks(c *gin.Context, message *dto.Message, documents *int) ([]converseContentBlock, error) {
 	var blocks []converseContentBlock
 	parts := message.ParseContent()
-	// ParseContent drops cache_control; read it from the client's own parts
-	// when each of them was parsed.
+	// A part's cache_control, as parsed or from the client's own part when
+	// each of them was parsed.
 	rawParts, _ := message.Content.([]any)
 	cached := func(i int) bool {
 		if len(parts[i].CacheControl) > 0 {

@@ -233,6 +233,12 @@ func TestSonicSpeechInSpeechAndTranscriptOut(t *testing.T) {
 	assert.Equal(t, "AAAA", events[6]["delta"])
 	assert.Equal(t, "Four.", events[9]["transcript"], "the final text, said once")
 	assert.Equal(t, "completed", events[12]["response"].(map[string]any)["status"])
+	usage := events[12]["response"].(map[string]any)["usage"].(map[string]any)
+	inputDetails := usage["input_token_details"].(map[string]any)
+	outputDetails := usage["output_token_details"].(map[string]any)
+	assert.Equal(t, []float64{615, 351, 264}, []float64{usage["input_tokens"].(float64), inputDetails["text_tokens"].(float64), inputDetails["audio_tokens"].(float64)},
+		"the answer waits for Bedrock's usage of it, and counts the instructions and the person's speech that led to it")
+	assert.Equal(t, []float64{65, 32, 33}, []float64{usage["output_tokens"].(float64), outputDetails["text_tokens"].(float64), outputDetails["audio_tokens"].(float64)})
 
 	outcome := client.close()
 	require.Nil(t, outcome.apiErr)

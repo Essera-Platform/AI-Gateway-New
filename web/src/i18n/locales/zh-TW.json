@@ -7871,6 +7871,13 @@
     "Speech output": "語音輸出",
     "Charges": "費用明細",
     "Not priced yet": "尚未定價",
-    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "當請求的提示超過模型的長上下文長度時，長上下文價格適用於該請求的所有 token。"
+    "Long context prices apply to every token of a request whose prompt is longer than the model’s long-context size.": "當請求的提示超過模型的長上下文長度時，長上下文價格適用於該請求的所有 token。",
+    "Text input": "文字輸入",
+    "text": "則文字",
+    "{{count}} texts": "{{count}} 則文字",
+    "Video input": "影片輸入",
+    "Search unit": "搜尋單位",
+    "search unit": "搜尋單位",
+    "{{count}} search units": "{{count}} 搜尋單位"
   }
 }

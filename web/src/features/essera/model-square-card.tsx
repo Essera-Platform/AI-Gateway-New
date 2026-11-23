@@ -14,7 +14,9 @@ import {
 
 /**
  * A model on a managed gateway's Model Square, in the Essera card design: the display name,
- * the model id to copy, its type, the person's prices and the Console's measurements of it.
+ * the model id to copy, its type, the person's prices right under the name and the Console's
+ * measurements of it at the bottom, so cards of a row with fewer prices leave the gap above
+ * the measurements, not above the prices.
  */
 export function EsseraModelCard(props: {
   model: PricingModel
@@ -78,14 +80,14 @@ export function EsseraModelCard(props: {
       <div
         role='group'
         aria-label={t('Pricing')}
-        className='bg-muted/40 mt-auto grid gap-1.5 rounded-lg px-3 py-2.5'
+        className='bg-muted/40 grid gap-1.5 rounded-lg px-3 py-2.5'
       >
         <EsseraModelPrices info={props.info} />
       </div>
 
       <EsseraModelMetricsLine
         metrics={props.info.metrics}
-        className='border-border/60 border-t pt-2'
+        className='border-border/60 mt-auto border-t pt-2'
       >
         {props.info.signedIn && (
           <Button

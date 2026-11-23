@@ -10,12 +10,14 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"io"
+	"maps"
 	"math"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -1025,6 +1027,42 @@ func TestBedrockStabilityImageEdits(t *testing.T) {
 		_, captured, apiErr := relayImage(t, c, model, relayconstant.RelayModeImagesEdits, request)
 		require.Nil(t, apiErr)
 		assert.JSONEq(t, `{"init_image":"aW5pdA==","style_image":"c3R5bGU=","style_strength":0.5}`, string(captured()[0].body))
+	})
+
+	t.Run("each service is sent only the members it takes", func(t *testing.T) {
+		everything := `"prompt":"a cat","mask":"bXNr","negative_prompt":"dog","style_preset":"photographic","search_prompt":"hat","select_prompt":"hat",` +
+			`"aspect_ratio":"1:1","seed":7,"grow_mask":3,"creativity":0.3,"left":10,"right":10,"up":10,"down":10,"control_strength":0.7,` +
+			`"fidelity":0.5,"composition_fidelity":0.9,"style_strength":1,"change_strength":0.9,"output_format":"png"`
+		sent := map[string][]string{
+			"stable-fast-upscale":            {"image", "output_format"},
+			"stable-conservative-upscale":    {"image", "output_format", "prompt", "negative_prompt", "seed", "creativity"},
+			"stable-creative-upscale":        {"image", "output_format", "prompt", "negative_prompt", "seed", "creativity", "style_preset"},
+			"stable-image-inpaint":           {"image", "output_format", "prompt", "mask", "negative_prompt", "grow_mask", "seed", "style_preset"},
+			"stable-outpaint":                {"image", "output_format", "prompt", "left", "right", "up", "down", "creativity", "seed", "style_preset"},
+			"stable-image-erase-object":      {"image", "output_format", "mask", "grow_mask", "seed"},
+			"stable-image-remove-background": {"image", "output_format"},
+			"stable-image-search-replace":    {"image", "output_format", "prompt", "search_prompt", "negative_prompt", "grow_mask", "seed", "style_preset"},
+			"stable-image-search-recolor":    {"image", "output_format", "prompt", "select_prompt", "negative_prompt", "grow_mask", "seed", "style_preset"},
+			"stable-image-control-sketch":    {"image", "output_format", "prompt", "control_strength", "negative_prompt", "seed", "style_preset"},
+			"stable-image-control-structure": {"image", "output_format", "prompt", "control_strength", "negative_prompt", "seed", "style_preset"},
+			"stable-image-style-guide":       {"image", "output_format", "prompt", "negative_prompt", "aspect_ratio", "fidelity", "seed", "style_preset"},
+			"stable-style-transfer":          {"init_image", "style_image", "output_format", "prompt", "negative_prompt", "seed", "composition_fidelity", "style_strength", "change_strength"},
+		}
+		require.Len(t, sent, len(stabilityServices), "every service is listed")
+		for service, members := range sent {
+			t.Run(service, func(t *testing.T) {
+				images := `"image":"aW1n"`
+				if service == "stable-style-transfer" {
+					images = `"images":["aW1n","c3R5bGU="]`
+				}
+				var request dto.ImageRequest
+				require.NoError(t, common.Unmarshal([]byte(`{"model":"x",`+images+`,`+everything+`}`), &request))
+				c := newAwsTestContext(httptest.NewRecorder(), context.Background())
+				body, err := convertStabilityRequest(c, relayconstant.RelayModeImagesEdits, "stability."+service+"-v1:0", request)
+				require.NoError(t, err)
+				assert.ElementsMatch(t, members, slices.Collect(maps.Keys(body)))
+			})
+		}
 	})
 
 	refused := map[string]struct {

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+// Modified by Essera, 2026-11: the units the Console measured besides tokens, with the tokens.
 import { flexRender, type Cell } from '@tanstack/react-table'
 import { ChevronRight, KeyRound } from 'lucide-react'
 import { useState } from 'react'
@@ -27,6 +28,7 @@ import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge, type StatusVariant } from '@/components/status-badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { EsseraOtherUnits } from '@/features/essera/measured-units'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import dayjs from '@/lib/dayjs'
 import { formatLogQuota, formatTimestampToDate } from '@/lib/format'
@@ -139,7 +141,8 @@ export function CommonLogMobileCard<TData>(props: {
     (log.prompt_tokens > 0 ||
       log.completion_tokens > 0 ||
       cacheRead > 0 ||
-      cacheWrite > 0)
+      cacheWrite > 0 ||
+      Boolean(other?.essera?.units))
 
   return (
     <div className='min-w-0 space-y-2.5 text-sm leading-5'>
@@ -312,6 +315,7 @@ export function CommonLogMobileCard<TData>(props: {
               {t('Cache')} ↑ {cacheWrite.toLocaleString()}
             </span>
           )}
+          <EsseraOtherUnits units={other?.essera?.units} />
         </div>
       )}
       {contentCell && (

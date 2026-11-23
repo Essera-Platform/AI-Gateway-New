@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// Modified by Essera, 2026-11: the analytics design: one card per figure with a tinted icon tile, the last one highlighted in emerald.
+// Modified by Essera, 2026-11: the analytics design: one card per figure with a tinted icon tile, the last one highlighted in emerald; a card for each unit the Console measured that the token and cache cards do not show.
+import { Shapes } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -34,6 +35,12 @@ import type {
   DashboardFilters,
 } from '@/features/dashboard/types'
 import { NumberValue } from '@/features/essera/brand/number-value'
+import {
+  esseraUnitLabel,
+  esseraUnitQuantity,
+  measuredUnits,
+  TOKEN_FIGURE_UNITS,
+} from '@/features/essera/model-square-format'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
@@ -61,7 +68,7 @@ function formatStatNumber(value: number, locale: Intl.LocalesArgument) {
 }
 
 export function LogStatCards(props: LogStatCardsProps) {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const statCardsConfig = useModelStatCardsConfig()
   const user = useAuthStore((state) => state.auth.user)
   const isAdmin = !!(user?.role && user.role >= 10)
@@ -123,9 +130,9 @@ export function LogStatCards(props: LogStatCardsProps) {
     cacheCreation: stats?.totalCacheCreationTokens ?? 0,
   }
 
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const items = statCardsConfig.map((config) => {
     const rawValue = config.getValue(adaptedStats, timeRangeMinutes)
-    const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
     const formatted =
       config.key === 'quota'
         ? {
@@ -144,6 +151,22 @@ export function LogStatCards(props: LogStatCardsProps) {
       iconTone: config.iconTone,
     }
   })
+  const unitItems = measuredUnits(stats?.totalUnits)
+    .filter((measured) => !TOKEN_FIGURE_UNITS.has(measured.unit))
+    .map((measured) => {
+      const formatted = formatStatNumber(measured.quantity, locale)
+      return {
+        key: `unit:${measured.unit}`,
+        title: esseraUnitLabel(t, measured.unit),
+        value: formatted.displayValue,
+        fullValue: formatted.fullValue,
+        desc: esseraUnitQuantity(t, measured.unit, measured.quantity, locale),
+        icon: Shapes,
+        iconTone: 'chart-1' as const,
+      }
+    })
+  const averagesAt = items.findIndex((item) => item.key === 'avgRpm')
+  items.splice(averagesAt === -1 ? items.length : averagesAt, 0, ...unitItems)
 
   return (
     <div>
