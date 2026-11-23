@@ -1,0 +1,592 @@
+# Simplified Chinese for the prose of openapi.yaml: each `en` is the English text exactly as it is there.
+# A new or changed English text needs its entry here (TestEveryTextHasAChineseTranslation).
+- en: "Essera AI Gateway API"
+  zh: "Essera AI 网关 API"
+- en: "One API for the AI models of your Essera account."
+  zh: "用一个 API 调用您 Essera 账户中的 AI 模型。"
+- en: |
+    The Essera AI Gateway serves the AI models of your Essera account through one API. Every model runs on
+    **Amazon Bedrock in the EU (Ireland) region, eu-west-1**: your requests and their answers are processed there.
+
+    The API follows the OpenAI and Anthropic request formats, so their SDKs and the tools built on them work with
+    the Gateway. They are only clients of the Gateway: they send every request to the address below, never to
+    OpenAI or Anthropic, and you need no OpenAI or Anthropic account.
+
+    ## Base URL
+
+    ```
+    https://ai-gateway.example.com
+    ```
+
+    - OpenAI-format clients use `https://ai-gateway.example.com/v1` as their base URL.
+    - The Anthropic SDK uses `https://ai-gateway.example.com` (it adds `/v1/messages` itself).
+
+    ## Authentication
+
+    Every request carries an API key of yours:
+
+    ```
+    Authorization: Bearer sk-…
+    ```
+
+    - Create keys on the **API Keys** page of the Gateway. A key is shown **once**, when you create it: copy it then.
+    - A key works for at most **90 days**; you may choose a shorter time. Delete a key on the same page and it stops
+      working at once.
+    - A key is `sk-` followed by 56 letters and digits. It acts as you: the models, limits and usage of your account
+      apply to every request made with it.
+    - `/v1/messages` and `/v1/models` also accept the key in the `x-api-key` header, as the Anthropic SDK sends it.
+    - Keep keys on your servers. Do not put them in web pages or mobile apps.
+
+    ## Models
+
+    A model is named by its catalog id, as the **Model Square** and `GET /v1/models` show it, for example
+    `anthropic.claude-sonnet-4-6`, `amazon.nova-lite-v1:0`, `eu.amazon.nova-lite-v1:0` or
+    `amazon.titan-embed-text-v2:0`. You see and may call only the models your account is allowed to use; any other
+    model is refused with 403.
+
+    Use the catalog id even when Bedrock serves a model through an EU inference profile: the Gateway calls the
+    profile for you, and your usage keeps the catalog id. Requests stay in the EU geography.
+
+    Text models answer on `/v1/chat/completions`, `/v1/responses` and `/v1/messages`, whatever their vendor: the
+    Gateway converts between the formats. Embedding models (Titan Text Embeddings v2, Titan Multimodal Embeddings,
+    Cohere Embed) answer on `/v1/embeddings`. Images, audio generation, speech, rerank, realtime sessions, files and
+    fine-tuning are not offered.
+
+    ## Limits and billing
+
+    - **Monthly limits** on requests, tokens and spend are set by Essera for your account, and may be set for each
+      user and key as well. A request past a limit is refused with 429 `essera_quota_exceeded` until the next month
+      of your billing cycle starts.
+    - A request is counted when the Gateway takes it, and given back if it reaches no model. Its tokens are counted
+      when it ends. Cached prompt tokens, read or written, count as prompt tokens.
+    - **Prices** per model are on the **Model Square**. Your **Usage Logs** and **Dashboard** show every request, its
+      tokens and its cost, and the account summary shows what is left of each limit.
+    - Each model on Bedrock also has a request rate per minute. Past it, the Gateway answers 429; wait a minute and
+      retry.
+
+    ## Errors
+
+    Errors use the OpenAI format, `{"error": {"message", "type", "code"}}`. On `/v1/messages`, errors from the model
+    use the Anthropic format, `{"type": "error", "error": {"type", "message"}}`; errors from the Gateway's checks
+    before the model (authentication, account, country, limits) use the OpenAI format there too. Each message ends
+    with `(request id: …)`; quote it when you contact support.
+
+    | Status | `error.code` | Meaning |
+    | --- | --- | --- |
+    | 400 | `invalid_request` | The request is not valid for the model, for example a missing field, an unsupported image type or more than 256 embedding inputs. Bedrock's own validation errors are passed on with this code. |
+    | 400 | (type `invalid_request_error`) | Nova 2 at high reasoning effort does not accept `max_tokens`: remove `max_tokens` or use medium reasoning effort. |
+    | 400 | (type `invalid_request_error`) | More than 20 images or 5 documents in one request, an image over 3.75 MB or a document over 4.5 MB. |
+    | 401 | `essera_unauthenticated` | The API key is missing, not valid, expired or deleted, or its owner is no longer active. |
+    | 403 | (none) | `This token has no access to model …`: your account may not use this model. |
+    | 403 | `essera_account_inactive` | Your account, its partner account or the end user is suspended or closed. |
+    | 403 | `essera_country_denied` | Requests from your country are not served for this account. |
+    | 403 | `essera_country_unknown` | Your account is limited to some countries and the country of the request could not be told. |
+    | 404 | `essera_not_available` | The endpoint is not offered on the Essera Gateway. |
+    | 413 | `read_request_body_failed` | The request body is larger than the Gateway accepts. |
+    | 429 | `essera_quota_exceeded` | Your account has reached its monthly requests, tokens or spend limit. |
+    | 429 | `essera_provider_rate_limited` | The model's request rate per minute is reached; retry in a minute. |
+    | 429 | `rate_limit_exceeded`, `quota_exceeded` | Bedrock throttled the request; retry later. |
+    | 503 | `essera_maintenance` | The Gateway is in maintenance. `Retry-After` says when to retry, when the end is known. |
+    | 503 | `essera_unavailable` | The Gateway cannot check your key or limits right now; retry shortly. |
+    | 503 | (none) | No provider can serve the model right now. |
+    | 500, 502, 504 | `model_error`, `model_timeout`, `internal_server_error` | The model failed or did not answer in time; retry. |
+
+    When maintenance is planned, successful answers carry
+    `X-Essera-Maintenance: scheduled; start=…; end=…` beforehand.
+
+    ## Integrations
+
+    Any SDK or tool that lets you set the base URL of the OpenAI or the Anthropic API works with the Gateway.
+    Set three values: the **base URL**, your **API key** and a **model id** from the Model Square.
+
+    The SDKs and frameworks below were verified against the Gateway on 2026-11-20 (chat, streaming, responses,
+    messages and embeddings, as shown).
+
+    ### OpenAI SDK (Python)
+
+    ```python
+    # pip install openai
+    from openai import OpenAI
+
+    client = OpenAI(base_url="https://ai-gateway.example.com/v1", api_key="sk-…")
+    reply = client.chat.completions.create(
+        model="anthropic.claude-sonnet-4-6",
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+    print(reply.choices[0].message.content)
+    ```
+
+    ### OpenAI SDK (JavaScript)
+
+    ```javascript
+    // npm install openai
+    import OpenAI from "openai";
+
+    const client = new OpenAI({ baseURL: "https://ai-gateway.example.com/v1", apiKey: process.env.ESSERA_API_KEY });
+    const reply = await client.chat.completions.create({
+      model: "anthropic.claude-sonnet-4-6",
+      messages: [{ role: "user", content: "Hello" }],
+    });
+    console.log(reply.choices[0].message.content);
+    ```
+
+    ### Anthropic SDK (Python)
+
+    ```python
+    # pip install anthropic
+    from anthropic import Anthropic
+
+    client = Anthropic(base_url="https://ai-gateway.example.com", api_key="sk-…")
+    message = client.messages.create(
+        model="anthropic.claude-sonnet-4-6",
+        max_tokens=256,
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+    print(message.content[0].text)
+    ```
+
+    ### LangChain
+
+    ```python
+    # pip install langchain-openai langchain-anthropic
+    from langchain_anthropic import ChatAnthropic
+    from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+
+    chat = ChatOpenAI(base_url="https://ai-gateway.example.com/v1", api_key="sk-…", model="anthropic.claude-sonnet-4-6")
+    print(chat.invoke("Hello").content)
+
+    embeddings = OpenAIEmbeddings(
+        base_url="https://ai-gateway.example.com/v1",
+        api_key="sk-…",
+        model="amazon.titan-embed-text-v2:0",
+        check_embedding_ctx_length=False,  # send text, not OpenAI token ids
+    )
+    vector = embeddings.embed_query("Hello")
+
+    claude = ChatAnthropic(base_url="https://ai-gateway.example.com", api_key="sk-…", model="anthropic.claude-sonnet-4-6")
+    print(claude.invoke("Hello").content)
+    ```
+
+    ### LlamaIndex
+
+    ```python
+    # pip install llama-index-llms-openai-like
+    from llama_index.core.llms import ChatMessage
+    from llama_index.llms.openai_like import OpenAILike
+
+    llm = OpenAILike(
+        api_base="https://ai-gateway.example.com/v1",
+        api_key="sk-…",
+        model="anthropic.claude-sonnet-4-6",
+        is_chat_model=True,
+        context_window=200000,
+    )
+    print(llm.chat([ChatMessage(role="user", content="Hello")]).message.content)
+    ```
+
+    ### Tools with an OpenAI-compatible endpoint
+
+    Editors and chat apps that accept an "OpenAI-compatible" provider, such as Continue, Open WebUI and LibreChat,
+    need the same three values: base URL `https://ai-gateway.example.com/v1`, your API key, and the model id.
+  zh: |
+    Essera AI 网关通过一个 API 提供您 Essera 账户中的 AI 模型。所有模型都运行在
+    **Amazon Bedrock 欧盟（爱尔兰）区域 eu-west-1**：您的请求及其回答都在该区域处理。
+
+    该 API 遵循 OpenAI 和 Anthropic 的请求格式，因此它们的 SDK 以及基于这些 SDK 构建的工具都可以与网关配合使用。
+    这些 SDK 只是网关的客户端：它们把每个请求都发送到下方的地址，绝不会发往 OpenAI 或 Anthropic，
+    您也不需要 OpenAI 或 Anthropic 账户。
+
+    ## 基础 URL
+
+    ```
+    https://ai-gateway.example.com
+    ```
+
+    - OpenAI 格式的客户端使用 `https://ai-gateway.example.com/v1` 作为基础 URL。
+    - Anthropic SDK 使用 `https://ai-gateway.example.com`（它会自行添加 `/v1/messages`）。
+
+    ## 身份验证
+
+    每个请求都要携带您的一个 API 密钥：
+
+    ```
+    Authorization: Bearer sk-…
+    ```
+
+    - 在网关的 **API 密钥** 页面创建密钥。密钥只在创建时显示**一次**，请当场复制。
+    - 密钥最长有效 **90 天**，您也可以选择更短的期限。在同一页面删除密钥后，它会立即失效。
+    - 密钥由 `sk-` 加 56 位字母和数字组成。它代表您本人：您账户的模型、限额和用量适用于用它发出的每个请求。
+    - `/v1/messages` 和 `/v1/models` 也接受放在 `x-api-key` 请求头中的密钥，这正是 Anthropic SDK 的发送方式。
+    - 请把密钥保存在您的服务器上，不要放进网页或移动应用。
+
+    ## 模型
+
+    模型以其目录 ID 命名，与 **模型广场** 和 `GET /v1/models` 显示的一致，例如
+    `anthropic.claude-sonnet-4-6`、`amazon.nova-lite-v1:0`、`eu.amazon.nova-lite-v1:0` 或
+    `amazon.titan-embed-text-v2:0`。您只能看到并调用账户允许使用的模型；调用其他模型会被拒绝并返回 403。
+
+    即使 Bedrock 通过欧盟推理配置文件（inference profile）提供某个模型，也请使用目录 ID：网关会替您调用该配置文件，
+    您的用量记录仍使用目录 ID。请求始终留在欧盟地理范围内。
+
+    文本模型无论来自哪家厂商，都可通过 `/v1/chat/completions`、`/v1/responses` 和 `/v1/messages` 调用：
+    网关会在这些格式之间进行转换。嵌入模型（Titan Text Embeddings v2、Titan Multimodal Embeddings、
+    Cohere Embed）通过 `/v1/embeddings` 调用。不提供图像、音频生成、语音、重排序（rerank）、实时会话、文件和微调。
+
+    ## 限额与计费
+
+    - 请求数、Token 数和花费的**月度限额**由 Essera 为您的账户设置，也可以为每个用户和密钥单独设置。
+      超出限额的请求会被拒绝并返回 429 `essera_quota_exceeded`，直到您计费周期的下个月开始。
+    - 请求在网关接收时计数；如果它没有到达任何模型，则会退还该次计数。Token 在请求结束时计数。
+      缓存的提示 Token，无论是读取还是写入，都计为提示 Token。
+    - 每个模型的**价格**见 **模型广场**。您的 **使用日志** 和 **仪表盘** 会显示每个请求及其 Token 数和费用，
+      账户概览会显示每项限额的剩余量。
+    - Bedrock 上的每个模型还有每分钟请求速率限制。超出后网关返回 429；请等待一分钟后重试。
+
+    ## 错误
+
+    错误使用 OpenAI 格式 `{"error": {"message", "type", "code"}}`。在 `/v1/messages` 上，来自模型的错误使用
+    Anthropic 格式 `{"type": "error", "error": {"type", "message"}}`；而网关在调用模型之前的检查（身份验证、账户、
+    国家/地区、限额）所产生的错误，在该端点上同样使用 OpenAI 格式。每条错误消息都以 `(request id: …)` 结尾；
+    联系支持团队时请提供该 ID。
+
+    | 状态码 | `error.code` | 含义 |
+    | --- | --- | --- |
+    | 400 | `invalid_request` | 请求对该模型无效，例如缺少字段、图像类型不受支持或嵌入输入超过 256 条。Bedrock 自身的校验错误也以此代码返回。 |
+    | 400 | （type 为 `invalid_request_error`） | 高推理强度下的 Nova 2 不接受 `max_tokens`：请删除 `max_tokens` 或改用中等推理强度。 |
+    | 400 | （type 为 `invalid_request_error`） | 单个请求中超过 20 张图像或 5 个文档，或图像超过 3.75 MB、文档超过 4.5 MB。 |
+    | 401 | `essera_unauthenticated` | API 密钥缺失、无效、已过期或已删除，或其所有者已不再处于活跃状态。 |
+    | 403 | （无） | `This token has no access to model …`：您的账户无权使用该模型。 |
+    | 403 | `essera_account_inactive` | 您的账户、其合作伙伴账户或最终用户已被暂停或关闭。 |
+    | 403 | `essera_country_denied` | 该账户不为您所在的国家/地区提供服务。 |
+    | 403 | `essera_country_unknown` | 您的账户仅限部分国家/地区使用，且无法判断请求来自哪个国家/地区。 |
+    | 404 | `essera_not_available` | Essera 网关不提供该端点。 |
+    | 413 | `read_request_body_failed` | 请求体超出网关接受的大小。 |
+    | 429 | `essera_quota_exceeded` | 您的账户已达到月度请求数、Token 数或花费限额。 |
+    | 429 | `essera_provider_rate_limited` | 已达到该模型的每分钟请求速率；请一分钟后重试。 |
+    | 429 | `rate_limit_exceeded`, `quota_exceeded` | Bedrock 对请求进行了限流；请稍后重试。 |
+    | 503 | `essera_maintenance` | 网关正在维护。若已知结束时间，`Retry-After` 会说明何时重试。 |
+    | 503 | `essera_unavailable` | 网关暂时无法检查您的密钥或限额；请稍后重试。 |
+    | 503 | （无） | 当前没有可提供该模型的供应商。 |
+    | 500, 502, 504 | `model_error`, `model_timeout`, `internal_server_error` | 模型出错或未能及时响应；请重试。 |
+
+    计划维护时，成功的响应会提前携带
+    `X-Essera-Maintenance: scheduled; start=…; end=…`。
+
+    ## 集成
+
+    任何允许设置 OpenAI 或 Anthropic API 基础 URL 的 SDK 或工具都可以与网关配合使用。
+    只需设置三个值：**基础 URL**、您的 **API 密钥**，以及模型广场中的**模型 ID**。
+
+    以下 SDK 和框架已于 2026-11-20 针对网关完成验证（对话、流式、Responses、Messages 和嵌入，如示例所示）。
+
+    ### OpenAI SDK（Python）
+
+    ```python
+    # pip install openai
+    from openai import OpenAI
+
+    client = OpenAI(base_url="https://ai-gateway.example.com/v1", api_key="sk-…")
+    reply = client.chat.completions.create(
+        model="anthropic.claude-sonnet-4-6",
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+    print(reply.choices[0].message.content)
+    ```
+
+    ### OpenAI SDK（JavaScript）
+
+    ```javascript
+    // npm install openai
+    import OpenAI from "openai";
+
+    const client = new OpenAI({ baseURL: "https://ai-gateway.example.com/v1", apiKey: process.env.ESSERA_API_KEY });
+    const reply = await client.chat.completions.create({
+      model: "anthropic.claude-sonnet-4-6",
+      messages: [{ role: "user", content: "Hello" }],
+    });
+    console.log(reply.choices[0].message.content);
+    ```
+
+    ### Anthropic SDK（Python）
+
+    ```python
+    # pip install anthropic
+    from anthropic import Anthropic
+
+    client = Anthropic(base_url="https://ai-gateway.example.com", api_key="sk-…")
+    message = client.messages.create(
+        model="anthropic.claude-sonnet-4-6",
+        max_tokens=256,
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+    print(message.content[0].text)
+    ```
+
+    ### LangChain
+
+    ```python
+    # pip install langchain-openai langchain-anthropic
+    from langchain_anthropic import ChatAnthropic
+    from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+
+    chat = ChatOpenAI(base_url="https://ai-gateway.example.com/v1", api_key="sk-…", model="anthropic.claude-sonnet-4-6")
+    print(chat.invoke("Hello").content)
+
+    embeddings = OpenAIEmbeddings(
+        base_url="https://ai-gateway.example.com/v1",
+        api_key="sk-…",
+        model="amazon.titan-embed-text-v2:0",
+        check_embedding_ctx_length=False,  # send text, not OpenAI token ids
+    )
+    vector = embeddings.embed_query("Hello")
+
+    claude = ChatAnthropic(base_url="https://ai-gateway.example.com", api_key="sk-…", model="anthropic.claude-sonnet-4-6")
+    print(claude.invoke("Hello").content)
+    ```
+
+    ### LlamaIndex
+
+    ```python
+    # pip install llama-index-llms-openai-like
+    from llama_index.core.llms import ChatMessage
+    from llama_index.llms.openai_like import OpenAILike
+
+    llm = OpenAILike(
+        api_base="https://ai-gateway.example.com/v1",
+        api_key="sk-…",
+        model="anthropic.claude-sonnet-4-6",
+        is_chat_model=True,
+        context_window=200000,
+    )
+    print(llm.chat([ChatMessage(role="user", content="Hello")]).message.content)
+    ```
+
+    ### 支持 OpenAI 兼容端点的工具
+
+    接受“OpenAI 兼容”提供方的编辑器和聊天应用（例如 Continue、Open WebUI 和 LibreChat）
+    需要同样的三个值：基础 URL `https://ai-gateway.example.com/v1`、您的 API 密钥，以及模型 ID。
+- en: "Essera AI Gateway"
+  zh: "Essera AI 网关"
+- en: "The models your account may call."
+  zh: "您的账户可以调用的模型。"
+- en: "Models"
+  zh: "模型"
+- en: "Text generation in the OpenAI and Anthropic formats."
+  zh: "以 OpenAI 和 Anthropic 格式生成文本。"
+- en: "Chat"
+  zh: "对话"
+- en: "Vectors for search and retrieval."
+  zh: "用于搜索和检索的向量。"
+- en: "Embeddings"
+  zh: "嵌入"
+- en: "List models"
+  zh: "列出模型"
+- en: |
+    Lists the models your account may call, by catalog id. With both `x-api-key` and `anthropic-version`
+    headers, the list comes in the Anthropic format instead.
+  zh: |
+    根据目录 ID 列出您的账户可以调用的模型。如果同时带有 `x-api-key` 和 `anthropic-version`
+    请求头，则改为以 Anthropic 格式返回列表。
+- en: "Create a chat completion"
+  zh: "创建对话补全"
+- en: |
+    Generates the next message of a conversation, in the OpenAI Chat Completions format, with any text model of
+    your account.
+
+    - **Streaming:** with `"stream": true` the answer comes as server-sent events, one `chat.completion.chunk`
+      per `data:` line, ending with `data: [DONE]`. Add `"stream_options": {"include_usage": true}` to get a last
+      chunk with the token usage.
+    - **Images:** send them in a user message as `image_url` parts with a base64 data URL
+      (`data:image/png;base64,…`); PNG, JPEG, GIF and WebP are accepted by models that read images. A request
+      may carry up to 20 images of up to 3.75 MB each, and up to 5 documents of up to 4.5 MB each.
+    - **Tools:** describe functions in `tools`; the model answers with `tool_calls`, and you send each result
+      back in a `tool` message.
+    - **Reasoning:** `reasoning_effort` sets how much the model thinks, on models that support it (GPT-oss,
+      Nova 2). Its reasoning comes back in `reasoning_content`. Nova 2 at `high` effort does not accept
+      `max_tokens` or `max_completion_tokens`: leave them out, or use `medium`.
+  zh: |
+    以 OpenAI Chat Completions 格式，使用您账户中的任意文本模型生成对话的下一条消息。
+
+    - **流式输出：** 设置 `"stream": true` 时，回答以服务器发送事件（SSE）返回，每行 `data:` 为一个 `chat.completion.chunk`，
+      以 `data: [DONE]` 结束。添加 `"stream_options": {"include_usage": true}` 可在最后获得一个包含 Token 用量的分块。
+    - **图像：** 在用户消息中以 `image_url` 片段发送，使用 base64 data URL
+      （`data:image/png;base64,…`）；能读取图像的模型接受 PNG、JPEG、GIF 和 WebP。单个请求最多可携带 20 张图像（每张不超过 3.75 MB）
+      和 5 个文档（每个不超过 4.5 MB）。
+    - **工具：** 在 `tools` 中描述函数；模型以 `tool_calls` 作答，您再将每个结果放入 `tool` 消息发回。
+    - **推理：** `reasoning_effort` 设置模型的思考程度，适用于支持该参数的模型（GPT-oss、Nova 2）。
+      推理内容在 `reasoning_content` 中返回。Nova 2 在 `high` 强度下不接受 `max_tokens` 或 `max_completion_tokens`：
+      请省略它们，或改用 `medium`。
+- en: "A simple request"
+  zh: "简单请求"
+- en: "Streaming with usage"
+  zh: "流式输出并返回用量"
+- en: "An image as a data URL"
+  zh: "以 data URL 传入图像"
+- en: "Tools"
+  zh: "工具"
+- en: "Reasoning effort"
+  zh: "推理强度"
+- en: |
+    The completion. With `"stream": true`, a stream of server-sent events instead, each `data:` line holding
+    a `chat.completion.chunk`, then `data: [DONE]`.
+  zh: |
+    对话补全。设置 `"stream": true` 时，改为返回服务器发送事件流，每行 `data:` 包含
+    一个 `chat.completion.chunk`，最后是 `data: [DONE]`。
+- en: "Server-sent events, each `data:` line a `chat.completion.chunk`, ending with `data: [DONE]`."
+  zh: "服务器发送事件（SSE），每行 `data:` 为一个 `chat.completion.chunk`，以 `data: [DONE]` 结束。"
+- en: "Create a response"
+  zh: "创建响应"
+- en: |
+    Generates a response in the OpenAI Responses format, with any text model of your account. The Gateway does
+    not store responses: send the whole conversation in `input` each time. With `"stream": true` the answer comes
+    as server-sent Responses events (`response.output_text.delta`, …, `response.completed`).
+  zh: |
+    以 OpenAI Responses 格式，使用您账户中的任意文本模型生成响应。网关不存储响应：
+    每次都需在 `input` 中发送完整对话。设置 `"stream": true` 时，回答以 Responses 服务器发送事件返回
+    （`response.output_text.delta`、…、`response.completed`）。
+- en: "The response. With `\"stream\": true`, a stream of server-sent Responses events instead."
+  zh: "响应。设置 `\"stream\": true` 时，改为返回 Responses 服务器发送事件流。"
+- en: "Server-sent Responses events, ending with `response.completed`."
+  zh: "Responses 服务器发送事件，以 `response.completed` 结束。"
+- en: "Create a message (Anthropic format)"
+  zh: "创建消息（Anthropic 格式）"
+- en: |
+    Generates the next message in the Anthropic Messages format, with any text model of your account, Claude or
+    not. The key may come as `x-api-key`, as the Anthropic SDK sends it, or as `Authorization: Bearer`.
+    `max_tokens` is required by this format; Nova 2 at high reasoning effort does not accept it, so use medium
+    effort with Nova 2 here, or `/v1/chat/completions` without a token cap.
+
+    With `"stream": true` the answer comes as Anthropic server-sent events (`message_start`,
+    `content_block_delta`, …, `message_stop`).
+  zh: |
+    以 Anthropic Messages 格式，使用您账户中的任意文本模型（无论是否为 Claude）生成下一条消息。
+    密钥可以通过 `x-api-key`（Anthropic SDK 的发送方式）或 `Authorization: Bearer` 传递。
+    该格式要求提供 `max_tokens`；高推理强度下的 Nova 2 不接受该参数，因此在此端点使用 Nova 2 时请选择中等推理强度，
+    或改用不设 Token 上限的 `/v1/chat/completions`。
+
+    设置 `"stream": true` 时，回答以 Anthropic 服务器发送事件返回（`message_start`、
+    `content_block_delta`、…、`message_stop`）。
+- en: "The Anthropic API version your client speaks. The Anthropic SDKs send it; the Gateway accepts it."
+  zh: "您的客户端使用的 Anthropic API 版本。Anthropic SDK 会发送该请求头，网关接受它。"
+- en: "The message. With `\"stream\": true`, a stream of Anthropic server-sent events instead."
+  zh: "消息。设置 `\"stream\": true` 时，改为返回 Anthropic 服务器发送事件流。"
+- en: "Anthropic server-sent events, ending with `message_stop`."
+  zh: "Anthropic 服务器发送事件，以 `message_stop` 结束。"
+- en: "Create embeddings"
+  zh: "创建嵌入"
+- en: |
+    Turns text into vectors with an embedding model of your account: Titan Text Embeddings v2, Titan Multimodal
+    Embeddings, or Cohere Embed v3 and v4. `input` takes one string or up to 256. On Titan Multimodal Embeddings
+    and Cohere Embed, an input may also be an image as a base64 data URL.
+  zh: |
+    使用您账户中的嵌入模型将文本转换为向量：Titan Text Embeddings v2、Titan Multimodal
+    Embeddings，或 Cohere Embed v3 和 v4。`input` 接受一个字符串或最多 256 个。在 Titan Multimodal Embeddings
+    和 Cohere Embed 上，输入也可以是以 base64 data URL 表示的图像。
+- en: "One embedding per input, in the order of the inputs."
+  zh: "每个输入对应一个嵌入，顺序与输入一致。"
+- en: "An API key from the API Keys page, as `Authorization: Bearer sk-…`."
+  zh: "来自 API 密钥页面的 API 密钥，格式为 `Authorization: Bearer sk-…`。"
+- en: "The same API key in the `x-api-key` header, as the Anthropic SDK sends it. Accepted on `/v1/messages` and `/v1/models`."
+  zh: "放在 `x-api-key` 请求头中的同一 API 密钥，与 Anthropic SDK 的发送方式一致。适用于 `/v1/messages` 和 `/v1/models`。"
+- en: "The request is not valid for the model."
+  zh: "请求对该模型无效。"
+- en: "A request Bedrock refuses"
+  zh: "被 Bedrock 拒绝的请求"
+- en: "Nova 2 at high effort with max_tokens"
+  zh: "高推理强度的 Nova 2 携带 max_tokens"
+- en: "The request is not valid for the model, in the Anthropic error format."
+  zh: "请求对该模型无效，以 Anthropic 错误格式返回。"
+- en: "The API key is missing, not valid, expired or deleted."
+  zh: "API 密钥缺失、无效、已过期或已删除。"
+- en: "Not a valid key"
+  zh: "无效的密钥"
+- en: "An expired key"
+  zh: "已过期的密钥"
+- en: "The account may not make this request."
+  zh: "该账户无权发出此请求。"
+- en: "A model the account may not use"
+  zh: "账户无权使用的模型"
+- en: "A suspended account"
+  zh: "已暂停的账户"
+- en: "A country the account is not served in"
+  zh: "账户不提供服务的国家/地区"
+- en: "A country that could not be told"
+  zh: "无法判断的国家/地区"
+- en: "The request body is larger than the Gateway accepts."
+  zh: "请求体超出网关接受的大小。"
+- en: "A monthly limit of the account is reached, or the model's rate per minute."
+  zh: "已达到账户的某项月度限额，或模型的每分钟速率限制。"
+- en: "A monthly limit"
+  zh: "月度限额"
+- en: "The model's rate per minute"
+  zh: "模型的每分钟速率"
+- en: "The Gateway is in maintenance or cannot serve the request right now."
+  zh: "网关正在维护，或暂时无法处理该请求。"
+- en: "Seconds until the end of the maintenance, when it is known."
+  zh: "距维护结束的秒数（若已知）。"
+- en: "Maintenance"
+  zh: "维护"
+- en: "The Gateway cannot check the request"
+  zh: "网关无法检查该请求"
+- en: "What went wrong, ending with the request id."
+  zh: "出错原因，末尾附有请求 ID。"
+- en: "A stable code to act on; see Errors in the introduction."
+  zh: "可据以处理的稳定错误代码；参见简介中的“错误”一节。"
+- en: "The catalog id to send as `model`."
+  zh: "作为 `model` 发送的目录 ID。"
+- en: "The request formats the model is listed for."
+  zh: "该模型所支持的请求格式。"
+- en: "The image as a base64 data URL, `data:image/png;base64,…` (PNG, JPEG, GIF or WebP)."
+  zh: "以 base64 data URL 表示的图像，`data:image/png;base64,…`（PNG、JPEG、GIF 或 WebP）。"
+- en: "A document, on models that read documents."
+  zh: "文档，适用于能读取文档的模型。"
+- en: "The document as a base64 data URL (PDF, CSV, TXT, MD, HTML, DOC, DOCX, XLS, XLSX)."
+  zh: "以 base64 data URL 表示的文档（PDF、CSV、TXT、MD、HTML、DOC、DOCX、XLS、XLSX）。"
+- en: "Audio to understand, on models that hear (Voxtral)."
+  zh: "供模型理解的音频，适用于能处理音频的模型（Voxtral）。"
+- en: "Base64 audio."
+  zh: "Base64 编码的音频。"
+- en: "The arguments as a JSON string."
+  zh: "以 JSON 字符串表示的参数。"
+- en: "Text, or for a user message a list of parts. May be null on an assistant message with tool calls."
+  zh: "文本；对于用户消息，也可以是内容片段列表。带有工具调用的助手消息中可以为 null。"
+- en: "On an assistant message, the tool calls it made."
+  zh: "助手消息中发起的工具调用。"
+- en: "On a tool message, the id of the call it answers."
+  zh: "工具消息所响应的调用 ID。"
+- en: "A JSON Schema of the arguments."
+  zh: "参数的 JSON Schema。"
+- en: "A catalog id from the Model Square or `GET /v1/models`."
+  zh: "来自模型广场或 `GET /v1/models` 的目录 ID。"
+- en: "The most tokens to generate."
+  zh: "最多生成的 Token 数。"
+- en: "The same as `max_tokens`."
+  zh: "与 `max_tokens` 相同。"
+- en: "Up to four sequences that end the answer."
+  zh: "最多四个用于结束回答的序列。"
+- en: "Send the answer as server-sent events."
+  zh: "以服务器发送事件（SSE）的形式返回回答。"
+- en: "Add a last chunk with the token usage."
+  zh: "在最后追加一个包含 Token 用量的分块。"
+- en: "How much a reasoning model thinks (GPT-oss, Nova 2). Nova 2 at `high` refuses `max_tokens` and ignores `temperature` and `top_p`."
+  zh: "推理模型的思考程度（GPT-oss、Nova 2）。Nova 2 在 `high` 强度下拒绝 `max_tokens`，并忽略 `temperature` 和 `top_p`。"
+- en: "Prompt tokens, cached ones included."
+  zh: "提示 Token 数，包括缓存的 Token。"
+- en: "The model's reasoning, on reasoning models."
+  zh: "模型的推理内容，适用于推理模型。"
+- en: "Text, or a list of input messages and items, the whole conversation each time."
+  zh: "文本，或输入消息和条目的列表，每次都需包含完整对话。"
+- en: "A system message."
+  zh: "系统消息。"
+- en: "The system prompt."
+  zh: "系统提示词。"
+- en: "Text, or a list of content blocks (`text`, `image`, `tool_use`, `tool_result`)."
+  zh: "文本，或内容块列表（`text`、`image`、`tool_use`、`tool_result`）。"
+- en: "Extended thinking, on Claude models that support it."
+  zh: "扩展思考，适用于支持该功能的 Claude 模型。"
+- en: "One text or up to 256. On multimodal models, an item may be an image as a base64 data URL."
+  zh: "一条文本，或最多 256 条。在多模态模型上，条目也可以是以 base64 data URL 表示的图像。"
+- en: "The vector size, on models that offer a choice (Titan Text Embeddings v2 256, 512 or 1024; Titan Multimodal Embeddings; Cohere Embed v4)."
+  zh: "向量维度，适用于可选择维度的模型（Titan Text Embeddings v2 可选 256、512 或 1024；Titan Multimodal Embeddings；Cohere Embed v4）。"
+- en: "Floats, or with `encoding_format` `base64` the little-endian float32 bytes in base64."
+  zh: "浮点数；若 `encoding_format` 为 `base64`，则为 base64 编码的小端序 float32 字节。"

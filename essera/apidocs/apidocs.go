@@ -1,5 +1,6 @@
 // Package apidocs is the OpenAPI document of the API a managed Gateway serves its customers,
-// shown on the web UI's API Docs page. The document is written by hand in openapi.yaml.
+// shown on the web UI's API Docs page. The document is written by hand in openapi.yaml; its
+// Simplified Chinese version swaps in the translations of openapi.zh.yaml, keyed by the English text.
 package apidocs
 
 import (
@@ -15,6 +16,24 @@ import (
 //go:embed openapi.yaml
 var source []byte
 
+//go:embed openapi.zh.yaml
+var zhSource []byte
+
+const (
+	English = "en"
+	Chinese = "zh"
+)
+
+// Language is the document language a request asks for: Chinese for "zh" and its Simplified
+// variants, else English.
+func Language(requested string) string {
+	switch strings.ToLower(strings.ReplaceAll(requested, "_", "-")) {
+	case "zh", "zh-cn", "zh-hans", "zhcn":
+		return Chinese
+	}
+	return English
+}
+
 // The document names a placeholder address and example models; Spec puts in the Gateway's
 // address and models the reader may call.
 const (
@@ -23,17 +42,86 @@ const (
 	ExampleEmbeddingModel = "amazon.titan-embed-text-v2:0"
 )
 
-// document is openapi.yaml as JSON, in the order it is written: the viewer shows fields and
-// operations in that order.
-var document = sync.OnceValues(func() (string, error) {
+// documents are openapi.yaml as JSON per language, in the order it is written: the viewer shows
+// fields and operations in that order.
+var documents = map[string]func() (string, error){
+	English: sync.OnceValues(func() (string, error) { return render(nil) }),
+	Chinese: sync.OnceValues(func() (string, error) {
+		translations, err := chineseTranslations()
+		if err != nil {
+			return "", err
+		}
+		return render(translations)
+	}),
+}
+
+func render(translations map[string]string) (string, error) {
 	var root yaml.Node
 	if err := yaml.Unmarshal(source, &root); err != nil {
 		return "", err
 	}
+	if translations != nil {
+		visitText(&root, func(text *yaml.Node) {
+			if translated, ok := translations[text.Value]; ok {
+				text.Value = translated
+			}
+		})
+	}
 	var out strings.Builder
 	err := writeJSON(&out, &root)
 	return out.String(), err
-})
+}
+
+func chineseTranslations() (map[string]string, error) {
+	var pairs []struct {
+		EN string `yaml:"en"`
+		ZH string `yaml:"zh"`
+	}
+	if err := yaml.Unmarshal(zhSource, &pairs); err != nil {
+		return nil, err
+	}
+	translations := make(map[string]string, len(pairs))
+	for _, pair := range pairs {
+		translations[pair.EN] = pair.ZH
+	}
+	return translations, nil
+}
+
+// visitText calls visit on each piece of the document a reader reads as prose: titles,
+// summaries, descriptions and tag names. Example payloads, code samples and identifiers are
+// left alone.
+func visitText(node *yaml.Node, visit func(*yaml.Node)) {
+	switch node.Kind {
+	case yaml.DocumentNode, yaml.SequenceNode:
+		for _, child := range node.Content {
+			visitText(child, visit)
+		}
+	case yaml.MappingNode:
+		for i := 0; i < len(node.Content); i += 2 {
+			key, value := node.Content[i].Value, node.Content[i+1]
+			switch {
+			case key == "example" || key == "value" || key == "default" || key == "enum" || key == "const":
+			case key == "tags" && value.Kind == yaml.SequenceNode:
+				for _, tag := range value.Content {
+					if tag.Kind == yaml.ScalarNode {
+						visit(tag)
+						continue
+					}
+					visitText(tag, visit)
+					for j := 0; j+1 < len(tag.Content); j += 2 {
+						if tag.Content[j].Value == "name" {
+							visit(tag.Content[j+1])
+						}
+					}
+				}
+			case (key == "title" || key == "summary" || key == "description") && value.Kind == yaml.ScalarNode:
+				visit(value)
+			default:
+				visitText(value, visit)
+			}
+		}
+	}
+}
 
 func writeJSON(out *strings.Builder, node *yaml.Node) error {
 	switch node.Kind {
@@ -83,10 +171,11 @@ func writeJSON(out *strings.Builder, node *yaml.Node) error {
 	return nil
 }
 
-// Spec is the OpenAPI document, as JSON, for a gateway called at serverAddress, with examples
-// that name models the reader may call (exampleModels). With none, the examples keep theirs.
-func Spec(serverAddress string, available []string) ([]byte, error) {
-	spec, err := document()
+// Spec is the OpenAPI document in language (see Language), as JSON, for a gateway called at
+// serverAddress, with examples that name models the reader may call (exampleModels). With none,
+// the examples keep theirs.
+func Spec(serverAddress string, available []string, language string) ([]byte, error) {
+	spec, err := documents[Language(language)]()
 	if err != nil {
 		return nil, err
 	}

@@ -6,7 +6,14 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { cleanup, render, renderHook, screen } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  screen,
+} from '@testing-library/react'
+import i18next from 'i18next'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -17,6 +24,7 @@ import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { ApiDocs, OPENAPI_DOCUMENT_URL } from '../api-docs'
+import { documentLanguage } from '../api-docs/document-language'
 
 const viewer = vi.hoisted(() => ({
   configurations: [] as Record<string, unknown>[],
@@ -32,7 +40,8 @@ vi.mock('@scalar/api-reference-react', () => ({
   },
 }))
 
-afterEach(() => {
+afterEach(async () => {
+  await i18next.changeLanguage('en')
   cleanup()
   vi.restoreAllMocks()
   viewer.configurations.length = 0
@@ -139,6 +148,53 @@ describe('API Docs page', () => {
       mcp: { disabled: true },
     })
     expect(configuration).not.toHaveProperty('proxyUrl')
+  })
+
+  it('reads the document and Scalar in Chinese when the interface is, and switches with it', async () => {
+    const get = vi
+      .spyOn(api, 'get')
+      .mockImplementation(async (url: string) => ({
+        data: {
+          openapi: '3.1.0',
+          info: {
+            title: url.endsWith('?lang=zh')
+              ? 'Essera AI 网关 API'
+              : 'Essera AI Gateway API',
+            version: '1.0',
+          },
+          paths: {},
+        },
+      }))
+    await i18next.changeLanguage('zhCN')
+    const Wrapper = wrapperWithStatus({ essera_managed: true })
+
+    render(<Wrapper>{inRouter(<ApiDocs />)}</Wrapper>)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Essera AI 网关 API' })
+    ).toBeTruthy()
+    expect(get).toHaveBeenCalledWith(`${OPENAPI_DOCUMENT_URL}?lang=zh`)
+    expect(viewer.configurations.at(-1)).toMatchObject({
+      localization: { locale: 'zh-CN' },
+    })
+
+    await act(() => i18next.changeLanguage('en'))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Essera AI Gateway API' })
+    ).toBeTruthy()
+    expect(get).toHaveBeenLastCalledWith(OPENAPI_DOCUMENT_URL)
+    expect(viewer.configurations.at(-1)).toMatchObject({
+      localization: { locale: 'en' },
+    })
+  })
+
+  it('reads English in every other interface language', () => {
+    expect(documentLanguage('zhCN')).toBe('zh')
+    expect(documentLanguage('zh-CN')).toBe('zh')
+    expect(documentLanguage('zhTW')).toBe('en')
+    expect(documentLanguage('fr')).toBe('en')
+    expect(documentLanguage(undefined)).toBe('en')
   })
 
   it('offers a retry when the document cannot be loaded', async () => {

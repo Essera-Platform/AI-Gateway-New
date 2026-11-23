@@ -8,6 +8,8 @@ import { useMemo } from 'react'
 
 import { useTheme } from '@/context/theme-provider'
 
+import type { DocumentLanguage } from './document-language'
+
 /**
  * Scalar's colours, type and radii taken from the app's theme tokens, which already follow the
  * light or dark theme, so the reference looks like the rest of the console in both. Request and
@@ -94,6 +96,7 @@ const THEME_CSS = `
 
 type ApiReferenceViewerProps = {
   document: Record<string, unknown>
+  language: DocumentLanguage
 }
 
 /**
@@ -124,8 +127,9 @@ export default function ApiReferenceViewer(props: ApiReferenceViewerProps) {
       authentication: { preferredSecurityScheme: 'bearerAuth' },
       defaultOpenAllTags: true,
       hideModels: true,
+      localization: { locale: props.language === 'zh' ? 'zh-CN' : 'en' },
     }),
-    [props.document, resolvedTheme]
+    [props.document, props.language, resolvedTheme]
   )
 
   return (

@@ -483,11 +483,11 @@ func TestTheDashboardAndAuditOfAPersonAreTheConsoles(t *testing.T) {
 func TestTheAPIDocsNameTheGatewaysAddressAndTheReadersModels(t *testing.T) {
 	_, users := consolePages(t)
 	t.Setenv("ESSERA_PUBLIC_URL", "https://ai-gateway-dev.esseratech.com/")
-	openAPI := func(userID int) (document map[string]any, raw string) {
+	openAPI := func(userID int, query ...string) (document map[string]any, raw string) {
 		engine := gin.New()
 		engine.GET("/api/essera/openapi.json", func(c *gin.Context) { c.Set("id", userID) }, EsseraOpenAPI)
 		recorder := httptest.NewRecorder()
-		engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/essera/openapi.json", nil))
+		engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/essera/openapi.json"+strings.Join(query, ""), nil))
 		require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 		assert.Equal(t, "private, no-store", recorder.Header().Get("Cache-Control"))
 		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &document), "the document is JSON")
@@ -507,6 +507,11 @@ func TestTheAPIDocsNameTheGatewaysAddressAndTheReadersModels(t *testing.T) {
 
 	_, raw = openAPI(0)
 	assert.Contains(t, raw, `model=\"`+apidocs.ExampleChatModel+`\"`, "an operator keeps the document's examples")
+
+	chinese, raw := openAPI(users[snapshottest.AdminSub], "?lang=zh")
+	assert.Equal(t, "Essera AI 网关 API", chinese["info"].(map[string]any)["title"])
+	assert.Contains(t, raw, `model=\"claude-sonnet\"`)
+	assert.Equal(t, "Essera AI Gateway API", admin["info"].(map[string]any)["title"], "English unless asked")
 }
 
 func TestTheLandingReadsThePlatformMetricsOnceAMinuteAndNothingWhileTheConsoleIsDown(t *testing.T) {

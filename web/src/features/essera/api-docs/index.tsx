@@ -10,12 +10,20 @@ import { LoadingState } from '@/components/loading-state'
 import { buttonVariants } from '@/components/ui/button'
 import { api } from '@/lib/api'
 
+import { documentLanguage, type DocumentLanguage } from './document-language'
+
 const ApiReferenceViewer = lazy(() => import('./api-reference-viewer'))
 
 export const OPENAPI_DOCUMENT_URL = '/api/essera/openapi.json'
 
-async function getOpenApiDocument(): Promise<Record<string, unknown>> {
-  const res = await api.get<Record<string, unknown>>(OPENAPI_DOCUMENT_URL)
+async function getOpenApiDocument(
+  language: DocumentLanguage
+): Promise<Record<string, unknown>> {
+  const url =
+    language === 'en'
+      ? OPENAPI_DOCUMENT_URL
+      : `${OPENAPI_DOCUMENT_URL}?lang=${language}`
+  const res = await api.get<Record<string, unknown>>(url)
   return res.data
 }
 
@@ -24,10 +32,11 @@ async function getOpenApiDocument(): Promise<Record<string, unknown>> {
  * address and models the reader may call. The viewer is loaded only on this page.
  */
 export function ApiDocs() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const language = documentLanguage(i18n.resolvedLanguage ?? i18n.language)
   const document = useQuery({
-    queryKey: ['essera', 'openapi-document'],
-    queryFn: getOpenApiDocument,
+    queryKey: ['essera', 'openapi-document', language],
+    queryFn: () => getOpenApiDocument(language),
     staleTime: 5 * 60 * 1000,
     meta: { errorToast: false },
   })
@@ -43,7 +52,11 @@ export function ApiDocs() {
   } else if (document.data) {
     content = (
       <Suspense fallback={content}>
-        <ApiReferenceViewer document={document.data} />
+        <ApiReferenceViewer
+          key={language}
+          document={document.data}
+          language={language}
+        />
       </Suspense>
     )
   }
