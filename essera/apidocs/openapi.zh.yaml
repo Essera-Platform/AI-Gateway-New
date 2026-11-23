@@ -6,7 +6,7 @@
   zh: "用一个 API 调用您 Essera 账户中的 AI 模型。"
 - en: |
     The Essera AI Gateway serves the AI models of your Essera account through one API. Every model runs on
-    **Amazon Bedrock in the EU (Ireland) region, eu-west-1**: your requests and their answers are processed there.
+    **Amazon Bedrock in the US East (N. Virginia) region, us-east-1**: your requests and their answers are processed there.
 
     The API follows the OpenAI and Anthropic request formats, so their SDKs and the tools built on them work with
     the Gateway. They are only clients of the Gateway: they send every request to the address below, never to
@@ -40,15 +40,14 @@
     ## Models
 
     A model is named by its catalog id, as the **Model Square** and `GET /v1/models` show it, for example
-    `anthropic.claude-sonnet-4-6`, `amazon.nova-lite-v1:0`, `eu.amazon.nova-lite-v1:0` or
-    `amazon.titan-embed-text-v2:0`. You see and may call only the models your account is allowed to use; any other
+    `anthropic.claude-sonnet-4-6`, `amazon.nova-lite-v1:0` or `amazon.titan-embed-text-v2:0`. You see and may call only the models your account is allowed to use; any other
     model is refused with 403.
 
-    Use the catalog id even when Bedrock serves a model through an EU inference profile: the Gateway calls the
-    profile for you, and your usage keeps the catalog id. Requests stay in the EU geography.
+    Use the catalog id even when Bedrock serves a model through a US inference profile: the Gateway calls the
+    profile for you, and your usage keeps the catalog id. Requests stay in the US geography.
 
     Text models answer on `/v1/chat/completions`, `/v1/responses` and `/v1/messages`, whatever their vendor: the
-    Gateway converts between the formats. Embedding models (Titan Text Embeddings v2, Titan Multimodal Embeddings,
+    Gateway converts between the formats. Embedding models (Titan Text Embeddings G1 and v2, Titan Multimodal Embeddings,
     Cohere Embed) answer on `/v1/embeddings`. Images, audio generation, speech, rerank, realtime sessions, files and
     fine-tuning are not offered.
 
@@ -190,7 +189,7 @@
     need the same three values: base URL `https://ai-gateway.example.com/v1`, your API key, and the model id.
   zh: |
     Essera AI 网关通过一个 API 提供您 Essera 账户中的 AI 模型。所有模型都运行在
-    **Amazon Bedrock 欧盟（爱尔兰）区域 eu-west-1**：您的请求及其回答都在该区域处理。
+    **Amazon Bedrock 美国东部（弗吉尼亚北部）区域 us-east-1**：您的请求及其回答都在该区域处理。
 
     该 API 遵循 OpenAI 和 Anthropic 的请求格式，因此它们的 SDK 以及基于这些 SDK 构建的工具都可以与网关配合使用。
     这些 SDK 只是网关的客户端：它们把每个请求都发送到下方的地址，绝不会发往 OpenAI 或 Anthropic，
@@ -222,14 +221,13 @@
     ## 模型
 
     模型以其目录 ID 命名，与 **模型广场** 和 `GET /v1/models` 显示的一致，例如
-    `anthropic.claude-sonnet-4-6`、`amazon.nova-lite-v1:0`、`eu.amazon.nova-lite-v1:0` 或
-    `amazon.titan-embed-text-v2:0`。您只能看到并调用账户允许使用的模型；调用其他模型会被拒绝并返回 403。
+    `anthropic.claude-sonnet-4-6`、`amazon.nova-lite-v1:0` 或 `amazon.titan-embed-text-v2:0`。您只能看到并调用账户允许使用的模型；调用其他模型会被拒绝并返回 403。
 
-    即使 Bedrock 通过欧盟推理配置文件（inference profile）提供某个模型，也请使用目录 ID：网关会替您调用该配置文件，
-    您的用量记录仍使用目录 ID。请求始终留在欧盟地理范围内。
+    即使 Bedrock 通过美国推理配置文件（inference profile）提供某个模型，也请使用目录 ID：网关会替您调用该配置文件，
+    您的用量记录仍使用目录 ID。请求始终留在美国地理范围内。
 
     文本模型无论来自哪家厂商，都可通过 `/v1/chat/completions`、`/v1/responses` 和 `/v1/messages` 调用：
-    网关会在这些格式之间进行转换。嵌入模型（Titan Text Embeddings v2、Titan Multimodal Embeddings、
+    网关会在这些格式之间进行转换。嵌入模型（Titan Text Embeddings G1 和 v2、Titan Multimodal Embeddings、
     Cohere Embed）通过 `/v1/embeddings` 调用。不提供图像、音频生成、语音、重排序（rerank）、实时会话、文件和微调。
 
     ## 限额与计费
@@ -475,11 +473,11 @@
 - en: "Create embeddings"
   zh: "创建嵌入"
 - en: |
-    Turns text into vectors with an embedding model of your account: Titan Text Embeddings v2, Titan Multimodal
+    Turns text into vectors with an embedding model of your account: Titan Text Embeddings G1 and v2, Titan Multimodal
     Embeddings, or Cohere Embed v3 and v4. `input` takes one string or up to 256. On Titan Multimodal Embeddings
     and Cohere Embed, an input may also be an image as a base64 data URL.
   zh: |
-    使用您账户中的嵌入模型将文本转换为向量：Titan Text Embeddings v2、Titan Multimodal
+    使用您账户中的嵌入模型将文本转换为向量：Titan Text Embeddings G1 和 v2、Titan Multimodal
     Embeddings，或 Cohere Embed v3 和 v4。`input` 接受一个字符串或最多 256 个。在 Titan Multimodal Embeddings
     和 Cohere Embed 上，输入也可以是以 base64 data URL 表示的图像。
 - en: "One embedding per input, in the order of the inputs."

@@ -1,6 +1,6 @@
 // Package modelparams lists the request parameters each Bedrock model of the
 // catalog accepts through the Gateway, as measured against Bedrock in
-// eu-west-1 on 2026-11-23 with the model ids the Bedrock adaptor calls.
+// eu-west-1 on 2026-11-23 (the same model ids serve us-east-1) with the model ids the Bedrock adaptor calls.
 //
 // Every chat model in the table accepts tools (one Converse call each with a
 // toolConfig, 2026-11-23).

@@ -335,3 +335,14 @@ The OpenAI-to-Claude converter now recognises Bedrock's Claude ids (`anthropic.c
 ## Tools in the supported parameters (2026-11)
 
 Every chat model in `essera/modelparams` lists `tools` and `tool_choice`, measured with one Converse call per model and `toolChoice` mode on 2026-11-23. `/api/pricing` carries the `tool_choice` values each model accepts (`tool_choices`): Claude Fable 5.1 and 5.2, Opus 5.5 and Sonnet 5.5 take `auto` and `none` only; Mistral Large and Pixtral Large cannot be made to call a tool by name. The Model Square's `tool_choice` row shows those values (`web/src/features/pricing/lib/mock-stats.ts`, `types.ts`).
+
+## Bedrock in us-east-1 (2026-11)
+
+The Bedrock provider moves to us-east-1. Every model goes through the region's own geographic inference profile (`us.` there), and none through `global.`: Claude Fable 5, 5.1 and 5.2 no longer have a global-only exception. Titan Text Embeddings G1 (`amazon.titan-embed-text-v1`, `amazon.titan-embed-g1-text-02`) answers on `/v1/embeddings`.
+
+| File | Change |
+| --- | --- |
+| `relay/channel/aws/essera_runtime.go` | The global-profile allow-list is gone |
+| `relay/channel/aws/constants.go` | The models us-east-1 serves only through `us.` |
+| `relay/channel/aws/essera_embedding.go` | Titan Text Embeddings G1, at its 1536 dimensions only |
+| `essera/apidocs/` | Requests are processed in us-east-1 |

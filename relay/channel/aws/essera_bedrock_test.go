@@ -739,6 +739,18 @@ func TestBedrockEmbeddings(t *testing.T) {
 			wantFirst: []float64{1, 2}, wantCount: 2, wantUsage: 8,
 		},
 		{
+			family: "Titan Text G1: one call per input, its own 1536 dimensions", model: "amazon.titan-embed-text-v1", request: `{"input":["a","b"],"dimensions":1536}`,
+			replies:  []bedrockReplyFixture{{body: []byte(`{"embedding":[1,2],"inputTextTokenCount":2}`)}, {body: []byte(`{"embedding":[3,4],"inputTextTokenCount":3}`)}},
+			wantPath: "/model/amazon.titan-embed-text-v1/invoke", wantBody: []string{`{"inputText":"a"}`, `{"inputText":"b"}`},
+			wantFirst: []float64{1, 2}, wantCount: 2, wantUsage: 5,
+		},
+		{
+			family: "Titan Text G1 under its g1-text-02 id", model: "amazon.titan-embed-g1-text-02", request: `{"input":"a"}`,
+			replies:  []bedrockReplyFixture{{header: tokens, body: []byte(`{"embedding":[9],"inputTextTokenCount":4}`)}},
+			wantPath: "/model/amazon.titan-embed-g1-text-02/invoke", wantBody: []string{`{"inputText":"a"}`},
+			wantFirst: []float64{9}, wantCount: 1, wantUsage: 4,
+		},
+		{
 			family: "Titan Multimodal: an image data URL", model: "amazon.titan-embed-image-v1", request: `{"input":"data:image/png;base64,aW1n","dimensions":384}`,
 			replies:  []bedrockReplyFixture{{header: tokens, body: []byte(`{"embedding":[0.5],"inputTextTokenCount":0}`)}},
 			wantPath: "/model/amazon.titan-embed-image-v1/invoke", wantBody: []string{`{"inputImage":"aW1n","embeddingConfig":{"outputEmbeddingLength":384}}`},
@@ -822,6 +834,14 @@ func TestBedrockEmbeddings(t *testing.T) {
 		require.Len(t, raw, 8)
 		assert.Equal(t, float32(1.5), math.Float32frombits(binary.LittleEndian.Uint32(raw[0:])))
 		assert.Equal(t, float32(-2), math.Float32frombits(binary.LittleEndian.Uint32(raw[4:])))
+	})
+
+	t.Run("Titan Text G1 refuses another vector length", func(t *testing.T) {
+		dimensions := 256
+		_, err := convertEmbeddingRequest("amazon.titan-embed-text-v1", dto.EmbeddingRequest{Input: "a", Dimensions: &dimensions})
+		var apiErr *relaytypes.NewAPIError
+		require.ErrorAs(t, err, &apiErr)
+		assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
 	})
 
 	t.Run("a chat model is refused", func(t *testing.T) {

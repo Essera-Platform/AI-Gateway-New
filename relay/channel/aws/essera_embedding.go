@@ -1,6 +1,6 @@
-// Essera fork: OpenAI embeddings for the Bedrock embedding models offered in
-// eu-west-1 (Titan Text Embeddings v2, Titan Multimodal Embeddings, Cohere
-// Embed v3 and v4) through InvokeModel with each model's native body.
+// Essera fork: OpenAI embeddings for the Bedrock embedding models (Titan Text
+// Embeddings G1 and v2, Titan Multimodal Embeddings, Cohere Embed v3 and v4)
+// through InvokeModel with each model's native body.
 package aws
 
 import (
@@ -21,6 +21,7 @@ type embeddingFamily int
 
 const (
 	embeddingTitanTextV2 embeddingFamily = iota + 1
+	embeddingTitanTextG1
 	embeddingTitanMultimodal
 	embeddingCohere
 	embeddingCohereV4
@@ -32,6 +33,8 @@ const (
 	maxEmbeddingInputs = 256
 	// cohereBatchSize is the most texts Cohere Embed takes in one call.
 	cohereBatchSize = 96
+	// titanTextG1Dimensions is the only vector length Titan Text Embeddings G1 makes.
+	titanTextG1Dimensions = 1536
 )
 
 func embeddingFamilyOf(modelID string) embeddingFamily {
@@ -40,6 +43,8 @@ func embeddingFamilyOf(modelID string) embeddingFamily {
 		return embeddingTitanMultimodal
 	case strings.Contains(modelID, "titan-embed-text-v2"):
 		return embeddingTitanTextV2
+	case strings.Contains(modelID, "titan-embed-text-v1"), strings.Contains(modelID, "titan-embed-g1-text"):
+		return embeddingTitanTextG1
 	case strings.Contains(modelID, "cohere.embed-v4"):
 		return embeddingCohereV4
 	case strings.Contains(modelID, "cohere.embed"):
@@ -141,6 +146,11 @@ func convertEmbeddingRequest(modelID string, request dto.EmbeddingRequest) (*emb
 			if request.Dimensions != nil {
 				body["dimensions"] = *request.Dimensions
 			}
+		case embeddingTitanTextG1:
+			if request.Dimensions != nil && *request.Dimensions != titanTextG1Dimensions {
+				return nil, newBadRequest("model %s embeds at %d dimensions only", modelID, titanTextG1Dimensions)
+			}
+			body = map[string]any{"inputText": input}
 		case embeddingTitanMultimodal:
 			if isImage {
 				body = map[string]any{"inputImage": image}

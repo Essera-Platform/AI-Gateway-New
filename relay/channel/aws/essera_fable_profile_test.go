@@ -1,4 +1,4 @@
-// Essera fork: the models allowed on Bedrock's global. inference profile.
+// Essera fork: Claude Fable goes through the region's geographic inference profile, never global.
 package aws
 
 import (
@@ -25,33 +25,27 @@ import (
 
 var fableModels = []string{"anthropic.claude-fable-5", "anthropic.claude-fable-5-1", "anthropic.claude-fable-5-2"}
 
-func TestGlobalProfileAllowList(t *testing.T) {
-	t.Run("Claude Fable 5, 5.1 and 5.2 resolve to the global. profile in every region", func(t *testing.T) {
-		for _, model := range fableModels {
-			for _, region := range []string{"eu-west-1", "eu-central-1", "us-east-1", "sa-east-1"} {
-				assert.Equal(t, "global."+model, resolveBedrockModelID(0, model, region), model+" "+region)
-			}
-		}
-	})
-
-	t.Run("no other model resolves to global.", func(t *testing.T) {
-		for _, model := range []string{
-			"anthropic.claude-opus-5", "anthropic.claude-sonnet-5", "anthropic.claude-opus-4-8",
-			"anthropic.claude-fable-5-3", "anthropic.claude-fable", "amazon.nova-2-lite-v1:0", "amazon.nova-9-test-v1:0",
-		} {
-			assert.False(t, strings.HasPrefix(resolveBedrockModelID(0, model, "eu-west-1"), "global."), model)
-			assert.NotEqual(t, "global."+model, regionalProfileID(model, "eu-west-1"), model)
-		}
-	})
-
-	t.Run("an id that already names the profile is not prefixed again", func(t *testing.T) {
-		for _, model := range fableModels {
-			assert.Equal(t, "global."+model, resolveBedrockModelID(0, "global."+model, "eu-west-1"))
-		}
-	})
+func TestFableUsesTheRegionsGeographicProfile(t *testing.T) {
+	for _, model := range fableModels {
+		assert.Equal(t, "us."+model, resolveBedrockModelID(0, model, "us-east-1"), model)
+		assert.Equal(t, "eu."+model, resolveBedrockModelID(0, model, "eu-west-1"), model)
+		assert.Equal(t, "us."+model, resolveBedrockModelID(0, "us."+model, "us-east-1"), "a profile id is not prefixed again")
+	}
 }
 
-func TestFableInvokeModelGoesGlobalAndRecordsEveryUnit(t *testing.T) {
+func TestNoModelResolvesToTheGlobalProfile(t *testing.T) {
+	for _, model := range append([]string{
+		"anthropic.claude-opus-5", "anthropic.claude-sonnet-5-5", "anthropic.claude-haiku-5-5",
+		"amazon.nova-2-lite-v1:0", "mistral.pixtral-large-2502-v1:0", "amazon.nova-9-test-v1:0",
+	}, fableModels...) {
+		for _, region := range []string{"us-east-1", "eu-west-1"} {
+			assert.False(t, strings.HasPrefix(resolveBedrockModelID(0, model, region), "global."), model+" "+region)
+			assert.False(t, strings.HasPrefix(regionalProfileID(model, region), "global."), model+" "+region)
+		}
+	}
+}
+
+func TestFableInvokeModelGoesThroughTheRegionalProfileAndRecordsEveryUnit(t *testing.T) {
 	originalRelayTimeout := common.RelayTimeout
 	common.RelayTimeout = 0
 	t.Cleanup(func() { common.RelayTimeout = originalRelayTimeout })
@@ -71,7 +65,7 @@ func TestFableInvokeModelGoesGlobalAndRecordsEveryUnit(t *testing.T) {
 				info.RelayMode = relayconstant.RelayModeChatCompletions
 				info.OriginModelName = model
 				info.UpstreamModelName = model
-				info.ApiKey = "test-api-key|eu-west-1"
+				info.ApiKey = "test-api-key|us-east-1"
 				adaptor := &Adaptor{}
 				converted, err := adaptor.ConvertOpenAIRequest(c, info, &dto.GeneralOpenAIRequest{Model: model, Messages: []dto.Message{{Role: "user", Content: "Hi"}}})
 				require.NoError(t, err)
@@ -104,11 +98,11 @@ func TestFableInvokeModelGoesGlobalAndRecordsEveryUnit(t *testing.T) {
 				_, apiErr := adaptor.DoResponse(c, nil, info)
 				require.Nil(t, apiErr)
 				if stream {
-					assert.Equal(t, "global."+model, aws.ToString(adaptor.AwsReq.(*bedrockruntime.InvokeModelWithResponseStreamInput).ModelId))
+					assert.Equal(t, "us."+model, aws.ToString(adaptor.AwsReq.(*bedrockruntime.InvokeModelWithResponseStreamInput).ModelId))
 				} else {
-					assert.Equal(t, "global."+model, aws.ToString(adaptor.AwsReq.(*bedrockruntime.InvokeModelInput).ModelId))
+					assert.Equal(t, "us."+model, aws.ToString(adaptor.AwsReq.(*bedrockruntime.InvokeModelInput).ModelId))
 				}
-				assert.Contains(t, path, "/model/global."+model+"/")
+				assert.Contains(t, path, "/model/us."+model+"/")
 				units, ok := metering.Recorded(c)
 				require.True(t, ok)
 				assert.Equal(t, want, units)
@@ -118,7 +112,7 @@ func TestFableInvokeModelGoesGlobalAndRecordsEveryUnit(t *testing.T) {
 	}
 }
 
-func TestFableConverseGoesGlobalAndRecordsEveryUnit(t *testing.T) {
+func TestFableConverseGoesThroughTheRegionalProfileAndRecordsEveryUnit(t *testing.T) {
 	originalTimeout := constant.StreamingTimeout
 	constant.StreamingTimeout = 30
 	t.Cleanup(func() { constant.StreamingTimeout = originalTimeout })
@@ -144,13 +138,14 @@ func TestFableConverseGoesGlobalAndRecordsEveryUnit(t *testing.T) {
 				server, captured := startBedrockStub(t, fixture)
 				c := newAwsTestContext(httptest.NewRecorder(), context.Background())
 				info := newBedrockTestInfo(server, relayconstant.RelayModeResponses, relaytypes.RelayFormatOpenAIResponses, model, stream)
+				info.ApiKey = "test-api-key|us-east-1"
 				var request dto.OpenAIResponsesRequest
 				require.NoError(t, common.Unmarshal([]byte(`{"model":"`+model+`","input":"Hi"}`), &request))
 
 				_, apiErr := relayThroughBedrock(t, c, info, func(a *Adaptor) (any, error) { return a.ConvertOpenAIResponsesRequest(c, info, request) })
 				require.Nil(t, apiErr)
 				require.Len(t, captured(), 1)
-				assert.Equal(t, "/model/global."+model+"/"+action, captured()[0].path)
+				assert.Equal(t, "/model/us."+model+"/"+action, captured()[0].path)
 				units, ok := metering.Recorded(c)
 				require.True(t, ok)
 				assert.Equal(t, want, units)
